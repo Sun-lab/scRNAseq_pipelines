@@ -29,24 +29,25 @@ This markdown is for analyzing the [Habib et al. 2017 DroNc dataset](https://www
 The dataset is available [here](https://storage.googleapis.com/gtex_additional_datasets/single_cell_data/GTEx_droncseq_hip_pcf.tar).
 
 ```{r}
-rm(list=ls())
+
 where_file = c("mycomp","longleaf","remote")[2]
 if(where_file == "mycomp"){
   drive = strsplit(getwd(),"/")[[1]][1]
-  # src_dir = file.path(drive,"Files to KEEP/SOURCE_files")
+  src_dir = file.path(drive,"Files to KEEP/SOURCE_files")
   data_dir = file.path(drive,"Files to KEEP/BIOS_eQTL/documents/dronc_seq")
 } else if(where_file == "longleaf"){
   data_dir = "/pine/scr/p/l/pllittle/CS_eQTL/s3_Real/original/DroNc/GTEx_droncseq_hip_pcf"
-  # src_dir = system("echo $HOME",intern = TRUE)
+  src_dir = system("echo $HOME",intern = TRUE)
 } else if(where_file == "remote"){
   data_dir = "C:/Users/pllittle/Downloads/dronc_seq"
 }
 
 # Source/Libraries
 source("https://bioconductor.org/biocLite.R")
+source(file.path(src_dir,"SOURCE.R"))
 # biocLite("BiocUpgrade")
 bio_packs = c("SingleCellExperiment","DropletUtils","biomaRt",
-              "scater","scran","limma","org.Hs.eg.db")#,"SC3")
+              "scater","scran","limma","org.Hs.eg.db","SC3")
 if( !all(bio_packs %in% installed.packages()[,"Package"]) ){
   biocLite(bio_packs,suppressUpdates = TRUE)
   # biocLite("SC3",suppressUpdates = TRUE)
@@ -171,6 +172,8 @@ rowData(sce) = gene_anno
 
 
 ## Identify Low quality cells
+
+### barcodeRanks filtering
 Look [here](https://bioconductor.org/packages/release/workflows/vignettes/simpleSingleCell/inst/doc/work-3-tenx.html#calling-cells-from-empty-droplets) for reference.
 ```{r fig.height=5,fig.width=5, eval=FALSE, echo=FALSE}
 # Calling cells from empty droplets
@@ -229,6 +232,7 @@ sce = sce[,w2kp]
 dim(sce)
 
 ```
+### Incorporate Mito and Ribo to calculate QC metrics
 
 Next step we apply more QC based on a set of features per cell. We'll look at ribosomal genes. The imported file can be found [here](https://www.genenames.org/cgi-bin/genefamilies/set/1054/download/branch).
 
@@ -247,11 +251,11 @@ ribo = read.table(ribo_fn,sep='\t',header=TRUE,stringsAsFactors = FALSE)
 ribo[1:2,]
 
 # Temp save image
-tmp_rds_fn = file.path(data_dir,"tmp_sce_ribo.rds")
+post_ribo_download_fn = file.path(data_dir,"post_ribo_download.rds")
 if(where_file == "longleaf"){
-  saveRDS(list(sce=sce,ribo=ribo),tmp_rds_fn)
-} else if(where_file == "mycomp"){
-  rds = readRDS(tmp_rds_fn)
+  saveRDS(list(sce=sce,ribo=ribo),post_ribo_download_fn)
+} else if(FALSE){
+  rds = readRDS(post_ribo_download_fn)
   sce = rds$sce
   ribo = rds$ribo
   rm(rds)
@@ -314,7 +318,7 @@ dim(sce)
 ```
 
 ## Summarize gene level information
-```{r warning = FALSE, message = FALSE, fig.height=5,fig.width=8}
+```{r warning = FALSE, message = FALSE, fig.height=9,fig.width=14}
 
 rowData(sce)[1:2,]
 min(rowData(sce)$mean_counts)
@@ -342,21 +346,31 @@ We remove those genes that are expressed in zero or only one cell. The variable 
 ```{r}
 names(rowData(sce))[6] = "strand_n"
 
+# Dr. Sun's code
 rowData(sce)$n_cell_count_filter = rowData(sce)$n_cells_counts > 1
 table(rowData(sce)$n_cell_count_filter)
 
-# New code based on paper's methods
+# Based on paper's methods: Filter for genes
 rowData(sce)$gene_detect_filter = apply(counts(sce),1,function(xx) length(xx[xx >= 2]) >= 10)
+# Aka a gene in a cell is considered "detected" if it has at least 2 UMIs(counts),
+# Retain a gene if it has been detected in at least 10 cells(samples)
 table(rowData(sce)$gene_detect_filter)
 
+# Based on paper's methods: Filter for nuclei
+colData(sce)$sample_filter = apply(counts(sce),2,function(xx) length(xx[xx >= 2]) >= 200)
+# Same definition for a gene in a cell detected
+# Retain a sample if it has at least 200 genes detected
+table(colData(sce)$sample_filter)
+
 # sce = sce[which(rowData(sce)$n_cell_count_filter == TRUE),] # less stringent gene filter
-sce = sce[which(rowData(sce)$gene_detect_filter == TRUE),] # more stringent gene filter
-dim(sce)
+# sce = sce[which(rowData(sce)$gene_detect_filter == TRUE),] # more stringent gene filter
+
+# No gene/sample filter applied, I'm assuming the paper did analysis with all available genes and samples provided in the online dataset!!
 
 ```
 
 Next we check those highly expressed genes 
-```{r fig.asp=1}
+```{r fig.asp=1.5}
 par(mar=c(5,4,1,1))
 od1 = order(rowData(sce)$mean_counts, decreasing = TRUE)
 barplot(rowData(sce)$mean_counts[od1[20:1]], las=1, 
@@ -400,11 +414,12 @@ sce = normalize(sce)
 # logcounts(sce) = log2(gene_cell_count / size_factor + 1)
 # now the cells are comparable with each other for dimension reduction/clustering
 
-norm_sce_fn = file.path(data_dir,"norm_sce.rds")
+# Save temp image
+post_norm_fn = file.path(data_dir,"post_norm.rds")
 if( where_file == "longleaf" ){
-  saveRDS(sce,norm_sce_fn)
-} else {
-  sce = readRDS(norm_sce_fn)
+  saveRDS(sce,post_norm_fn)
+} else if(FALSE){
+  sce = readRDS(post_norm_fn)
 }
 ```
 
@@ -522,12 +537,12 @@ gp2 = ggplot(df_tsne, aes(X1,X2,col=part_cell_id)) +
   guides(color = guide_legend(override.aes = list(size=3)))
 gp2
 
-# Output rds post initial dimension reduction
-DR_sce_fn = file.path(data_dir,"DR_sce.rds")
+# Save temp image
+post_dimRed_fn = file.path(data_dir,"post_dimRed.rds")
 if( where_file == "longleaf" ){
-  saveRDS(list(sce=sce,dec=dec),DR_sce_fn)
-} else {
-  rds = readRDS(DR_sce_fn)
+  saveRDS(list(sce=sce,dec=dec),post_dimRed_fn)
+} else if(FALSE){
+  rds = readRDS(post_dimRed_fn)
   sce = rds$sce
   dec = rds$dec
   rm(rds)
@@ -555,7 +570,7 @@ summary(dec$FDR[dec$bio > 0.001])
 table(dec$FDR < 1e-10, dec$bio > 0.01)
 
 # Subsetting genes based on FDR and biological residual thresholds
-w2kp = which(dec$FDR < 1e-10 & dec$bio > 0.01)
+w2kp = which(dec$FDR < 1e-10 & dec$bio > 0.01) # original gene filter
 sce_sub = sce[w2kp,]
 sce_sub
 
@@ -575,7 +590,7 @@ df_pcs = data.frame(pca)
 df_pcs$log10_total_features = colData(sce_sub)$log10_total_features
 df_pcs$part_cell_id = sapply(colnames(sce_sub),function(xx) 
   strsplit(xx,"_")[[1]][1],USE.NAMES=FALSE)
-df_pcs[1:2,]
+df_pcs[1:2,1:10]
 
 gp1 = ggplot(df_pcs, aes(X1,X2,col=log10_total_features)) + 
   geom_point(size=0.2,alpha=0.6) + theme_classic() + 
@@ -619,37 +634,36 @@ sce_sub
 ```
 
 ## Clustering
+
+### Kmeans
 There are many methods for clustering of single cell RNA-seq data. The performance of each method may also depend on pre-processing steps, such as performing imputation or not. We wil compare these methods in a seperate document. Here we just illustrate the clustering reuslts using a simple kmeans method on the top 50 PCs. 
 
 ```{r warning = FALSE, message = FALSE, fig.asp = 1}
 
-k10_50_pcs = kmeans(reducedDim(sce_sub, "PCA"), centers=10, 
+k10_50_pcs = kmeans(reducedDim(sce_sub, "PCA"), 
+                    # centers=10, # original choice 
+                    centers = 15, # newer choice
                     iter.max=150, algorithm="MacQueen")
 names(k10_50_pcs)
 dim(k10_50_pcs$centers)
 
 df_tsne$cluster_kmean = as.factor(k10_50_pcs$cluster)
-cols = c("#FB9A99","#FF7F00","yellow","orchid","grey",
-         "red","dodgerblue2","tan4","green4","#99c9fb")
+# cols = c("#FB9A99","#FF7F00","yellow","orchid","grey","red","dodgerblue2","tan4","green4","#99c9fb")
 
 gp1 = ggplot(df_tsne, aes(X1,X2,col=cluster_kmean)) + 
   geom_point(size=0.2,alpha=0.6) + theme_classic() + 
-  scale_color_manual(values=cols) + 
+  # scale_color_manual(values=cols) + 
   guides(color = guide_legend(override.aes = list(size=3)))
 gp1
 
-```
-
-## Output Post-Clustering Image
-```{r}
-# Temp save image
-post_rds_fn = file.path(data_dir,"post_cluster.rds")
+# Save temp image
+post_cluster_fn = file.path(data_dir,"post_cluster.rds")
 if(where_file == "longleaf"){
   saveRDS(list(sce=sce,sce_sub=sce_sub,
     k10_50_pcs=k10_50_pcs,df_tsne=df_tsne),
-    post_rds_fn)
-} else if(where_file == "mycomp"){
-  rds = readRDS(post_rds_fn)
+    post_cluster_fn)
+} else if(FALSE){
+  rds = readRDS(post_cluster_fn)
   sce = rds$sce
   sce_sub = rds$sce_sub
   k10_50_pcs = rds$k10_50_pcs
@@ -659,11 +673,85 @@ if(where_file == "longleaf"){
 
 ```
 
+So in the paper, they have 15 clusters (ASC1,ASC2,END,exCA1,exCA3,exDG,exPFC1,exPFC2,GABA1,GABA2,MG,NSC,ODC1,OPC, and Unclassified). Using Dr. Sun's code, we specified 15 clusters for kmeans by clustering 50 PCAs derived from filtering down to a set of 2756 genes. 
 
-## Compare paper's clustering to ours
-Check if paper supplement cluster is consistent with our results, check how many genes the paper have left
+### SC3
+Code used here is based on [this link](https://bioconductor.org/packages/devel/bioc/vignettes/SC3/inst/doc/SC3.html#run-sc3).
+
+```{r fig.height=14,fig.width=14}
+library(SC3)
+rowData(sce)$feature_symbol = rowData(sce)$external_gene_name
+time1 = date()
+# all_ks = c(2,4)
+all_ks = c(10,15)
+sce = sc3(sce, 
+          # ks = c(2,4),
+          ks = all_ks,biology = TRUE,
+          n_cores = 1,rand_seed = 100,
+          svm_num_cells = 1000
+          # svm_num_cells = 5000
+          )
+warnings()
+time2 = date()
+time1; time2
+
+# Run SVM and predict labels of all other cells
+time3 = date()
+sce = sc3_run_svm(sce, ks = all_ks)
+time4 = date()
+time3; time4
+
+# Save temp image
+post_sc3_fn = file.path(data_dir,"post_sc3.rds")
+if(where_file == "longleaf"){
+  saveRDS(list(sce=sce,all_ks=all_ks,k10_50_pcs=k10_50_pcs,df_tsne=df_tsne,sce_sub=sce_sub),post_sc3_fn)
+} else if(FALSE){
+  rds = readRDS(post_sc3_fn)
+  sce = rds$sce
+  all_ks = rds$all_ks
+  df_tsne = rds$df_tsne
+  rm(rds)
+}
+
+# Plotting
+for(one_ks in all_ks){
+  # one_ks = 2
+  print(one_ks)
+  plotPCA(sce,
+      colour_by = paste0("sc3_",one_ks,"_clusters"), 
+      size_by = paste0("sc3_",one_ks,"_log2_outlier_score"))
+  
+  sc3_plot_consensus(sce,k = one_ks,
+      show_pdata = c("log10_total_features",
+        paste0("sc3_",one_ks,"_clusters"), 
+        paste0("sc3_",one_ks,"_log2_outlier_score")))
+  
+  sc3_plot_silhouette(sce, k = one_ks)
+  
+  sc3_plot_expression(sce, k = one_ks,
+      show_pdata = c("log10_total_features",
+        paste0("sc3_",one_ks,"_clusters"), 
+        paste0("sc3_",one_ks,"_log2_outlier_score")))
+  
+  sc3_plot_cluster_stability(sce, k = one_ks)
+  
+  sc3_plot_de_genes(sce, k = one_ks, 
+    show_pdata = c("log10_total_features",
+        paste0("sc3_",one_ks,"_clusters"), 
+        paste0("sc3_",one_ks,"_log2_outlier_score")))
+  
+  sc3_plot_markers(sce, k = one_ks, 
+    show_pdata = c("log10_total_features",
+        paste0("sc3_",one_ks,"_clusters"), 
+        paste0("sc3_",one_ks,"_log2_outlier_score")))
+  
+}
+```
+
+## Compare our kmeans to SC3 and to DrocNc clustering
+
+Compare paper's clustering to ours: check if paper supplement cluster is consistent with our results, check how many genes the paper have left
 ```{r}
-src_dir = system("echo $HOME",intern = TRUE)
 source(file.path(src_dir,"SOURCE.R"))
 
 tmp_lab = smart_RT(file.path(data_dir,"cluster_num_label.txt"),sep = "\t",header = TRUE)
@@ -679,27 +767,77 @@ hist(tmp_res$X.Genes,breaks=50,col="gray")
 df_tsne$Cell.ID = colnames(sce_sub)
 
 # Merge and compare
-blah = smart_merge(df_tsne,tmp_res)
-blah[1:5,]
-smart_table(blah[,c("Cell_Type","Cluster.Name")])
-smart_table(blah[,c("Cell_Type","cluster_kmean")])
-smart_table(blah[,c("Cluster.Name","cluster_kmean")])
+all_clust_res = smart_merge(df_tsne,tmp_res)
+sc3_res = smart_df(colData(sce)[,c("sc3_10_clusters","sc3_15_clusters")])
+sc3_res$Cell.ID = colnames(sce)
+all_clust_res = smart_merge(all_clust_res,sc3_res)
+all_clust_res[1:5,]
+smart_table(all_clust_res[,c("Cell_Type","Cluster.Name")])
+smart_table(all_clust_res[,c("Cell_Type","cluster_kmean")])
+smart_table(all_clust_res[,c("Cluster.Name","cluster_kmean")])
+smart_table(all_clust_res[,c("cluster_kmean","sc3_15_clusters")])
+smart_table(all_clust_res[,c("Cluster.Name","sc3_15_clusters")])
+smart_table(all_clust_res[,c("cluster_kmean","sc3_10_clusters")])
+smart_table(all_clust_res[,c("Cluster.Name","sc3_10_clusters")])
 
+# Plot our TSNE results colored by our kmeans result
+gp1 = ggplot(all_clust_res, aes(X1,X2,col=cluster_kmean)) + 
+  geom_point(size=0.2,alpha=0.6) + theme_classic() + 
+  # scale_color_manual(values=cols) + 
+  guides(color = guide_legend(override.aes = list(size=3)))
+gp1
+
+# Plot our TSNE results but colored by paper supplement's cell types
+gp1 = ggplot(all_clust_res, aes(X1,X2,col=Cell_Type)) + 
+  geom_point(size=0.2,alpha=0.6) + theme_classic() + 
+  # scale_color_manual(values=cols) + 
+  guides(color = guide_legend(override.aes = list(size=3)))
+gp1
+
+# Plot our TSNE results but colored by paper supplement's clusters
+gp1 = ggplot(all_clust_res, aes(X1,X2,col=Cluster.Name)) + 
+  geom_point(size=0.2,alpha=0.6) + theme_classic() + 
+  # scale_color_manual(values=cols) + 
+  guides(color = guide_legend(override.aes = list(size=3)))
+gp1
+
+# Plot paper's TSNE plot with their cell types
+paper_tsne = smart_RT(file.path(data_dir,"GTEx_droncseq_hip_pcf.tsne.txt"),sep='\t',header=TRUE,row.names=1)
+paper_tsne$Cell.ID = rownames(paper_tsne)
+rownames(paper_tsne) = NULL
+all_clust_res = smart_merge(all_clust_res,paper_tsne)
+gp1 = ggplot(all_clust_res, aes(tSNE_1,tSNE_2,col=Cell_Type)) + 
+  geom_point(size=0.2,alpha=0.6) + theme_classic() + 
+  # scale_color_manual(values=cols) + 
+  guides(color = guide_legend(override.aes = list(size=3)))
+gp1
+
+# Plot paper's TSNE plot with our clusters
+gp1 = ggplot(all_clust_res, aes(tSNE_1,tSNE_2,col=cluster_kmean)) + 
+  geom_point(size=0.2,alpha=0.6) + theme_classic() + 
+  # scale_color_manual(values=cols) + 
+  guides(color = guide_legend(override.aes = list(size=3)))
+gp1
+
+# Plot our TSNE plot with our SC3 15 clusters
+gp1 = ggplot(all_clust_res, aes(X1,X2,col=factor(sc3_15_clusters))) + 
+  geom_point(size=0.2,alpha=0.6) + theme_classic() + 
+  # scale_color_manual(values=cols) + 
+  guides(color = guide_legend(override.aes = list(size=3)))
+gp1
+
+# Plot our TSNE plot with our SC3 10 clusters
+gp1 = ggplot(all_clust_res, aes(X1,X2,col=factor(sc3_10_clusters))) + 
+  geom_point(size=0.2,alpha=0.6) + theme_classic() + 
+  # scale_color_manual(values=cols) + 
+  guides(color = guide_legend(override.aes = list(size=3)))
+gp1
+
+# Save all three clustering results
+all_clust_res_fn = file.path(data_dir,"all_clust_res.rds")
+saveRDS(all_clust_res,all_clust_res_fn)
 
 ```
-
-So in the paper, they have 15 clusters (ASC1,ASC2,END,exCA1,exCA3,exDG,exPFC1,exPFC2,GABA1,GABA2,MG,NSC,ODC1,OPC, and Unclassified). Using Dr. Sun's code, we specified 10 clusters for kmeans by clustering 50 PCAs derived from filtering down to 2799 genes. 
-
-kmeans cluster 1 seems to capture OPC well.
-kmeans clusters 2 and 3 capture a mix of MG and NSC.
-kmeans cluster 3 seems to capture GABA well.
-kmeans cluster 4 nuclei are all considered unclassified by the paper.
-kmeans cluster 5 seems to be noisy but mostly captures exPFC.
-kmeans cluster 6 seems to capture ODC well, but also somewhat noisy.
-kmeans cluster 7 seems to capture ASC well.
-kmeans cluster 8 seems to capture END well.
-kmeans cluster 9 nuclei are mostly unclassified by the paper.
-kmeans cluster 10 is noisy but most samples are classified as exDG.
 
 
 # Session information
