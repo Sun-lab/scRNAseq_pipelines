@@ -1,0 +1,1406 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8"/>
+
+<title>Introduction</title>
+
+<script type="text/javascript">
+window.onload = function() {
+  var imgs = document.getElementsByTagName('img'), i, img;
+  for (i = 0; i < imgs.length; i++) {
+    img = imgs[i];
+    // center an image if it is the only element of its parent
+    if (img.parentElement.childElementCount === 1)
+      img.parentElement.style.textAlign = 'center';
+  }
+};
+</script>
+
+
+
+
+
+<style type="text/css">
+body, td {
+   font-family: sans-serif;
+   background-color: white;
+   font-size: 13px;
+}
+
+body {
+  max-width: 800px;
+  margin: auto;
+  padding: 1em;
+  line-height: 20px;
+}
+
+tt, code, pre {
+   font-family: 'DejaVu Sans Mono', 'Droid Sans Mono', 'Lucida Console', Consolas, Monaco, monospace;
+}
+
+h1 {
+   font-size:2.2em;
+}
+
+h2 {
+   font-size:1.8em;
+}
+
+h3 {
+   font-size:1.4em;
+}
+
+h4 {
+   font-size:1.0em;
+}
+
+h5 {
+   font-size:0.9em;
+}
+
+h6 {
+   font-size:0.8em;
+}
+
+a:visited {
+   color: rgb(50%, 0%, 50%);
+}
+
+pre, img {
+  max-width: 100%;
+}
+pre {
+  overflow-x: auto;
+}
+pre code {
+   display: block; padding: 0.5em;
+}
+
+code {
+  font-size: 92%;
+  border: 1px solid #ccc;
+}
+
+code[class] {
+  background-color: #F8F8F8;
+}
+
+table, td, th {
+  border: none;
+}
+
+blockquote {
+   color:#666666;
+   margin:0;
+   padding-left: 1em;
+   border-left: 0.5em #EEE solid;
+}
+
+hr {
+   height: 0px;
+   border-bottom: none;
+   border-top-width: thin;
+   border-top-style: dotted;
+   border-top-color: #999999;
+}
+
+@media print {
+   * {
+      background: transparent !important;
+      color: black !important;
+      filter:none !important;
+      -ms-filter: none !important;
+   }
+
+   body {
+      font-size:12pt;
+      max-width:100%;
+   }
+
+   a, a:visited {
+      text-decoration: underline;
+   }
+
+   hr {
+      visibility: hidden;
+      page-break-before: always;
+   }
+
+   pre, blockquote {
+      padding-right: 1em;
+      page-break-inside: avoid;
+   }
+
+   tr, img {
+      page-break-inside: avoid;
+   }
+
+   img {
+      max-width: 100% !important;
+   }
+
+   @page :left {
+      margin: 15mm 20mm 15mm 10mm;
+   }
+
+   @page :right {
+      margin: 15mm 10mm 15mm 20mm;
+   }
+
+   p, h2, h3 {
+      orphans: 3; widows: 3;
+   }
+
+   h2, h3 {
+      page-break-after: avoid;
+   }
+}
+</style>
+
+
+
+</head>
+
+<body>
+<h1>Introduction</h1>
+
+<p>This markdown is for analyzing the <a href="http://celltypes.brain-map.org/rnaseq">Allen Brain Atlas MTG dataset</a>.</p>
+
+<h1>Obtaining/Loading Counts</h1>
+
+<p>The dataset is available <a href="http://celltypes.brain-map.org/api/v2/well_known_file_download/694416044">here</a>.</p>
+
+<pre><code class="r">where_file = c(&quot;mycomp&quot;,&quot;longleaf&quot;)[2]
+if(where_file == &quot;mycomp&quot;){
+    drive = strsplit(getwd(),&quot;/&quot;)[[1]][1]
+    src_dir = file.path(drive,&quot;Files to KEEP/SOURCE_files&quot;)
+    data_dir = file.path(drive,&quot;Files to KEEP/BIOS_eQTL/documents/MTG&quot;)
+} else if(where_file == &quot;longleaf&quot;){
+    data_dir = &quot;/pine/scr/p/l/pllittle/CS_eQTL/s3_Real/original/MTG&quot;
+    src_dir = system(&quot;echo $HOME&quot;,intern = TRUE)
+    source(file.path(src_dir,&quot;SOURCE.R&quot;))
+    # source(file.path(src_dir,&quot;scRNAseq.R&quot;))
+}
+
+# Source/Libraries
+source(&quot;https://bioconductor.org/biocLite.R&quot;)
+</code></pre>
+
+<pre><code>## Bioconductor version 3.7 (BiocInstaller 1.30.0), ?biocLite for help
+</code></pre>
+
+<pre><code class="r"># biocLite(&quot;BiocUpgrade&quot;)
+bio_packs = c(&quot;SingleCellExperiment&quot;,&quot;DropletUtils&quot;,&quot;biomaRt&quot;,&quot;scater&quot;,&quot;scran&quot;,&quot;SC3&quot;)
+if( !all(bio_packs %in% installed.packages()[,&quot;Package&quot;]) ){
+    biocLite(bio_packs,suppressUpdates = TRUE)
+    # biocLite(&quot;SC3&quot;,suppressUpdates = TRUE)
+}
+cran_packs = c(&quot;stringi&quot;,&quot;irlba&quot;)
+if( !all(cran_packs %in% installed.packages()[,&quot;Package&quot;]) ){
+    install.packages(cran_packs)
+}
+# DropletUtils: provides functions for data from droplet technologies such as 10X Genomics
+# biomaRt: provides easy access to databases, such as Ensembl, COSMIC, Uniprot, HGNC, etc.
+# scater: collection of tools for doing quality control analyses of scRNA-seq
+# scran: methods provide normalization of cell-specific biases, correcting batch effects, identify marker genes
+suppressPackageStartupMessages(library(SingleCellExperiment))
+suppressPackageStartupMessages(library(DropletUtils))
+suppressPackageStartupMessages(library(biomaRt))
+suppressPackageStartupMessages(library(scater))
+suppressPackageStartupMessages(library(scran))
+suppressPackageStartupMessages(library(limma))
+
+# Import counts
+counts_fn = file.path(data_dir,&quot;image.rds&quot;)
+if( !file.exists(counts_fn) ){
+    file_link = &quot;http://celltypes.brain-map.org/api/v2/well_known_file_download/694416044&quot;
+    file_name = strsplit(file_link,&quot;/&quot;)[[1]]
+    file_name = file_name[length(file_name)]
+    file_name = file.path(data_dir,file_name)
+    if( !file.exists(file_name) ){
+        cmd = sprintf(&quot;cd %s; wget %s&quot;,data_dir,file_link)
+        print(cmd)
+        system(cmd)
+    }
+    cmd = sprintf(&quot;cd %s; unzip -o %s&quot;,data_dir,file_name)
+    cmd
+    system(cmd)
+    matrix_fn = file.path(data_dir,&quot;human_MTG_2018-06-14_exon-matrix.csv&quot;)
+    # Preview
+    system(sprintf(&quot;head %s | cut -d &#39;,&#39; -f1-10&quot;,matrix_fn))
+    num_lines = as.numeric(system(sprintf(&quot;wc -l %s | cut -d &#39; &#39; -f1&quot;,matrix_fn),intern = TRUE))
+    counts = read.delim(matrix_fn,sep = &#39;,&#39;,header = TRUE,row.names = 1,check.names = FALSE,nrows = num_lines - 1)
+
+    print(dim(counts))
+    saveRDS(counts,counts_fn)
+}
+
+counts = readRDS(counts_fn)
+cell_data = read.table(&quot;human_MTG_2018-06-14_samples-columns.csv&quot;,sep=&#39;,&#39;,header=TRUE,stringsAsFactors=FALSE)
+sce = SingleCellExperiment(assays = list(counts = as.matrix(counts)),colData = cell_data)
+rm(counts,cell_data)
+
+# Import gene info
+rowData(sce) = read.table(&quot;human_MTG_2018-06-14_genes-rows.csv&quot;,sep=&#39;,&#39;,header=TRUE,stringsAsFactors=FALSE)
+sce
+</code></pre>
+
+<pre><code>## class: SingleCellExperiment 
+## dim: 50281 15928 
+## metadata(0):
+## assays(1): counts
+## rownames(50281): 353007 353008 ... 259265 150478
+## rowData names(5): gene chromosome entrez_id gene_name
+##   mouse_homologenes
+## colnames(15928): F1S4_160106_001_B01 F1S4_160106_001_C01 ...
+##   F2S4_170405_060_F01 F2S4_170405_060_H01
+## colData names(34): sample_name sample_id ... class cluster
+## reducedDimNames(0):
+## spikeNames(0):
+</code></pre>
+
+<pre><code class="r"># Define spikes
+rowData(sce)$gene[grep(&quot;^ERCC&quot;,rowData(sce)$gene)]
+</code></pre>
+
+<pre><code>##  [1] &quot;ERCC1&quot;       &quot;ERCC2&quot;       &quot;ERCC3&quot;       &quot;ERCC4&quot;       &quot;ERCC5&quot;      
+##  [6] &quot;ERCC6&quot;       &quot;ERCC6-PGBD3&quot; &quot;ERCC6L&quot;      &quot;ERCC6L2&quot;     &quot;ERCC8&quot;
+</code></pre>
+
+<pre><code class="r"># isSpike(sce,&quot;ERCC&quot;) = grepl(&quot;^ERCC&quot;,rowData(sce)$gene)
+</code></pre>
+
+<h1>Pre-processing: Quality Control, Gene Detection, Normalization</h1>
+
+<h2>Gene Annotation</h2>
+
+<h2>Identify low quallity cells</h2>
+
+<h3>barcodeRanks filtering</h3>
+
+<p>Look <a href="https://bioconductor.org/packages/release/workflows/vignettes/simpleSingleCell/inst/doc/work-3-tenx.html#calling-cells-from-empty-droplets">here</a> for reference.</p>
+
+<pre><code class="r">bcrank = barcodeRanks(counts(sce))
+
+# Only showing unique points for plotting speed.
+uniq = !duplicated(bcrank$rank)
+
+par(mar=c(5,4,2,1), bty=&quot;n&quot;)
+plot(bcrank$rank[uniq], bcrank$total[uniq], log=&quot;xy&quot;, 
+     xlab=&quot;Rank&quot;, ylab=&quot;Total UMI count&quot;, cex=0.5, cex.lab=1.2)
+
+abline(h=bcrank$inflection, col=&quot;darkgreen&quot;, lty=2)
+abline(h=bcrank$knee, col=&quot;dodgerblue&quot;, lty=2)
+
+legend(&quot;left&quot;, legend=c(&quot;Inflection&quot;, &quot;Knee&quot;), bty=&quot;n&quot;, 
+       col=c(&quot;darkgreen&quot;, &quot;dodgerblue&quot;), lty=2, cex=1.2)
+</code></pre>
+
+<p><img src="figure/unnamed-chunk-3-1.png" alt="plot of chunk unnamed-chunk-3"></p>
+
+<pre><code class="r">bcrank$inflection
+</code></pre>
+
+<pre><code>## F1S4_160721_141_D01 
+##              154346
+</code></pre>
+
+<pre><code class="r">bcrank$knee
+</code></pre>
+
+<pre><code>## F1S4_161129_001_B01 
+##              577889
+</code></pre>
+
+<pre><code class="r">summary(bcrank$total)
+</code></pre>
+
+<pre><code>##    Min. 1st Qu.  Median    Mean 3rd Qu.    Max. 
+##   63711  613892  749374  760615  889382 3716257
+</code></pre>
+
+<pre><code class="r">table(bcrank$total &gt;= bcrank$knee)
+</code></pre>
+
+<pre><code>## 
+## FALSE  TRUE 
+##  3226 12702
+</code></pre>
+
+<pre><code class="r">table(bcrank$total &gt;= bcrank$inflection)
+</code></pre>
+
+<pre><code>## 
+## FALSE  TRUE 
+##    16 15912
+</code></pre>
+
+<pre><code class="r">set.seed(100)
+date()
+</code></pre>
+
+<pre><code>## [1] &quot;Mon Oct  1 01:20:33 2018&quot;
+</code></pre>
+
+<pre><code class="r">e.out = emptyDrops(counts(sce))
+date()
+</code></pre>
+
+<pre><code>## [1] &quot;Mon Oct  1 01:48:12 2018&quot;
+</code></pre>
+
+<pre><code class="r">e.out
+</code></pre>
+
+<pre><code>## DataFrame with 15928 rows and 5 columns
+##                         Total   LogProb    PValue   Limited       FDR
+##                     &lt;integer&gt; &lt;numeric&gt; &lt;numeric&gt; &lt;logical&gt; &lt;numeric&gt;
+## F1S4_160106_001_B01    994887       NaN         1     FALSE         0
+## F1S4_160106_001_C01    844572       NaN         1     FALSE         0
+## F1S4_160106_001_E01    701217       NaN         1     FALSE         0
+## F1S4_160106_001_G01    706220       NaN         1     FALSE         0
+## F1S4_160106_001_H01    953891       NaN         1     FALSE         0
+## ...                       ...       ...       ...       ...       ...
+## F2S4_170405_060_B01    672478       NaN         1     FALSE         0
+## F2S4_170405_060_C01    759845       NaN         1     FALSE         0
+## F2S4_170405_060_E01    667733       NaN         1     FALSE         0
+## F2S4_170405_060_F01    920766       NaN         1     FALSE         0
+## F2S4_170405_060_H01    701107       NaN         1     FALSE         0
+</code></pre>
+
+<pre><code class="r">is.cell = (e.out$FDR &lt;= 0.01)
+
+# Temp save image
+post_eDrops_fn = file.path(data_dir,&quot;post_eDrops.rds&quot;)
+if(where_file == &quot;longleaf&quot;){
+  saveRDS(list(sce=sce,e.out=e.out,is.cell=is.cell),post_eDrops_fn)
+} else if(FALSE){
+  rds = readRDS(post_eDrops_fn)
+  sce = rds$sce
+  e.out = rds$e.out
+  is.cell = rds$is.cell
+  rm(rds)
+}
+</code></pre>
+
+<pre><code class="r">par(mar=c(5,4,1,1), mfrow=c(1,2), bty=&quot;n&quot;)
+plot(e.out$Total, -e.out$LogProb, col=ifelse(is.cell, &quot;red&quot;, &quot;black&quot;),
+    xlab=&quot;Total UMI count&quot;, ylab=&quot;-Log Probability&quot;, cex=0.2)
+</code></pre>
+
+<pre><code>## Warning in min(x): no non-missing arguments to min; returning Inf
+</code></pre>
+
+<pre><code>## Warning in max(x): no non-missing arguments to max; returning -Inf
+</code></pre>
+
+<pre><code>## Error in plot.window(...): need finite &#39;ylim&#39; values
+</code></pre>
+
+<pre><code class="r">abline(v = bcrank$inflection, col=&quot;darkgreen&quot;)
+abline(v = bcrank$knee, col=&quot;dodgerblue&quot;)
+legend(&quot;bottomright&quot;, legend=c(&quot;Inflection&quot;, &quot;Knee&quot;), bty=&quot;n&quot;, 
+       col=c(&quot;darkgreen&quot;, &quot;dodgerblue&quot;), lty=1, cex=1.2)
+
+plot(e.out$Total, -e.out$LogProb, col=ifelse(is.cell, &quot;red&quot;, &quot;black&quot;),
+    xlab=&quot;Total UMI count&quot;, ylab=&quot;-Log Probability&quot;, cex=0.2, xlim=c(0,2000), ylim=c(0,2000))
+</code></pre>
+
+<p><img src="figure/unnamed-chunk-4-1.png" alt="plot of chunk unnamed-chunk-4"></p>
+
+<pre><code class="r">abline(v = bcrank$inflection, col=&quot;darkgreen&quot;)
+abline(v = bcrank$knee, col=&quot;dodgerblue&quot;)
+</code></pre>
+
+<p>From the above analysis, some cells with very small number of UMIs may also have small FDR suggesting the distribution of UMI counts are different from what is expected from ambient profile. We choose a more conservative strategy, to keep the cells with total number of UMI larger than the inflection point estimate (bcrank$inflection=<code>bcrank$inflection</code>) and FDR &lt; 0.01. </p>
+
+<pre><code class="r">table(colnames(sce) == rownames(e.out))
+</code></pre>
+
+<pre><code>## 
+##  TRUE 
+## 15928
+</code></pre>
+
+<pre><code class="r">table(e.out$FDR &lt;= 0.01, useNA=&quot;ifany&quot;)
+</code></pre>
+
+<pre><code>## 
+## FALSE  TRUE 
+##  3226 12702
+</code></pre>
+
+<pre><code class="r">table(is.cell, e.out$Total &gt;= bcrank$inflection)
+</code></pre>
+
+<pre><code>##        
+## is.cell FALSE  TRUE
+##   FALSE    16  3210
+##   TRUE      0 12702
+</code></pre>
+
+<pre><code class="r">w2kp = which(is.cell &amp; e.out$Total &gt;= bcrank$inflection)
+sce = sce[,w2kp]
+dim(sce)
+</code></pre>
+
+<pre><code>## [1] 50281 12702
+</code></pre>
+
+<h3>Incorporate Mito and Ribo to calculate QC metrics</h3>
+
+<p>Next step we apply more QC based on a set of features per cell. We will look at ribosomal genes. The imported file can be found <a href="https://www.genenames.org/cgi-bin/genefamilies/set/1054/download/branch">here</a>.</p>
+
+<pre><code class="r">file_link = &quot;https://www.genenames.org/cgi-bin/genefamilies/set/1054/download/branch&quot;
+file_name = strsplit(file_link,&quot;/&quot;)[[1]]
+file_name = file_name[length(file_name)]
+ribo_fn = file.path(data_dir,file_name)
+if( !file.exists(ribo_fn) ){
+  cmd = sprintf(&quot;cd %s; wget %s&quot;,data_dir,file_link)
+  print(cmd)
+  system(cmd)
+}
+
+ribo = read.table(ribo_fn,sep=&#39;\t&#39;,header=TRUE,stringsAsFactors = FALSE)
+ribo[1:2,]
+</code></pre>
+
+<pre><code>##   HGNC.ID Approved.Symbol          Approved.Name   Status Previous.Symbols
+## 1   10298           RPL10  ribosomal protein L10 Approved                 
+## 2   10299          RPL10A ribosomal protein L10a Approved            NEDD6
+##                                  Synonyms Chromosome Accession.Numbers
+## 1 NOV, QM, DXS648E, DXS648, FLJ23544, L10       Xq28          AB007170
+## 2                            Csa-19, L10A    6p21.31            U12404
+##   RefSeq.IDs Gene.Family.Tag Gene.family.description Gene.family.ID
+## 1  NM_006013             RPL    L ribosomal proteins            729
+## 2  NM_007104             RPL    L ribosomal proteins            729
+</code></pre>
+
+<pre><code class="r"># Temp save image
+post_ribo_download_fn = file.path(data_dir,&quot;post_ribo_download.rds&quot;)
+if(where_file == &quot;longleaf&quot;){
+  saveRDS(list(sce=sce,ribo=ribo),post_ribo_download_fn)
+} else if(FALSE){
+  rds = readRDS(post_ribo_download_fn)
+  sce = rds$sce
+  ribo = rds$ribo
+  rm(rds)
+}
+
+# is_mito = which(rowData(sce)$chromosome_name == &quot;MT&quot;)
+is_mito = which(rowData(sce)$chromosome == &quot;MT&quot;) # MTG gene dataset contains chromosome
+is_ribo = which(rowData(sce)$hgnc_symbol %in% ribo$Approved.Symbol)
+length(is_mito)
+</code></pre>
+
+<pre><code>## [1] 37
+</code></pre>
+
+<pre><code class="r">length(is_ribo)
+</code></pre>
+
+<pre><code>## [1] 0
+</code></pre>
+
+<pre><code class="r">sce = calculateQCMetrics(sce, feature_controls=list(Mt=is_mito, Ri=is_ribo))
+sort(colnames(colData(sce)))
+</code></pre>
+
+<pre><code>##  [1] &quot;age_days&quot;                                      
+##  [2] &quot;brain_hemisphere&quot;                              
+##  [3] &quot;brain_region&quot;                                  
+##  [4] &quot;brain_subregion&quot;                               
+##  [5] &quot;class&quot;                                         
+##  [6] &quot;cluster&quot;                                       
+##  [7] &quot;complexity_cg&quot;                                 
+##  [8] &quot;donor&quot;                                         
+##  [9] &quot;facs_container&quot;                                
+## [10] &quot;facs_date&quot;                                     
+## [11] &quot;facs_sort_criteria&quot;                            
+## [12] &quot;genes_detected_cpm_criterion&quot;                  
+## [13] &quot;genes_detected_fpkm_criterion&quot;                 
+## [14] &quot;is_cell_control&quot;                               
+## [15] &quot;library_prep_avg_size_bp&quot;                      
+## [16] &quot;library_prep_set&quot;                              
+## [17] &quot;log10_total_counts&quot;                            
+## [18] &quot;log10_total_counts_endogenous&quot;                 
+## [19] &quot;log10_total_counts_feature_control&quot;            
+## [20] &quot;log10_total_counts_Mt&quot;                         
+## [21] &quot;log10_total_counts_Ri&quot;                         
+## [22] &quot;log10_total_features&quot;                          
+## [23] &quot;log10_total_features_by_counts&quot;                
+## [24] &quot;log10_total_features_by_counts_endogenous&quot;     
+## [25] &quot;log10_total_features_by_counts_feature_control&quot;
+## [26] &quot;log10_total_features_by_counts_Mt&quot;             
+## [27] &quot;log10_total_features_by_counts_Ri&quot;             
+## [28] &quot;log10_total_features_endogenous&quot;               
+## [29] &quot;log10_total_features_feature_control&quot;          
+## [30] &quot;log10_total_features_Mt&quot;                       
+## [31] &quot;log10_total_features_Ri&quot;                       
+## [32] &quot;organism&quot;                                      
+## [33] &quot;pct_counts_endogenous&quot;                         
+## [34] &quot;pct_counts_feature_control&quot;                    
+## [35] &quot;pct_counts_in_top_100_features&quot;                
+## [36] &quot;pct_counts_in_top_100_features_endogenous&quot;     
+## [37] &quot;pct_counts_in_top_200_features&quot;                
+## [38] &quot;pct_counts_in_top_200_features_endogenous&quot;     
+## [39] &quot;pct_counts_in_top_50_features&quot;                 
+## [40] &quot;pct_counts_in_top_50_features_endogenous&quot;      
+## [41] &quot;pct_counts_in_top_500_features&quot;                
+## [42] &quot;pct_counts_in_top_500_features_endogenous&quot;     
+## [43] &quot;pct_counts_Mt&quot;                                 
+## [44] &quot;pct_counts_Ri&quot;                                 
+## [45] &quot;pct_counts_top_100_features&quot;                   
+## [46] &quot;pct_counts_top_100_features_endogenous&quot;        
+## [47] &quot;pct_counts_top_200_features&quot;                   
+## [48] &quot;pct_counts_top_200_features_endogenous&quot;        
+## [49] &quot;pct_counts_top_50_features&quot;                    
+## [50] &quot;pct_counts_top_50_features_endogenous&quot;         
+## [51] &quot;pct_counts_top_500_features&quot;                   
+## [52] &quot;pct_counts_top_500_features_endogenous&quot;        
+## [53] &quot;percent_aligned_reads_total&quot;                   
+## [54] &quot;percent_ecoli_reads&quot;                           
+## [55] &quot;percent_exon_reads&quot;                            
+## [56] &quot;percent_intergenic_reads&quot;                      
+## [57] &quot;percent_intron_reads&quot;                          
+## [58] &quot;percent_mt_exon_reads&quot;                         
+## [59] &quot;percent_reads_unique&quot;                          
+## [60] &quot;percent_rrna_reads&quot;                            
+## [61] &quot;percent_synth_reads&quot;                           
+## [62] &quot;rna_amplification_set&quot;                         
+## [63] &quot;sample_id&quot;                                     
+## [64] &quot;sample_name&quot;                                   
+## [65] &quot;sample_type&quot;                                   
+## [66] &quot;seq_batch&quot;                                     
+## [67] &quot;seq_name&quot;                                      
+## [68] &quot;seq_tube&quot;                                      
+## [69] &quot;sex&quot;                                           
+## [70] &quot;total_counts&quot;                                  
+## [71] &quot;total_counts_endogenous&quot;                       
+## [72] &quot;total_counts_feature_control&quot;                  
+## [73] &quot;total_counts_Mt&quot;                               
+## [74] &quot;total_counts_Ri&quot;                               
+## [75] &quot;total_features&quot;                                
+## [76] &quot;total_features_by_counts&quot;                      
+## [77] &quot;total_features_by_counts_endogenous&quot;           
+## [78] &quot;total_features_by_counts_feature_control&quot;      
+## [79] &quot;total_features_by_counts_Mt&quot;                   
+## [80] &quot;total_features_by_counts_Ri&quot;                   
+## [81] &quot;total_features_endogenous&quot;                     
+## [82] &quot;total_features_feature_control&quot;                
+## [83] &quot;total_features_Mt&quot;                             
+## [84] &quot;total_features_Ri&quot;                             
+## [85] &quot;total_reads&quot;
+</code></pre>
+
+<pre><code class="r">par(mfrow=c(2,2), mar=c(5, 4, 1, 1), bty=&quot;n&quot;)
+hist(log10(sce$total_counts), xlab=&quot;log10(Library sizes)&quot;, main=&quot;&quot;, 
+    breaks=20, col=&quot;grey80&quot;, ylab=&quot;Number of cells&quot;)
+
+hist(log10(sce$total_features), xlab=&quot;log10(# of expressed genes)&quot;, 
+     main=&quot;&quot;, breaks=20, col=&quot;grey80&quot;, ylab=&quot;Number of cells&quot;)
+
+hist(sce$pct_counts_Ri, xlab=&quot;Ribosome prop. (%)&quot;,
+    ylab=&quot;Number of cells&quot;, breaks=40, main=&quot;&quot;, col=&quot;grey80&quot;)
+
+hist(sce$pct_counts_Mt, xlab=&quot;Mitochondrial prop. (%)&quot;, 
+    ylab=&quot;Number of cells&quot;, breaks=80, main=&quot;&quot;, col=&quot;grey80&quot;)
+</code></pre>
+
+<p><img src="figure/unnamed-chunk-6-1.png" alt="plot of chunk unnamed-chunk-6"></p>
+
+<pre><code class="r">par(mfrow=c(2,2), mar=c(5, 4, 1, 1), bty=&quot;n&quot;)
+smoothScatter(log10(sce$total_counts), log10(sce$total_features), 
+     xlab=&quot;log10(Library sizes)&quot;, ylab=&quot;log10(# of expressed genes)&quot;, 
+     nrpoints=500, cex=0.5)
+smoothScatter(log10(sce$total_counts), sce$pct_counts_Ri, 
+     xlab=&quot;log10(Library sizes)&quot;, ylab=&quot;Ribosome prop. (%)&quot;,
+     nrpoints=500, cex=0.5)
+# abline(h=10,  lty=1)
+
+smoothScatter(log10(sce$total_counts), sce$pct_counts_Mt, 
+     xlab=&quot;log10(Library sizes)&quot;, ylab=&quot;Mitochondrial prop. (%)&quot;,
+     nrpoints=500, cex=0.5)
+# abline(h=5,  lty=1)
+
+smoothScatter(sce$pct_counts_Ri, sce$pct_counts_Mt, 
+     xlab=&quot;Ribosome prop. (%)&quot;, ylab=&quot;Mitochondrial prop. (%)&quot;,
+     nrpoints=500, cex=0.5)
+</code></pre>
+
+<p><img src="figure/unnamed-chunk-6-2.png" alt="plot of chunk unnamed-chunk-6"></p>
+
+<pre><code class="r"># abline(h=5,  lty=1)
+# abline(v=10, lty=1)
+
+par(mfrow=c(2,1))
+hist(sce$pct_counts_Ri,breaks=40,col=&quot;gray&quot;)
+hist(sce$pct_counts_Mt,breaks=40,col=&quot;gray&quot;)
+</code></pre>
+
+<p><img src="figure/unnamed-chunk-6-3.png" alt="plot of chunk unnamed-chunk-6"></p>
+
+<pre><code class="r">par(mfrow=c(1,1))
+
+plot(x=sce$pct_counts_Ri,y=sce$pct_counts_Mt,pch=16,col=rgb(0,0,0,0.4))
+</code></pre>
+
+<p><img src="figure/unnamed-chunk-6-4.png" alt="plot of chunk unnamed-chunk-6"></p>
+
+<pre><code class="r"># abline(v=10,lty=2); abline(h=5,lty=2)
+
+table(sce$pct_counts_Mt &lt; 5, sce$pct_counts_Ri &lt; 10)
+</code></pre>
+
+<pre><code>##        
+##          TRUE
+##   FALSE    21
+##   TRUE  12681
+</code></pre>
+
+<pre><code class="r">sce = sce[,which(sce$pct_counts_Mt &lt; 5 | sce$pct_counts_Ri &lt; 10)]
+# sce = sce[,which(sce$pct_counts_Mt &lt; 5 &amp; sce$pct_counts_Ri &lt; 10)]
+dim(sce)
+</code></pre>
+
+<pre><code>## [1] 50281 12702
+</code></pre>
+
+<h2>Summarize gene-level information</h2>
+
+<pre><code class="r">rowData(sce)[1:2,]
+</code></pre>
+
+<pre><code>## DataFrame with 2 rows and 16 columns
+##          gene  chromosome entrez_id
+##   &lt;character&gt; &lt;character&gt; &lt;integer&gt;
+## 1     3.8-1.2           6    353007
+## 2     3.8-1.3           6    353008
+##                                              gene_name mouse_homologenes
+##                                            &lt;character&gt;       &lt;character&gt;
+## 1 HLA complex group 26 (non-protein coding) pseudogene                  
+## 2 HLA complex group 26 (non-protein coding) pseudogene                  
+##   is_feature_control is_feature_control_Mt is_feature_control_Ri
+##            &lt;logical&gt;             &lt;logical&gt;             &lt;logical&gt;
+## 1              FALSE                 FALSE                 FALSE
+## 2              FALSE                 FALSE                 FALSE
+##           mean_counts   log10_mean_counts n_cells_by_counts
+##             &lt;numeric&gt;           &lt;numeric&gt;         &lt;integer&gt;
+## 1 0.00795150370020469 0.00343963708761808                 5
+## 2  0.0676271453314439  0.0284196075637472                17
+##   pct_dropout_by_counts total_counts log10_total_counts n_cells_counts
+##               &lt;numeric&gt;    &lt;integer&gt;          &lt;numeric&gt;      &lt;integer&gt;
+## 1       99.960636120296          101   2.00860017176192              5
+## 2      99.8661628090065          859   2.93449845124357             17
+##   pct_dropout_counts
+##            &lt;numeric&gt;
+## 1    99.960636120296
+## 2   99.8661628090065
+</code></pre>
+
+<pre><code class="r">min(rowData(sce)$mean_counts)
+</code></pre>
+
+<pre><code>## [1] 0
+</code></pre>
+
+<pre><code class="r">min(rowData(sce)$mean_counts[rowData(sce)$mean_counts&gt;0])
+</code></pre>
+
+<pre><code>## [1] 7.872776e-05
+</code></pre>
+
+<pre><code class="r">min(rowData(sce)$n_cells_counts)
+</code></pre>
+
+<pre><code>## [1] 0
+</code></pre>
+
+<pre><code class="r">par(mfrow=c(1,3), mar=c(5,4,1,1))
+hist(log10(rowData(sce)$mean_counts+1e-6), col=&quot;grey80&quot;,  main=&quot;&quot;, 
+     breaks=40, xlab=&quot;log10(ave # of UMI + 1e-6)&quot;)
+hist(log10(rowData(sce)$n_cells_counts+1), col=&quot;grey80&quot;, main=&quot;&quot;, 
+     breaks=40, xlab=&quot;log10(# of expressed cells + 1)&quot;)
+smoothScatter(log10(rowData(sce)$mean_counts+1e-6), 
+              log10(rowData(sce)$n_cells_counts + 1), 
+              xlab=&quot;log10(ave # of UMI + 1e-6)&quot;, 
+              ylab=&quot;log10(# of expressed cells + 1)&quot;)
+</code></pre>
+
+<p><img src="figure/unnamed-chunk-7-1.png" alt="plot of chunk unnamed-chunk-7"></p>
+
+<pre><code class="r">tb1 = table(rowData(sce)$n_cells_counts)
+tb1[1:11]
+</code></pre>
+
+<pre><code>## 
+##    0    1    2    3    4    5    6    7    8    9   10 
+## 2230  778  823  790  776  692  677  570  537  498  404
+</code></pre>
+
+<p>We remove those genes that are expressed in zero or only one cell. The variable <em>strand</em> need to be renamed, otherwise there is an error message that such a variabel name cannot be used. </p>
+
+<pre><code class="r">names(rowData(sce))[6] = &quot;strand_n&quot;
+# Dr. Sun&#39;s code
+rowData(sce)$n_cell_count_filter = rowData(sce)$n_cells_counts &gt; 1
+table(rowData(sce)$n_cell_count_filter)
+</code></pre>
+
+<pre><code>## 
+## FALSE  TRUE 
+##  3008 47273
+</code></pre>
+
+<pre><code class="r">sce = sce[which(rowData(sce)$n_cell_count_filter == TRUE),]
+dim(sce)
+</code></pre>
+
+<pre><code>## [1] 47273 12702
+</code></pre>
+
+<p>Next we check those highly expressed genes </p>
+
+<pre><code class="r">par(mar=c(5,4,1,1))
+od1 = order(rowData(sce)$mean_counts, decreasing = TRUE)
+barplot(rowData(sce)$mean_counts[od1[20:1]], las=1, 
+        names.arg=rowData(sce)$hgnc_symbol[od1[20:1]], 
+        horiz=TRUE, cex.names=0.5, cex.axis=0.7, 
+        xlab=&quot;ave # of UMI&quot;)
+</code></pre>
+
+<p><img src="figure/unnamed-chunk-9-1.png" alt="plot of chunk unnamed-chunk-9"></p>
+
+<h2>Normalization</h2>
+
+<p>A simple solution for normalization and stablizing expression varaince across genes is to tranform the count data by log(count/size.factor + 1). One may calcualte size.factor per cell as the total number of UMIs, and this assumes the total expression are the same across all the cells. However, the total expression of each cell may vary with respect to cell type and/or cell size, and the <code>computeSumFactors</code> function in R package scran provides a more  sophisicated way to calcualte size.factor to allow such variaation across cells [@lun2016pooling]. <code>computeSumFactors</code> can use initial clustering of cells to normalize expression within and beetween clusters.  Within a cluster, it estimates the size factor for many groups of cells so that there are more groups than cells, and then it can calcualte the size factor per cell using a lienar deconvolution system. </p>
+
+<p>As shown in the following plot, the final size factor estimation is indeed highly correlated with the naive definition by total count. </p>
+
+<p>Finally, the command <code>normalize(sce)</code> adds the normalized expression into the variable <code>sce</code>.</p>
+
+<pre><code class="r">date()
+</code></pre>
+
+<pre><code>## [1] &quot;Mon Oct  1 01:51:14 2018&quot;
+</code></pre>
+
+<pre><code class="r">clusters = quickCluster(sce, min.mean=0.1, method=&quot;igraph&quot;)
+date()
+</code></pre>
+
+<pre><code>## [1] &quot;Mon Oct  1 01:54:52 2018&quot;
+</code></pre>
+
+<pre><code class="r">sce = computeSumFactors(sce, cluster=clusters, min.mean=0.1)
+date()
+</code></pre>
+
+<pre><code>## [1] &quot;Mon Oct  1 01:58:54 2018&quot;
+</code></pre>
+
+<pre><code class="r">summary(sizeFactors(sce))
+</code></pre>
+
+<pre><code>##    Min. 1st Qu.  Median    Mean 3rd Qu.    Max. 
+##  0.2708  0.8519  0.9770  1.0000  1.1187  7.3010
+</code></pre>
+
+<pre><code class="r"># Remove cells with negative or very small size factors
+dim(sce)
+</code></pre>
+
+<pre><code>## [1] 47273 12702
+</code></pre>
+
+<pre><code class="r">sce = sce[,which(sizeFactors(sce) &gt; 0)]
+dim(sce)
+</code></pre>
+
+<pre><code>## [1] 47273 12702
+</code></pre>
+
+<pre><code class="r">par(mfrow=c(1,2), mar=c(5,4,2,1), bty=&quot;n&quot;)
+smoothScatter(sce$total_counts, sizeFactors(sce), log=&quot;xy&quot;, 
+              xlab=&quot;total counts&quot;, ylab=&quot;size factors&quot;)
+plot(sce$total_counts, sizeFactors(sce), log=&quot;xy&quot;, 
+     xlab=&quot;total counts&quot;, ylab=&quot;size factors&quot;, 
+     cex=0.3, pch=20, col=rgb(0.1,0.2,0.7,0.3))
+</code></pre>
+
+<p><img src="figure/unnamed-chunk-10-1.png" alt="plot of chunk unnamed-chunk-10"></p>
+
+<pre><code class="r">sce = normalize(sce)
+
+# Save temp image
+post_norm_fn = file.path(data_dir,&quot;post_norm.rds&quot;)
+if( where_file == &quot;longleaf&quot; ){
+  saveRDS(sce,post_norm_fn)
+} else if(FALSE){
+  sce = readRDS(post_norm_fn)
+}
+</code></pre>
+
+<h2>Dimension reduction</h2>
+
+<p>For dimension reduction, such as calculating PCA or performing TSNE, we should start by identifying a subset of genes with high level of biological signal relative to background (technical) noise. The <code>decomposeVar</code> function from R/cran is designed for this task. </p>
+
+<pre><code class="r">new.trend = makeTechTrend(x=sce)
+fit = trendVar(sce, use.spikes=FALSE, loess.args=list(span=0.05))
+
+par(mfrow=c(1,1), mar=c(5,4,2,1), bty=&quot;n&quot;)
+plot(fit$mean, fit$var, pch=20, col=rgb(0.1,0.2,0.7,0.6), 
+     xlab=&quot;log(mean)&quot;, ylab=&quot;var&quot;)
+curve(fit$trend(x), col=&quot;orange&quot;, lwd=2, add=TRUE)
+curve(new.trend(x), col=&quot;red&quot;, lwd=2, add=TRUE)
+legend(&quot;topright&quot;, legend=c(&quot;Poisson noise&quot;, &quot;observed trend&quot;), 
+       lty=1, lwd=2, col=c(&quot;red&quot;, &quot;orange&quot;), bty=&quot;n&quot;)
+</code></pre>
+
+<p><img src="figure/unnamed-chunk-11-1.png" alt="plot of chunk unnamed-chunk-11"></p>
+
+<pre><code class="r">fit$trend = new.trend
+dec = decomposeVar(fit=fit)
+top.dec = dec[order(dec$bio, decreasing=TRUE),]
+plotExpression(sce, features=rownames(top.dec)[1:10])
+</code></pre>
+
+<p><img src="figure/unnamed-chunk-11-2.png" alt="plot of chunk unnamed-chunk-11"></p>
+
+<p>When performing PCA, we can use all the genes or just those genes with high signal-to-noise ratio. TSNE analysis is usually based on the top PCs rather than the original gene expression data. We first perform PCA using all the genes and the function <code>denoisePCA</code> can automatically select the PCs based on modeling of technical noise. </p>
+
+<pre><code class="r">date()
+</code></pre>
+
+<pre><code>## [1] &quot;Mon Oct  1 02:04:56 2018&quot;
+</code></pre>
+
+<pre><code class="r">sce = denoisePCA(sce, technical=new.trend, approx=TRUE)
+date()
+</code></pre>
+
+<pre><code>## [1] &quot;Mon Oct  1 02:33:06 2018&quot;
+</code></pre>
+
+<pre><code class="r">dim(reducedDim(sce, &quot;PCA&quot;))
+</code></pre>
+
+<pre><code>## [1] 12702   100
+</code></pre>
+
+<pre><code class="r">plot(log10(attr(reducedDim(sce), &quot;percentVar&quot;)), xlab=&quot;PC&quot;,
+     ylab=&quot;log10(Prop of variance explained)&quot;, pch=20, cex=0.6, 
+     col=rgb(0.8, 0.2, 0.2, 0.5))
+abline(v=ncol(reducedDim(sce, &quot;PCA&quot;)), lty=2, col=&quot;red&quot;)
+</code></pre>
+
+<p><img src="figure/unnamed-chunk-12-1.png" alt="plot of chunk unnamed-chunk-12"></p>
+
+<pre><code class="r">df_pcs = data.frame(reducedDim(sce, &quot;PCA&quot;))
+df_pcs$log10_total_features = colData(sce)$log10_total_features
+
+gp1 = ggplot(df_pcs, aes(PC1,PC2,col=log10_total_features)) + 
+  geom_point(size=0.2,alpha=0.6) + theme_classic() + 
+  scale_colour_gradient(low=&quot;lightblue&quot;,high=&quot;red&quot;) +
+  guides(color = guide_legend(override.aes = list(size=3)))
+gp1
+</code></pre>
+
+<p><img src="figure/unnamed-chunk-12-2.png" alt="plot of chunk unnamed-chunk-12"></p>
+
+<pre><code class="r">date()
+</code></pre>
+
+<pre><code>## [1] &quot;Mon Oct  1 02:33:06 2018&quot;
+</code></pre>
+
+<pre><code class="r">sce = runTSNE(sce, use_dimred=&quot;PCA&quot;, perplexity=30, rand_seed=100)
+date()
+</code></pre>
+
+<pre><code>## [1] &quot;Mon Oct  1 02:35:52 2018&quot;
+</code></pre>
+
+<pre><code class="r">df_tsne = data.frame(reducedDim(sce, &quot;TSNE&quot;))
+df_tsne$log10_total_features = colData(sce)$log10_total_features
+
+gp1 = ggplot(df_tsne, aes(X1,X2,col=log10_total_features)) + 
+  geom_point(size=0.2,alpha=0.6) + theme_classic() + 
+  scale_colour_gradient(low=&quot;lightblue&quot;,high=&quot;red&quot;) +
+  guides(color = guide_legend(override.aes = list(size=3)))
+gp1
+</code></pre>
+
+<p><img src="figure/unnamed-chunk-12-3.png" alt="plot of chunk unnamed-chunk-12"></p>
+
+<pre><code class="r"># Save temp image
+post_dimRed_fn = file.path(data_dir,&quot;post_dimRed.rds&quot;)
+if( where_file == &quot;longleaf&quot; ){
+  saveRDS(list(sce=sce,dec=dec),post_dimRed_fn)
+} else if(FALSE){
+  rds = readRDS(post_dimRed_fn)
+  sce = rds$sce
+  dec = rds$dec
+  rm(rds)
+}
+</code></pre>
+
+<p>Next we only select around top 1000 genes for the PCA and use the top 50 PCs for TSNE projection. </p>
+
+<pre><code class="r">library(svd)
+library(Rtsne)
+
+summary(dec$bio)
+</code></pre>
+
+<pre><code>##      Min.   1st Qu.    Median      Mean   3rd Qu.      Max. 
+## -0.000201  0.015127  0.179321  2.017226  2.370933 18.587787
+</code></pre>
+
+<pre><code class="r">dec1 = dec
+dec1$bio[which(dec$bio &lt; 1e-8)] = 1e-8
+dec1$FDR[which(dec$FDR &lt; 1e-100)] = 1e-100
+
+par(mfrow=c(1,2))
+hist(log10(dec1$bio), breaks=100, main=&quot;&quot;)
+hist(log10(dec1$FDR), breaks=100, main=&quot;&quot;)
+</code></pre>
+
+<p><img src="figure/unnamed-chunk-13-1.png" alt="plot of chunk unnamed-chunk-13"></p>
+
+<pre><code class="r">summary(dec$FDR[dec$bio &gt; 0.001])
+</code></pre>
+
+<pre><code>##      Min.   1st Qu.    Median      Mean   3rd Qu.      Max. 
+## 0.000e+00 0.000e+00 0.000e+00 5.880e-09 0.000e+00 2.303e-04
+</code></pre>
+
+<pre><code class="r">table(dec$FDR &lt; 1e-10, dec$bio &gt; 0.01)
+</code></pre>
+
+<pre><code>##        
+##         FALSE  TRUE
+##   FALSE  1283     0
+##   TRUE   8678 37312
+</code></pre>
+
+<pre><code class="r">w2kp = which(dec$FDR &lt; 1e-10 &amp; dec$bio &gt; 0.01)
+sce_sub = sce[w2kp,]
+sce_sub
+</code></pre>
+
+<pre><code>## class: SingleCellExperiment 
+## dim: 37312 12702 
+## metadata(1): log.exprs.offset
+## assays(2): counts logcounts
+## rownames(37312): 353008 353009 ... 259265 150478
+## rowData names(17): gene chromosome ... pct_dropout_counts
+##   n_cell_count_filter
+## colnames(12702): F1S4_160106_001_B01 F1S4_160106_001_C01 ...
+##   F2S4_170405_060_F01 F2S4_170405_060_H01
+## colData names(85): sample_name sample_id ... total_features_Ri
+##   log10_total_features_Ri
+## reducedDimNames(2): PCA TSNE
+## spikeNames(0):
+</code></pre>
+
+<pre><code class="r">edat = t(as.matrix(logcounts(sce_sub)))
+edat = scale(edat)
+dim(edat)
+</code></pre>
+
+<pre><code>## [1] 12702 37312
+</code></pre>
+
+<pre><code class="r">edat[1:2,1:3]
+</code></pre>
+
+<pre><code>##                          353008      353009     389180
+## F1S4_160106_001_B01 -0.03138232 -0.02268054 -0.1462075
+## F1S4_160106_001_C01 -0.03138232 -0.02268054 -0.1462075
+</code></pre>
+
+<pre><code class="r">date()
+</code></pre>
+
+<pre><code>## [1] &quot;Mon Oct  1 02:38:56 2018&quot;
+</code></pre>
+
+<pre><code class="r">ppk = propack.svd(edat,neig=50)
+date()
+</code></pre>
+
+<pre><code>## [1] &quot;Mon Oct  1 02:44:54 2018&quot;
+</code></pre>
+
+<pre><code class="r">pca = t(ppk$d*t(ppk$u))
+
+df_pcs = data.frame(pca)
+df_pcs$log10_total_features = colData(sce_sub)$log10_total_features
+df_pcs[1:2,]
+</code></pre>
+
+<pre><code>##          X1        X2       X3        X4        X5        X6         X7
+## 1  10.23873 26.494470 1.834501 -2.112223  3.950336  2.536723 -1.5624865
+## 2 -34.80074  2.816203 6.896789 -8.503741 -7.712819 -1.335505  0.3009384
+##           X8       X9       X10      X11        X12       X13       X14
+## 1  1.4412379 3.329334 12.249481 2.891959  0.9826364  3.919069  3.234064
+## 2 -0.2853749 6.050429 -6.234785 7.191851 -4.1795746 -2.571729 -5.709607
+##          X15      X16        X17        X18       X19      X20       X21
+## 1  6.6954457 13.33337 -12.019887 -10.098247 15.792634 13.30623  3.280586
+## 2 -0.4141386 -6.10508  -1.921216   7.114714  4.561242  7.18101 -4.215637
+##          X22      X23        X24        X25        X26       X27       X28
+## 1 2.57493949 2.446500 -5.5408555  0.5181322  0.3804689 -1.201504  2.894272
+## 2 0.02876203 0.844014  0.3528571 -6.8077152 -7.8866001  2.846662 -5.535318
+##          X29       X30        X31         X32        X33      X34      X35
+## 1 -0.7118844 -1.011032  -1.131062   0.6997586 -0.7099730 1.184536 2.369180
+## 2  1.8186929 11.375994 -11.978810 -17.6981064  0.9085591 6.245152 4.192403
+##          X36        X37       X38        X39       X40       X41
+## 1 -0.1844965 -0.8034483 -1.797741  0.4810386 0.2423657 -2.637023
+## 2 -9.0298302  2.9126429  8.349834 -2.4534096 0.8540607  2.201140
+##          X42       X43        X44      X45       X46        X47       X48
+## 1 -0.1485281 0.5066662  3.2723692 1.597002  1.682312  0.4388042  2.012637
+## 2  1.4238928 0.2888066 -0.6068747 4.445261 -3.383644 -0.3491857 -4.481508
+##          X49        X50 log10_total_features
+## 1 -4.4048933 1.92987486             3.720655
+## 2  0.7193556 0.04646147             3.916349
+</code></pre>
+
+<pre><code class="r">gp1 = ggplot(df_pcs, aes(X1,X2,col=log10_total_features)) + 
+  geom_point(size=0.2,alpha=0.6) + theme_classic() + 
+  scale_colour_gradient(low=&quot;lightblue&quot;,high=&quot;red&quot;) +
+  guides(color = guide_legend(override.aes = list(size=3)))
+gp1
+</code></pre>
+
+<p><img src="figure/unnamed-chunk-13-2.png" alt="plot of chunk unnamed-chunk-13"></p>
+
+<pre><code class="r">set.seed(100)
+date()
+</code></pre>
+
+<pre><code>## [1] &quot;Mon Oct  1 02:44:54 2018&quot;
+</code></pre>
+
+<pre><code class="r">tsne = Rtsne(pca, pca = FALSE)
+date()
+</code></pre>
+
+<pre><code>## [1] &quot;Mon Oct  1 02:47:28 2018&quot;
+</code></pre>
+
+<pre><code class="r">df_tsne = data.frame(tsne$Y)
+df_tsne$log10_total_features = colData(sce_sub)$log10_total_features
+dim(df_tsne)
+</code></pre>
+
+<pre><code>## [1] 12702     3
+</code></pre>
+
+<pre><code class="r">df_tsne[1:2,]
+</code></pre>
+
+<pre><code>##          X1        X2 log10_total_features
+## 1 -23.79179  33.40733             3.720655
+## 2 -17.68189 -11.52816             3.916349
+</code></pre>
+
+<pre><code class="r">gp1 = ggplot(df_tsne, aes(X1,X2,col=log10_total_features)) + 
+  geom_point(size=0.2,alpha=0.6) + theme_classic() + 
+  scale_colour_gradient(low=&quot;lightblue&quot;,high=&quot;red&quot;) +
+  guides(color = guide_legend(override.aes = list(size=3)))
+gp1
+</code></pre>
+
+<p><img src="figure/unnamed-chunk-13-3.png" alt="plot of chunk unnamed-chunk-13"></p>
+
+<pre><code class="r">reducedDims(sce_sub) = SimpleList(PCA=pca, TSNE=tsne$Y)
+sce_sub
+</code></pre>
+
+<pre><code>## class: SingleCellExperiment 
+## dim: 37312 12702 
+## metadata(1): log.exprs.offset
+## assays(2): counts logcounts
+## rownames(37312): 353008 353009 ... 259265 150478
+## rowData names(17): gene chromosome ... pct_dropout_counts
+##   n_cell_count_filter
+## colnames(12702): F1S4_160106_001_B01 F1S4_160106_001_C01 ...
+##   F2S4_170405_060_F01 F2S4_170405_060_H01
+## colData names(85): sample_name sample_id ... total_features_Ri
+##   log10_total_features_Ri
+## reducedDimNames(2): PCA TSNE
+## spikeNames(0):
+</code></pre>
+
+<h2>Clustering</h2>
+
+<h3>Kmeans</h3>
+
+<p>There are many methods for clustering of single cell RNA-seq data. The performance of each method may also depend on pre-processing steps, such as performing imputation or not. We wil compare these methods in a seperate document. Here we just illustrate the clustering reuslts using a simple kmeans method on the top 50 PCs. </p>
+
+<pre><code class="r">k10_50_pcs = kmeans(reducedDim(sce_sub, &quot;PCA&quot;), centers=10, 
+                    iter.max=150, algorithm=&quot;MacQueen&quot;)
+names(k10_50_pcs)
+</code></pre>
+
+<pre><code>## [1] &quot;cluster&quot;      &quot;centers&quot;      &quot;totss&quot;        &quot;withinss&quot;    
+## [5] &quot;tot.withinss&quot; &quot;betweenss&quot;    &quot;size&quot;         &quot;iter&quot;        
+## [9] &quot;ifault&quot;
+</code></pre>
+
+<pre><code class="r">dim(k10_50_pcs$centers)
+</code></pre>
+
+<pre><code>## [1] 10 50
+</code></pre>
+
+<pre><code class="r">df_tsne$cluster_kmean = as.factor(k10_50_pcs$cluster)
+cols = c(&quot;#FB9A99&quot;,&quot;#FF7F00&quot;,&quot;yellow&quot;,&quot;orchid&quot;,&quot;grey&quot;,
+         &quot;red&quot;,&quot;dodgerblue2&quot;,&quot;tan4&quot;,&quot;green4&quot;,&quot;#99c9fb&quot;)
+
+gp1 = ggplot(df_tsne, aes(X1,X2,col=cluster_kmean)) + 
+  geom_point(size=0.2,alpha=0.6) + theme_classic() + 
+  scale_color_manual(values=cols) + 
+  guides(color = guide_legend(override.aes = list(size=3)))
+gp1
+</code></pre>
+
+<p><img src="figure/unnamed-chunk-14-1.png" alt="plot of chunk unnamed-chunk-14"></p>
+
+<pre><code class="r"># Save temp image
+post_cluster_fn = file.path(data_dir,&quot;post_cluster.rds&quot;)
+if(where_file == &quot;longleaf&quot;){
+  saveRDS(list(sce=sce,sce_sub=sce_sub,
+    k10_50_pcs=k10_50_pcs,df_tsne=df_tsne),
+    post_cluster_fn)
+} else if(FALSE){
+  rds = readRDS(post_cluster_fn)
+  sce = rds$sce
+  sce_sub = rds$sce_sub
+  k10_50_pcs = rds$k10_50_pcs
+  df_tsne = rds$df_tsne
+  rm(rds)
+}
+</code></pre>
+
+<h3>SC3</h3>
+
+<p>Code used here is based on <a href="https://bioconductor.org/packages/devel/bioc/vignettes/SC3/inst/doc/SC3.html#run-sc3">this link</a>.</p>
+
+<pre><code class="r">library(SC3)
+rowData(sce)$feature_symbol = rowData(sce)$gene
+time1 = date()
+# all_ks = c(2,4)
+all_ks = c(10,15)
+sce = sc3(sce, 
+          # ks = c(2,4),
+          ks = all_ks,biology = TRUE,
+          n_cores = 1,rand_seed = 100,
+          svm_num_cells = 2000)
+</code></pre>
+
+<pre><code>## Setting SC3 parameters...
+</code></pre>
+
+<pre><code>## Your dataset contains more than 2000 cells. Adjusting the nstart parameter of kmeans to 50 for faster performance...
+</code></pre>
+
+<pre><code>## Defining training cells for SVM using svm_num_cells parameter...
+</code></pre>
+
+<pre><code>## Calculating distances between the cells...
+</code></pre>
+
+<pre><code>## Performing transformations and calculating eigenvectors...
+</code></pre>
+
+<pre><code>## Performing k-means clustering...
+</code></pre>
+
+<pre><code>## Calculating consensus matrix...
+</code></pre>
+
+<pre><code>## Calculating biology...
+</code></pre>
+
+<pre><code class="r">warnings()
+time2 = date()
+time1; time2
+</code></pre>
+
+<pre><code>## [1] &quot;Mon Oct  1 02:51:24 2018&quot;
+</code></pre>
+
+<pre><code>## [1] &quot;Mon Oct  1 05:09:16 2018&quot;
+</code></pre>
+
+<pre><code class="r"># Run SVM and predict labels of all other cells
+time3 = date()
+sce = sc3_run_svm(sce, ks = all_ks)
+time4 = date()
+time3; time4
+</code></pre>
+
+<pre><code>## [1] &quot;Mon Oct  1 05:09:16 2018&quot;
+</code></pre>
+
+<pre><code>## [1] &quot;Mon Oct  1 05:51:08 2018&quot;
+</code></pre>
+
+<pre><code class="r"># Save temp image
+post_sc3_fn = file.path(data_dir,&quot;post_sc3.rds&quot;)
+if(where_file == &quot;longleaf&quot;){
+  saveRDS(list(sce=sce,all_ks=all_ks),post_sc3_fn)
+} else if(FALSE){
+  rds = readRDS(post_sc3_fn)
+  sce = rds$sce
+  all_ks = rds$all_ks
+  rm(rds)
+}
+
+# Plotting
+for(one_ks in all_ks){
+  # one_ks = 2
+  print(one_ks)
+  plotPCA(sce,
+      colour_by = paste0(&quot;sc3_&quot;,one_ks,&quot;_clusters&quot;), 
+      size_by = paste0(&quot;sc3_&quot;,one_ks,&quot;_log2_outlier_score&quot;))
+
+  sc3_plot_consensus(sce,k = one_ks,
+      show_pdata = c(&quot;log10_total_features&quot;,
+        paste0(&quot;sc3_&quot;,one_ks,&quot;_clusters&quot;), 
+        paste0(&quot;sc3_&quot;,one_ks,&quot;_log2_outlier_score&quot;)))
+
+  sc3_plot_silhouette(sce, k = one_ks)
+
+  sc3_plot_expression(sce, k = one_ks,
+      show_pdata = c(&quot;log10_total_features&quot;,
+        paste0(&quot;sc3_&quot;,one_ks,&quot;_clusters&quot;), 
+        paste0(&quot;sc3_&quot;,one_ks,&quot;_log2_outlier_score&quot;)))
+
+  sc3_plot_cluster_stability(sce, k = one_ks)
+
+  sc3_plot_de_genes(sce, k = one_ks, 
+    show_pdata = c(&quot;log10_total_features&quot;,
+        paste0(&quot;sc3_&quot;,one_ks,&quot;_clusters&quot;), 
+        paste0(&quot;sc3_&quot;,one_ks,&quot;_log2_outlier_score&quot;)))
+
+  sc3_plot_markers(sce, k = one_ks, 
+    show_pdata = c(&quot;log10_total_features&quot;,
+        paste0(&quot;sc3_&quot;,one_ks,&quot;_clusters&quot;), 
+        paste0(&quot;sc3_&quot;,one_ks,&quot;_log2_outlier_score&quot;)))
+
+}
+</code></pre>
+
+<pre><code>## [1] 10
+</code></pre>
+
+<p><img src="figure/unnamed-chunk-15-1.png" alt="plot of chunk unnamed-chunk-15"><img src="figure/unnamed-chunk-15-2.png" alt="plot of chunk unnamed-chunk-15"></p>
+
+<pre><code>## Error in dataset[names(de_genes), , drop = FALSE]: subscript out of bounds
+</code></pre>
+
+<p><img src="figure/unnamed-chunk-15-3.png" alt="plot of chunk unnamed-chunk-15"></p>
+
+<h1>Session information</h1>
+
+<pre><code class="r">sessionInfo()
+</code></pre>
+
+<pre><code>## R version 3.5.1 (2018-07-02)
+## Platform: x86_64-pc-linux-gnu (64-bit)
+## Running under: Red Hat Enterprise Linux Server 7.5 (Maipo)
+## 
+## Matrix products: default
+## BLAS: /nas/longleaf/home/pllittle/downloads/R-3.5.1/lib64/R/lib/libRblas.so
+## LAPACK: /nas/longleaf/home/pllittle/downloads/R-3.5.1/lib64/R/lib/libRlapack.so
+## 
+## locale:
+##  [1] LC_CTYPE=en_US.UTF-8       LC_NUMERIC=C              
+##  [3] LC_TIME=en_US.UTF-8        LC_COLLATE=en_US.UTF-8    
+##  [5] LC_MONETARY=en_US.UTF-8    LC_MESSAGES=en_US.UTF-8   
+##  [7] LC_PAPER=en_US.UTF-8       LC_NAME=C                 
+##  [9] LC_ADDRESS=C               LC_TELEPHONE=C            
+## [11] LC_MEASUREMENT=en_US.UTF-8 LC_IDENTIFICATION=C       
+## 
+## attached base packages:
+## [1] parallel  stats4    stats     graphics  grDevices utils     datasets 
+## [8] methods   base     
+## 
+## other attached packages:
+##  [1] SC3_1.8.0                   Rtsne_0.13                 
+##  [3] svd_0.4.1                   limma_3.36.3               
+##  [5] scran_1.8.4                 scater_1.8.4               
+##  [7] ggplot2_3.0.0               biomaRt_2.36.1             
+##  [9] DropletUtils_1.0.3          SingleCellExperiment_1.2.0 
+## [11] SummarizedExperiment_1.10.1 DelayedArray_0.6.5         
+## [13] BiocParallel_1.14.2         matrixStats_0.54.0         
+## [15] Biobase_2.40.0              GenomicRanges_1.32.6       
+## [17] GenomeInfoDb_1.16.0         IRanges_2.14.11            
+## [19] S4Vectors_0.18.3            BiocGenerics_0.26.0        
+## [21] BiocInstaller_1.30.0        markdown_0.8               
+## [23] knitr_1.20                 
+## 
+## loaded via a namespace (and not attached):
+##   [1] ggbeeswarm_0.6.0         colorspace_1.3-2        
+##   [3] rjson_0.2.20             class_7.3-14            
+##   [5] dynamicTreeCut_1.63-1    XVector_0.20.0          
+##   [7] DT_0.4                   bit64_0.9-7             
+##   [9] mvtnorm_1.0-8            AnnotationDbi_1.42.1    
+##  [11] codetools_0.2-15         tximport_1.8.0          
+##  [13] doParallel_1.0.11        robustbase_0.93-2       
+##  [15] cluster_2.0.7-1          pheatmap_1.0.10         
+##  [17] shinydashboard_0.7.0     shiny_1.1.0             
+##  [19] rrcov_1.4-4              compiler_3.5.1          
+##  [21] httr_1.3.1               assertthat_0.2.0        
+##  [23] Matrix_1.2-14            lazyeval_0.2.1          
+##  [25] later_0.7.3              htmltools_0.3.6         
+##  [27] prettyunits_1.0.2        tools_3.5.1             
+##  [29] bindrcpp_0.2.2           igraph_1.2.2            
+##  [31] gtable_0.2.0             glue_1.3.0              
+##  [33] GenomeInfoDbData_1.1.0   reshape2_1.4.3          
+##  [35] dplyr_0.7.6              doRNG_1.7.1             
+##  [37] Rcpp_0.12.18             gdata_2.18.0            
+##  [39] iterators_1.0.10         DelayedMatrixStats_1.2.0
+##  [41] stringr_1.3.1            mime_0.5                
+##  [43] irlba_2.3.2              rngtools_1.3.1          
+##  [45] gtools_3.8.1             WriteXLS_4.0.0          
+##  [47] statmod_1.4.30           XML_3.98-1.16           
+##  [49] DEoptimR_1.0-8           edgeR_3.22.3            
+##  [51] zlibbioc_1.26.0          scales_1.0.0            
+##  [53] hms_0.4.2                promises_1.0.1          
+##  [55] rhdf5_2.24.0             RColorBrewer_1.1-2      
+##  [57] memoise_1.1.0            gridExtra_2.3           
+##  [59] pkgmaker_0.27            stringi_1.2.4           
+##  [61] RSQLite_2.1.1            highr_0.7               
+##  [63] pcaPP_1.9-73             foreach_1.4.4           
+##  [65] e1071_1.7-0              caTools_1.17.1.1        
+##  [67] bibtex_0.4.2             rlang_0.2.2             
+##  [69] pkgconfig_2.0.2          bitops_1.0-6            
+##  [71] evaluate_0.11            lattice_0.20-35         
+##  [73] ROCR_1.0-7               purrr_0.2.5             
+##  [75] Rhdf5lib_1.2.1           bindr_0.1.1             
+##  [77] htmlwidgets_1.2          labeling_0.3            
+##  [79] bit_1.1-14               tidyselect_0.2.4        
+##  [81] plyr_1.8.4               magrittr_1.5            
+##  [83] R6_2.2.2                 gplots_3.0.1            
+##  [85] DBI_1.0.0                pillar_1.3.0            
+##  [87] withr_2.1.2              RCurl_1.95-4.11         
+##  [89] tibble_1.4.2             crayon_1.3.4            
+##  [91] KernSmooth_2.23-15       viridis_0.5.1           
+##  [93] progress_1.2.0           locfit_1.5-9.1          
+##  [95] grid_3.5.1               data.table_1.11.4       
+##  [97] blob_1.1.1               FNN_1.1.2.1             
+##  [99] digest_0.6.16            xtable_1.8-3            
+## [101] httpuv_1.4.5             munsell_0.5.0           
+## [103] registry_0.5             beeswarm_0.2.3          
+## [105] viridisLite_0.3.0        vipor_0.4.5
+</code></pre>
+
+<h1>Reference</h1>
+
+</body>
+
+</html>
