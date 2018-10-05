@@ -1,0 +1,425 @@
+
+R version 3.5.0 (2018-04-23) -- "Joy in Playing"
+Copyright (C) 2018 The R Foundation for Statistical Computing
+Platform: x86_64-apple-darwin15.6.0 (64-bit)
+
+R is free software and comes with ABSOLUTELY NO WARRANTY.
+You are welcome to redistribute it under certain conditions.
+Type 'license()' or 'licence()' for distribution details.
+
+  Natural language support but running in an English locale
+
+R is a collaborative project with many contributors.
+Type 'contributors()' for more information and
+'citation()' on how to cite R or R packages in publications.
+
+Type 'demo()' for some demos, 'help()' for on-line help, or
+'help.start()' for an HTML browser interface to help.
+Type 'q()' to quit R.
+
+> 
+> setwd("~/research/scRNAseq/data/GTEx_droncseq_hip_pcf/")
+> 
+> # ------------------------------------------------------------------
+> # here are the cell types 
+> # ------------------------------------------------------------------
+> 
+> # exPFC, glutamatergic neurons from the PFC; 
+> # GABA, GABAergic interneurons; 
+> # exCA1/3, pyramidal neurons from the hip CA region; 
+> # exDG, granule neurons from the hip dentate gyrus region; 
+> # ASC, astrocytes; 
+> # MG, microglia; 
+> # ODC, oligodendrocytes; 
+> # OPC, oligodendrocyte precursor cells; 
+> # NSC, neuronal stem cells; 
+> # SMC, smooth muscle cells; 
+> # END, endothelial cells
+> 
+> # ------------------------------------------------------------------
+> # load clustering results 
+> # ------------------------------------------------------------------
+> 
+> sce = readRDS("sce.rds")
+> clusters = readRDS("all_clust_res.rds")
+> 
+> dim(sce)
+Loading required package: SingleCellExperiment
+Loading required package: SummarizedExperiment
+Loading required package: GenomicRanges
+Loading required package: stats4
+Loading required package: BiocGenerics
+Loading required package: parallel
+
+Attaching package: ‘BiocGenerics’
+
+The following objects are masked from ‘package:parallel’:
+
+    clusterApply, clusterApplyLB, clusterCall, clusterEvalQ,
+    clusterExport, clusterMap, parApply, parCapply, parLapply,
+    parLapplyLB, parRapply, parSapply, parSapplyLB
+
+The following objects are masked from ‘package:stats’:
+
+    IQR, mad, sd, var, xtabs
+
+The following objects are masked from ‘package:base’:
+
+    anyDuplicated, append, as.data.frame, basename, cbind, colMeans,
+    colnames, colSums, dirname, do.call, duplicated, eval, evalq,
+    Filter, Find, get, grep, grepl, intersect, is.unsorted, lapply,
+    lengths, Map, mapply, match, mget, order, paste, pmax, pmax.int,
+    pmin, pmin.int, Position, rank, rbind, Reduce, rowMeans, rownames,
+    rowSums, sapply, setdiff, sort, table, tapply, union, unique,
+    unsplit, which, which.max, which.min
+
+Loading required package: S4Vectors
+
+Attaching package: ‘S4Vectors’
+
+The following object is masked from ‘package:base’:
+
+    expand.grid
+
+Loading required package: IRanges
+Loading required package: GenomeInfoDb
+Loading required package: Biobase
+Welcome to Bioconductor
+
+    Vignettes contain introductory material; view with
+    'browseVignettes()'. To cite Bioconductor, see
+    'citation("Biobase")', and for packages 'citation("pkgname")'.
+
+Loading required package: DelayedArray
+Loading required package: matrixStats
+
+Attaching package: ‘matrixStats’
+
+The following objects are masked from ‘package:Biobase’:
+
+    anyMissing, rowMedians
+
+Loading required package: BiocParallel
+
+Attaching package: ‘DelayedArray’
+
+The following objects are masked from ‘package:matrixStats’:
+
+    colMaxs, colMins, colRanges, rowMaxs, rowMins, rowRanges
+
+The following objects are masked from ‘package:base’:
+
+    aperm, apply
+
+[1] 11281 14948
+Warning messages:
+1: package ‘GenomicRanges’ was built under R version 3.5.1 
+2: package ‘DelayedArray’ was built under R version 3.5.1 
+> dim(colData(sce))
+[1] 14948    59
+> 
+> dim(clusters)
+[1] 14948    15
+> clusters[1:2,]
+           Cell.ID       X1         X2 log10_total_features part_cell_id
+1 hCc_AAAAAGCTACAA 10.45171 -10.518555             2.866287          hCc
+2 hCc_AAACAGGTGAGG 25.89349   1.301999             3.170262          hCc
+  cluster_kmean Cluster.Name nGenes nTranscripts Cluster.ID Cell_Type
+1            10       exPFC1    736         1034          1     exPFC
+2             3        GABA1   1480         2391          5      GABA
+  sc3_12_clusters sc3_10_clusters    tSNE_1    tSNE_2
+1               5               1  2.804881 -1.888592
+2               8               1 16.965708 -6.768078
+> 
+> table(clusters$part_cell_id, clusters$Cell_Type)
+              
+               ASC END exCA1 exCA3 exDG exPFC GABA  MG NSC ODC OPC
+  hCc           48   1     2     3    1   473  166   6   0  22  37
+  hCd           60   8     2     6    1   470  174   6   0  26  26
+  hCe           48   3     6     3    1   447  163   2   0  18  17
+  hCf           50   4     6     4    1   467  167   3   0  26  25
+  hHP1          74  14    40    51   25    29   47  21   0 111  19
+  hHP2          43  11    17    41   19    17   31   8   0  80   5
+  hHP2a         15   2     8    16    5    16   20   4   0  25   2
+  hHP2b         22   3     6    35    8    14   21   4   0  23   1
+  hHP2c         16   3     9    25    3    10    9   3   0   9   1
+  hHP3b          3   0     0    12    1     3   13   0   0   1   2
+  HP2-A        154   6    64    57   95    30   56  13  24 134  29
+  HP2-B        111   5    70    56  118    18   72   6  24 120  19
+  HP3-A        124  26    46    94   47    14   34  63   7 371  77
+  HP3-B        132  29    40   127   41    13   39  63   6 372  68
+  HP3-B-united 158  39    50   149   54    15   49  86   9 451  81
+  humanPFCa     59   4     0     2    0   432  172   5   0  26  32
+  humanPFCb     45   4     1     3    1   393  128   4   0  34  20
+  PFC-CD        70  17     2     7    0   504  179   7   0  47  37
+  PFC2-A1      203  23    12    21  281     9   55  34  35 364  49
+  PFC2-A2      176  22    19    12  245    10   48  22  31 307  52
+  PFC2-A3      220  20    13    11  289    12   48  25  37 327  74
+  PFC2-A5       78  10     8    10  217     5   24   4  28  71  11
+> table(clusters$part_cell_id, clusters$Cluster.ID)
+              
+                 1   2   3   4   5   6   7   8   9  10  11  12  13  14  15  16
+  hCc          466   7   2   3  99  67   1  40   8  13   9  37   6   0   1  20
+  hCd          463   7   2   6 104  70   1  45  15  17   9  26   6   0   8  28
+  hCe          342 105   6   3  84  79   1  40   8  13   5  17   2   0   3  22
+  hCf          354 113   6   4 102  65   1  36  14  18   8  25   3   0   4  24
+  hHP1          17  12  40  51  23  24  25  69   5  43  68  19  21   0  14   0
+  hHP2          11   6  17  41  19  12  19  36   7  37  43   5   8   0  11   1
+  hHP2a         16   0   8  16  13   7   5  12   3  10  15   2   4   0   2   0
+  hHP2b         12   2   6  35   8  13   8  18   4  10  13   1   4   0   3   0
+  hHP2c          8   2   9  25   5   4   3  14   2   6   3   1   3   0   3   1
+  hHP3b          3   0   0  12   7   6   1   2   1   1   0   2   0   0   0   1
+  HP2-A         27   3  64  57  34  22  95  99  55  50  84  29  13  24   6   4
+  HP2-B         13   5  70  56  45  27 118  65  46  50  70  19   6  24   5   4
+  HP3-A         11   3  46  94   6  28  47 112  12 242 129  77  63   7  26   2
+  HP3-B         10   3  40 127  12  27  41 110  22 250 122  68  63   6  29   2
+  HP3-B-united  12   3  50 149  16  33  54 133  25 303 148  81  86   9  39   2
+  humanPFCa    427   5   0   2 104  68   0  53   6  16  10  32   5   0   4  17
+  humanPFCb    389   4   1   3  67  61   1  35  10  20  14  20   4   0   4  24
+  PFC-CD       494  10   2   7 106  73   0  55  15  31  16  37   7   0  17  44
+  PFC2-A1        7   2  12  21  14  41 281  66 137 202 162  49  34  35  23   0
+  PFC2-A2        9   1  19  12  12  36 245  57 119 175 132  52  22  31  22   1
+  PFC2-A3        8   4  13  11   8  40 289  79 141 185 142  74  25  37  20   2
+  PFC2-A5        5   0   8  10   4  20 217  28  50  26  45  11   4  28  10   1
+              
+                17  18
+  hCc            0   1
+  hCd            0   5
+  hCe            0   3
+  hCf            0   2
+  hHP1          32  23
+  hHP2          27  15
+  hHP2a         26   3
+  hHP2b         18   7
+  hHP2c         15   9
+  hHP3b          5   4
+  HP2-A          0  51
+  HP2-B          0  51
+  HP3-A          0 107
+  HP3-B          0  82
+  HP3-B-united   0  89
+  humanPFCa      0   3
+  humanPFCb      0   2
+  PFC-CD         0   4
+  PFC2-A1        0   6
+  PFC2-A2        0   8
+  PFC2-A3        0   7
+  PFC2-A5        0   6
+> 
+> # ------------------------------------------------------------------
+> # I cannot see lable of samples for each cell, based on supp. Fig 7
+> # and the part_cell_id, I assume those part_cell_id that have 
+> # large number of cells from exPFC and GABA are PFC samples, 
+> # as well as those start with PFC
+> # ------------------------------------------------------------------
+> 
+> PFC = c("hCc", "hCd", "hCe", "hCf", "humanPFCa", "humanPFCb")
+> PFC = c(PFC, "PFC-CD", "PFC2-A1", "PFC2-A2", "PFC2-A3", "PFC2-A5")
+> 
+> # ------------------------------------------------------------------
+> # for each cell type, find the largest cluster, except for ODC, use  
+> # the top 2 clusters
+> # ------------------------------------------------------------------
+> 
+> t1 = table(clusters$cluster_kmean, clusters$Cell_Type)
+> t1
+    
+      ASC  END exCA1 exCA3 exDG exPFC GABA   MG  NSC  ODC  OPC
+  1     3    0     0     0    0     6    1    3    0    6  631
+  2     5    0     2     1    0     9    1    6    0 1093    4
+  3     6    0     5     4    0    16 1045    3    0    3    0
+  4     1  237     0     0    0     5    1  279    0    0    0
+  5    27    3    10     4    3    67    3   25    0 1814    6
+  6  1790    3     6     0    1    51    2    8    8    6    3
+  7     3    1    20     4    2     9   47    1    0    1    1
+  8    28    1    71   545   86   378   99   11    1    6   15
+  9     0    0     0     0    0     0    0    0  180    0    0
+  10   35    9    88    94   16  2817  505   39    0   24   20
+  11   11    0   219    93 1345    43   11   14   12   12    4
+  12    0    0     0     0    0     0    0    0    0    0    0
+> clusts = apply(t1, 2, function(v){union(which(v > 1000), which.max(v))})
+> clusts
+$ASC
+[1] 6
+
+$END
+[1] 4
+
+$exCA1
+[1] 11
+
+$exCA3
+[1] 8
+
+$exDG
+[1] 11
+
+$exPFC
+[1] 10
+
+$GABA
+[1] 3
+
+$MG
+[1] 4
+
+$NSC
+[1] 9
+
+$ODC
+[1] 2 5
+
+$OPC
+[1] 1
+
+> 
+> # ------------------------------------------------------------------
+> # align cells of sce object and cells of cluster results
+> # ------------------------------------------------------------------
+> 
+> colData(sce)[1:2,1:3]
+DataFrame with 2 rows and 3 columns
+                  is_cell_control total_features_by_counts
+                        <logical>                <integer>
+hHP1_AACACTATCTAC           FALSE                     2471
+hHP1_CTACGCATCCAT           FALSE                     2841
+                  log10_total_features_by_counts
+                                       <numeric>
+hHP1_AACACTATCTAC               3.39304846641678
+hHP1_CTACGCATCCAT               3.45362407359145
+> rownames(colData(sce))[1:2]
+[1] "hHP1_AACACTATCTAC" "hHP1_CTACGCATCCAT"
+> table(clusters$Cell.ID == rownames(colData(sce)))
+
+FALSE 
+14948 
+> setequal(clusters$Cell.ID, rownames(colData(sce)))
+[1] TRUE
+> 
+> mat1 = match(rownames(colData(sce)), clusters$Cell.ID)
+> clusters = clusters[mat1,]
+> table(clusters$Cell.ID == rownames(colData(sce)))
+
+ TRUE 
+14948 
+> 
+> # ------------------------------------------------------------------
+> # collect counts for each cell type
+> # ------------------------------------------------------------------
+> 
+> celltypes = na.omit(unique(clusters$Cell_Type))
+> celltypes
+ [1] "exCA3" "exCA1" "exPFC" "ASC"   "GABA"  "ODC"   "exDG"  "END"   "MG"   
+[10] "OPC"   "NSC"  
+attr(,"na.action")
+[1] 4
+attr(,"class")
+[1] "omit"
+> 
+> zeros  = rep(0,length(celltypes))
+> nCells = data.frame(Cell_Type=celltypes, nCells_All=zeros, nCells_PFC=zeros)
+> 
+> ct.matrx = ct.matrx.PFC = matrix(NA, nrow=nrow(sce), ncol=length(celltypes))
+> colnames(ct.matrx) = colnames(ct.matrx.PFC) = celltypes
+> rownames(ct.matrx) = rownames(ct.matrx.PFC) = rowData(sce)$external_gene_name
+> 
+> geneInfo = rowData(sce)
+> 
+> for(ct1 in celltypes){
++   ct.cond    = clusters$Cell_Type == ct1
++   clust.cond = clusters$cluster_kmean %in% clusts[[ct1]]
++   samp.cond  = clusters$part_cell_id %in% PFC
++   
++   cells      = which(ct.cond & clust.cond)
++   cells.PFC  = which(ct.cond & clust.cond & samp.cond)
++   
++   nCells[which(nCells$Cell_Type==ct1),2] = length(cells)
++   nCells[which(nCells$Cell_Type==ct1),3] = length(cells.PFC)
++   
++   ct.matrx[,ct1]  = rowSums(counts(sce)[,cells])
++   ct.matrx.PFC[,ct1]  = rowSums(counts(sce)[,cells.PFC])
++ }
+> 
+> dim(ct.matrx)
+[1] 11281    11
+> ct.matrx[1:2,1:3]
+            exCA3 exCA1 exPFC
+ABHD3           4     2    61
+AC004893.11    11     1    45
+> 
+> dim(ct.matrx.PFC)
+[1] 11281    11
+> ct.matrx.PFC[1:2,1:3]
+            exCA3 exCA1 exPFC
+ABHD3           0     0    61
+AC004893.11     0     0    45
+> 
+> summary(ct.matrx)
+     exCA3               exCA1              exPFC               ASC           
+ Min.   :     0.00   Min.   :    0.00   Min.   :     0.0   Min.   :     0.00  
+ 1st Qu.:    11.00   1st Qu.:    6.00   1st Qu.:    75.0   1st Qu.:    17.00  
+ Median :    23.00   Median :   14.00   Median :   149.0   Median :    36.00  
+ Mean   :    58.04   Mean   :   29.42   Mean   :   311.4   Mean   :    87.28  
+ 3rd Qu.:    47.00   3rd Qu.:   28.00   3rd Qu.:   297.0   3rd Qu.:    72.00  
+ Max.   :107661.00   Max.   :38989.00   Max.   :379194.0   Max.   :172760.00  
+      GABA                ODC                exDG               END          
+ Min.   :     0.00   Min.   :     0.0   Min.   :     0.0   Min.   :    0.00  
+ 1st Qu.:    24.00   1st Qu.:    18.0   1st Qu.:    28.0   1st Qu.:    3.00  
+ Median :    49.00   Median :    44.0   Median :    60.0   Median :    9.00  
+ Mean   :    97.92   Mean   :   117.2   Mean   :   132.4   Mean   :   21.68  
+ 3rd Qu.:    96.00   3rd Qu.:    96.0   3rd Qu.:   123.0   3rd Qu.:   20.00  
+ Max.   :113834.00   Max.   :172468.0   Max.   :193730.0   Max.   :16765.00  
+       MG                 OPC                NSC          
+ Min.   :    0.000   Min.   :    0.00   Min.   :    0.00  
+ 1st Qu.:    1.000   1st Qu.:    5.00   1st Qu.:    3.00  
+ Median :    3.000   Median :   11.00   Median :    8.00  
+ Mean   :    9.467   Mean   :   22.37   Mean   :   19.04  
+ 3rd Qu.:    9.000   3rd Qu.:   22.00   3rd Qu.:   18.00  
+ Max.   :14887.000   Max.   :19781.00   Max.   :20005.00  
+> summary(ct.matrx.PFC)
+     exCA3             exCA1              exPFC             ASC           
+ Min.   :   0.00   Min.   :   0.000   Min.   :     0   Min.   :     0.00  
+ 1st Qu.:   0.00   1st Qu.:   0.000   1st Qu.:    74   1st Qu.:    10.00  
+ Median :   2.00   Median :   2.000   Median :   149   Median :    21.00  
+ Mean   :   4.48   Mean   :   3.669   Mean   :   310   Mean   :    51.21  
+ 3rd Qu.:   4.00   3rd Qu.:   4.000   3rd Qu.:   296   3rd Qu.:    42.00  
+ Max.   :8627.00   Max.   :4765.000   Max.   :377151   Max.   :104845.00  
+      GABA               ODC               exDG               END          
+ Min.   :    0.00   Min.   :    0.0   Min.   :     0.0   Min.   :   0.000  
+ 1st Qu.:   19.00   1st Qu.:    7.0   1st Qu.:    22.0   1st Qu.:   1.000  
+ Median :   38.00   Median :   19.0   Median :    48.0   Median :   4.000  
+ Mean   :   76.01   Mean   :   52.9   Mean   :   106.4   Mean   :   9.546  
+ 3rd Qu.:   75.00   3rd Qu.:   42.0   3rd Qu.:    99.0   3rd Qu.:   9.000  
+ Max.   :86303.00   Max.   :95312.0   Max.   :160520.0   Max.   :9467.000  
+       MG               OPC                NSC          
+ Min.   :   0.00   Min.   :    0.00   Min.   :    0.00  
+ 1st Qu.:   0.00   1st Qu.:    2.00   1st Qu.:    2.00  
+ Median :   1.00   Median :    6.00   Median :    6.00  
+ Mean   :   3.32   Mean   :   12.75   Mean   :   14.87  
+ 3rd Qu.:   3.00   3rd Qu.:   12.00   3rd Qu.:   14.00  
+ Max.   :6673.00   Max.   :13660.00   Max.   :15389.00  
+> 
+> dim(nCells)
+[1] 11  3
+> nCells
+   Cell_Type nCells_All nCells_PFC
+1      exCA3        545         43
+2      exCA1        219         27
+3      exPFC       2817       2794
+4        ASC       1790        974
+5       GABA       1045        813
+6        ODC       2907       1232
+7       exDG       1345        971
+8        END        237        103
+9         MG        279         85
+10       OPC        631        341
+11       NSC        180        127
+> 
+> ct.matrx = list(all=ct.matrx, PFC=ct.matrx.PFC)
+> saveRDS(ct.matrx, "ct_matrix.rds")
+> saveRDS(nCells, "ct_cells.rds")
+> 
+> q(save="no")
+> proc.time()
+   user  system elapsed 
+ 32.739  16.466  49.393 
