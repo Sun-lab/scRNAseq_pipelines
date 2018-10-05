@@ -1,0 +1,737 @@
+---
+title: "A workflow for single cell RNA-seq data analysis"
+author: "Wei Sun"
+date: "`r Sys.Date()`"
+bibliography: [scRNAseq_ref.bib]
+biblio-style: apalike
+output: 
+  html_document:
+    theme: journal
+    highlight: tango
+    toc: true
+    toc_depth: 3
+    toc_float:
+      collapsed: true
+      smooth_scroll: false
+    number_sections: true
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Introduction
+
+## Example datasets and single cell RNA-seq techniques
+This document aims to provide a workflow for processing and QC of single cell RNA-seq data. Because this is a relatively new area with many on-going development of new methods/appraoches. This document will be updated to reflect such new developmets. There are many other important topics for scRNA-seq analysis, such as imputatoin or clustring. We will provide separate workflows for those topics. One publicly available datasets will be used for this workflow. 
+
+PBMC.68k: around 68k peripheral blood mononuclear cells (PBMCs) from one donor (donor A) [@zheng2017massively].
+
+<!-- 2. PBMC.9ct: 4,500 PBMCs of nine immune cell types, with 500 cells of each cell type [@zheng2017massively].  -->
+
+<!-- 3. Tirosh2016: 4,645 single cells from 19 melanoma patients. These cells include tumor, immune, stromal, and endothelia cells. [@tirosh2016dissecting]. -->
+
+Multiple techniques are available to generate scRNA-seq data. For example, @ziegenhain2017comparative have compared 6 popular techniques (see Figure 2 and Table S1 of their paper for more details):
+
+- CEL-seq2/C1
+- Drop-seq
+- MARS-seq
+- SCRB-seq 
+- Smart-seq/C1
+- Smart-seq2
+
+Among the many differences of these techniques, the most important ones are: 
+
+- the trade-off between using unique molecular identifiers (UMIs) versus sequecing full lenght RNA, and 
+- the trade-off between capturing more cells or more genes per cell. 
+
+An UMI is a randomly generated barcode (4-10bp) to label each transcript molecule before amplification. Therefore, by counting UMIs instead of actual reads, one can remove most noise and bias due to amplification. However, UMI is only available for techniques that sequence 5' or 3' ends of the transcript molecule, and thus cannot sequence full length RNA. Among the aformentioned techniques, Smart-seq/C1 and Smart-seq2 sequence full length RNA, hence cannot use UMI. 
+
+Drop-seq (e.g., prducts from 10x Genomics) can capture much more cells than other techiniques, but has low depth within each cell. In other words, compared with otehr techniques, Drop-seq captures more cells and samller number of genes witin each cell. 
+
+<!-- The first two datsets (PBMC.68k and PBMC.9ct) that we will use were generated from 10x genomics (Drop-seq). The third one (Tirosh2016) employed Smart-seq2.  -->
+
+## An overview of workflow
+
+The analysis of scRNA-seq data may be divided into two steps. The first step is to generate a count matrix for all the genes and all the cells of one individual (the left panel of the following flowchart). For example, a matrix where each row corresponds to a gene and each column corresponds to a cell. The first step also invovles generation of fastq files and map the reads in the fastq file and obtain a bam file, as well as QC on fastq files, bam files, and the read count data matrix.  
+
+The second step is data analysis based on this count matrix, typicially include imputation, clustering, and differential expression (the right panel of the following flowchart). These data analysis steps are very active reasearch topics and many computational methods are avaialble. In the followign figure, we list a few popular methods for each step. 
+
+```{r, out.width='80%', fig.align='center', fig.cap='A flow chart of the workflow for analyzing scRNA-seq data.', echo=FALSE}
+knitr::include_graphics('figures/workflow.png')
+```
+
+# Generate read count matrix
+
+## Use Cell Ranger to process scRNA data from 10x Genomics
+Cell Ranger are a set of pipelines to process and analzye 10x Genomics's scRNA-seq data. It was developed and maintained by 10x Genomics. Here we provide some example code for data analysis and more details can be found in the support webpage by 10x Genomics. 
+https://support.10xgenomics.com/single-cell-gene-expression/software/pipelines/latest/what-is-cell-ranger
+
+### Generate fastq files
+
+The raw outputs of a study is often saved in one folder (e.g., ```180605_D00300_0562_BCCKLNANXX```), and they include several files and folders like the following. 
+
+```
+-rw-r--r--	392069	180605_D00300_0562_BCCKLNANXX.jpg
+drwxr-xr-x	0	BarcodeImages/
+-rw-r--r--	46	Basecalling_Netcopy_complete_Read1.txt
+-rw-r--r--	46	Basecalling_Netcopy_complete_Read2.txt
+-rw-r--r--	46	Basecalling_Netcopy_complete_Read3.txt
+-rw-r--r--	46	Basecalling_Netcopy_complete.txt
+drwxr-xr-x	181	Config/
+drwxr-xr-x	85	Data/
+-rw-r--r--	3458	First_Base_Report.htm
+-rw-r--r--	46	ImageAnalysis_Netcopy_complete_Read1.txt
+-rw-r--r--	46	ImageAnalysis_Netcopy_complete_Read2.txt
+-rw-r--r--	46	ImageAnalysis_Netcopy_complete_Read3.txt
+-rw-r--r--	46	ImageAnalysis_Netcopy_complete.txt
+drwxr-xr-x	268	InterOp/
+drwxr-xr-x	9477	Logs/
+drwxr-xr-x	41	PeriodicSaveRates/
+drwxr-xr-x	71	Recipe/
+-rw-r--r--	46	RTAComplete.txt
+-rw-r--r--	826	RunInfo.xml
+-rw-r--r--	5838	runParameters.xml
+```
+
+The raw data are saved in foldrer ```Data``` in the format of Illumina sequencer's base call files (BCLs). We need to use cellranger ```mkfastq``` command to generate fastq files:
+
+```
+#!/bin/bash
+
+ml boost/1.55.0
+ml bcl2fastq
+path_input='/jane_doe/illumina/180605_D00300_0562_BCCKLNANXX'
+path_output='/jane_doe/study_x/ABC'
+
+path_to_cellranger/cellranger mkfastq \
+  --run="$path_to_input" \
+  --csv=path_to_csv/cellranger_sample_index.csv \
+  --output-dir="$path_output" \
+  --localcores=6 \
+  --localmem=300
+```
+
+The above code was run on a linux cluster with bash shell. The command ```ml``` is a shortcut for ```module load```. The modules of ```boost``` and Illumina's ```bcl2fastq``` are needed to run ```mkfastq```. 
+
+The file ```cellranger_sample_index.csv``` gives the mapping between sample name (```Sample```) and sample index for library construction (```Index```) . The column ```Lane```  specifies the lane(s) of the flowcell where one sample has used. It can be a number (e.g., 1), a range (e.g., 2-4) or '*' for all lanes in the flowcell. Here is an example of the file ```cellranger_sample_index.csv```: 
+```
+Lane,Sample,Index
+*,ABC_baseline1,SI-GA-D2
+*,ABC_baseline2,SI-GA-E2
+...
+```
+```localcores``` and ```localmem``` set the maximum number of cores and maximum memory (GB) for the pipeline. 
+
+
+### Mapping RNA-seq reads and generate read counts
+
+Next we use cell ranger ```count``` command to map the RNA-seq reads to reference genome (human hg38 in this example) and count the number of RNA-seq fragments per gene per cell. 
+
+```
+#!/bin/bash
+                   
+path_to_cellranger/cellranger count \
+  --id=ABC_baseline1 \
+  --sample=ABC_baseline1 \
+  --transcriptome=path_to_reference_genome/refdata-cellranger-GRCh38-1.2.0 \
+  --fastqs=/jane_doe/study_x/ABC \
+  --localcores=6 \
+  --localmem=300
+```
+
+where
+
+* ```id``` is a unique ID to be used to name the output. 
+* ```sample``` should match to one sample name in the file ```cellranger_sample_index.csv```.
+* ```transcriptome``` is the location where the reference genome data was saved. This reference genome was downloaded from https://support.10xgenomics.com/single-cell-gene-expression/software/downloads/latest. 
+* ```fastqs``` specifies the location where fastq files were saved, here it matches with the  ```output-dir``` of ```mkfastq``` command. 
+
+## Alternative pipeline
+Without using Cell Ranger, one can obtain the read counts in three steps. 
+
+1. Use bcl2fastq to obtain the fastq files. Then map RNA-seq reads using 
+
+2. Map RNA-seq reads to reference genome using alignment software such as STAR or tophat, or pseudo-alignment methods (e.g. Kallisto, Salmon) for well annotated transcriptomes, such as human or mouse. 
+
+3. Count the number of reads per gene per sample, for example, by softare HT-seq or R function ```summarizeOverlaps```, as shown in the following codes. 
+
+```{r, eval=FALSE}
+library("GenomicFeatures")
+library("GenomicAlignments")
+
+path = "ftp://ftp.sanger.ac.uk/pub/gencode/Gencode_human/release_27/"
+file = "gencode.v27.annotation.gtf.gz"
+gtfFile = paste(path, file, sep="")
+
+txdb = makeTxDbFromGFF(file=gtfFile, format="gtf",  organism="Homo sapiens")
+saveDb(txdb, file="Homo_sapiens_gencode_v27.sqlite")
+
+txdb  = loadDb("Homo_sapiens_gencode_v27.sqlite")
+genes = exonsBy(txdb, by="gene")
+
+filenames = list.files(pattern=".bam$")
+bamfiles  = BamFileList(filenames, yieldSize=1000000)
+
+se = summarizeOverlaps(features=genes, reads=bamfiles, mode="Union",
+             singleEnd=FALSE, ignore.strand=FALSE, fragments=TRUE )
+
+as1 = assay(se)
+
+write.table(as1, file = "gene_level_counts.txt", append = FALSE,
+  quote = FALSE, sep = "\t", eol = "\n", row.names = TRUE,
+  col.names = TRUE)
+```
+
+The quality control for fastq or bam files can be performed using pipelines developed for bulk RNAseq data, such as FastQC for fastq files and RSeQC for bam files. 
+
+
+# Quality control and normalization for count matrix
+
+A few libraries are needed in the followign code. The main QC anlaysis is carried out by ```scater```. 
+
+```{r echo = TRUE, results = 'hide', warning = FALSE, message = FALSE}
+library(DropletUtils)
+library(biomaRt)
+library(dplyr)
+library(scater)
+```
+
+## Zheng et al. (2017) 68k PBMC data
+
+### Data preparation
+
+This dataset was generated using 10x Genomics platform [@zheng2017massively] The read count data were downloaded from the link of "Gene / cell matrix (raw)" from  https://support.10xgenomics.com/single-cell-gene-expression/datasets/1.1.0/fresh_68k_pbmc_donor_a. 
+
+The downloaded zip file were unzipped, renamed as ```raw_gene_bc_matrices```, and saved in folder ```~/research/scRNAseq/data/Zheng_2016/donorA_hg19/outs/```. In addition, we also downloaded the "Summary CSV" file, renamed it as ```metrics_summary.csv```, and saved in the same folder. Renaming and orgnizing the folder strucrture is to recontrcut the file struture of cell ranger output.  
+
+```
+└── outs
+    ├── metrics_summary.csv
+    └── raw_gene_bc_matrices
+        └── hg19
+            ├── barcodes.tsv
+            ├── genes.tsv
+            └── matrix.mtx
+```
+The count matrix was saved as three files, where ```barcodes.tsv``` saves barcode information, ```genes.tsv``` saves gene information, and ```matrix.mtx``` saves the count data in MatrixMarket format. 
+
+This dataset can be loaded into R by function ```load_cellranger_matrix``` from R package ```cellrangerRkit```, which requires the file ```metrics_summary.csv```. Here we load them using function ```read10xCounts``` from R package ```DropletUtils```, and obtain gene anntation using R package ```biomaRt```.
+
+```{r cache=TRUE}
+
+path1 = "~/research/scRNAseq/data/Zheng_2016/donorA_hg19/"
+path2 = paste0(path1, "outs/raw_gene_bc_matrices/hg19/")
+sce   = read10xCounts(path2, col.names=TRUE)
+sce
+
+anno.file = "~/research/scRNAseq/workflow/data/gene.annoation.rds"
+if(file.exists(anno.file)){
+  gene.annotation = readRDS(anno.file)
+}else{
+  ensembl = useMart("ensembl",dataset="hsapiens_gene_ensembl")
+  
+  attr.string = c('ensembl_gene_id', 'hgnc_symbol', 'chromosome_name')
+  attr.string = c(attr.string, 'start_position', 'end_position', 'strand')
+  attr.string = c(attr.string, 'description', 'percentage_gene_gc_content')
+  attr.string = c(attr.string, 'gene_biotype')
+  
+  rowData(sce)[1:2,]
+  gene.annotation = getBM(attributes=attr.string, 
+                          filters =  'ensembl_gene_id', 
+                          values = rowData(sce)$ID, 
+                          mart = ensembl)
+}
+
+dim(gene.annotation)
+gene.annotation[1:2,]
+
+t1 = table(gene.annotation$ensembl_gene_id)
+t2 = t1[t1 > 1]
+t2 
+
+gene.annotation[which(gene.annotation$ensembl_gene_id %in% names(t2)),]
+gene.annotation = distinct(gene.annotation, ensembl_gene_id, 
+                           .keep_all = TRUE)
+
+dim(gene.annotation)
+gene.annotation[1:2,]
+
+table(gene.annotation$chromosome_name)
+table(gene.annotation$gene_biotype)
+
+## some genes do not have annotation because their ids are retired
+gene.missing = setdiff(rowData(sce)$ID, gene.annotation$ensembl_gene_id)
+length(gene.missing)
+gene.missing[1:6]
+
+w2kp = match(gene.annotation$ensembl_gene_id, rowData(sce)$ID)
+sce  = sce[w2kp,]
+dim(sce)
+table(gene.annotation$ensembl_gene_id == rowData(sce)$ID)
+rowData(sce)  = gene.annotation
+rownames(sce) = uniquifyFeatureNames(rowData(sce)$ensembl_gene_id, 
+                                     rowData(sce)$hgnc_symbol)
+```
+
+### Identify low quallity cells
+
+An important QC step for scRNA-seq data analysis is to identify low quality or empty cells. For 10x Genomics data, The ```emptyDrops``` function in R package ```DropletUtils``` can be used detect empty cells, given the count matrix of **all** barcodes. That is why we loaded the raw data matrix intead of filtered data matrix. 
+
+```{r warning = FALSE, message = FALSE}
+bcrank = barcodeRanks(counts(sce))
+
+# Only showing unique points for plotting speed.
+uniq = !duplicated(bcrank$rank)
+
+par(mar=c(5,4,2,1), bty="n")
+plot(bcrank$rank[uniq], bcrank$total[uniq], log="xy", 
+     xlab="Rank", ylab="Total UMI count", cex=0.5, cex.lab=1.2)
+
+abline(h=bcrank$inflection, col="darkgreen", lty=2)
+abline(h=bcrank$knee, col="dodgerblue", lty=2)
+
+legend("left", legend=c("Inflection", "Knee"), bty="n", 
+       col=c("darkgreen", "dodgerblue"), lty=2, cex=1.2)
+
+bcrank$inflection
+bcrank$knee
+
+summary(bcrank$total)
+table(bcrank$total >= bcrank$knee)
+table(bcrank$total >= bcrank$inflection)
+
+set.seed(100)
+e.out = emptyDrops(counts(sce))
+e.out
+is.cell = (e.out$FDR <= 0.01)
+```
+
+```{r fig.asp = .5}
+par(mar=c(5,4,1,1), mfrow=c(1,2), bty="n")
+plot(e.out$Total, -e.out$LogProb, col=ifelse(is.cell, "red", "black"),
+    xlab="Total UMI count", ylab="-Log Probability", cex=0.2)
+abline(v = bcrank$inflection, col="darkgreen")
+abline(v = bcrank$knee, col="dodgerblue")
+legend("bottomright", legend=c("Inflection", "Knee"), bty="n", 
+       col=c("darkgreen", "dodgerblue"), lty=1, cex=1.2)
+
+plot(e.out$Total, -e.out$LogProb, col=ifelse(is.cell, "red", "black"),
+    xlab="Total UMI count", ylab="-Log Probability", cex=0.2, xlim=c(0,2000), ylim=c(0,2000))
+abline(v = bcrank$inflection, col="darkgreen")
+abline(v = bcrank$knee, col="dodgerblue")
+```
+
+From the above anlaysis, some cells with very small number of UMI's may also have small FDR suggesting the distribution of UMI counts are different from what is expected from ambient profile. We choose a more conservative strategy, to keep the cells with total number of UMI larger than the inflection point estimate (bcrank\$inflection=```bcrank$inflection```) and FDR < 0.01. 
+
+```{r}
+table(colnames(sce) == rownames(e.out))
+table(e.out$FDR <= 0.01, useNA="ifany")
+table(is.cell, e.out$Total >= bcrank$inflection)
+w2kp = which(is.cell & e.out$Total >= bcrank$inflection)
+sce = sce[,w2kp]
+dim(sce)
+```
+
+Now we have reduced the ~6 million barcodes to around 60,000 (potential) cells. Note that @zheng2017massively use a cutoff of total number of UMI $\geq$ 396 and obtain around 78,000 cells. 
+
+Next step we apply more QC based on a set of features per cell.
+
+```{r warning = FALSE, message = FALSE, fig.asp = 1}
+library(data.table)
+ribo.file = "~/research/scRNAseq/workflow/data/ribosome_genes.txt"
+ribo = fread(ribo.file)
+dim(ribo)
+ribo[1:2,]
+
+is.mito = which(rowData(sce)$chromosome_name == "MT")
+is.ribo = which(rowData(sce)$hgnc_symbol %in% ribo$`Approved Symbol`)
+length(is.mito)
+length(is.ribo)
+
+sce = calculateQCMetrics(sce, feature_controls=list(Mt=is.mito, Ri=is.ribo))
+colnames(colData(sce))
+
+par(mfrow=c(2,2), mar=c(5, 4, 1, 1), bty="n")
+hist(log10(sce$total_counts), xlab="log10(Library sizes)", main="", 
+    breaks=20, col="grey80", ylab="Number of cells")
+
+hist(log10(sce$total_features), xlab="log10(# of expressed genes)", 
+     main="", breaks=20, col="grey80", ylab="Number of cells")
+
+hist(sce$pct_counts_Ri, xlab="Ribosome prop. (%)",
+    ylab="Number of cells", breaks=40, main="", col="grey80")
+
+hist(sce$pct_counts_Mt, xlab="Mitochondrial prop. (%)", 
+    ylab="Number of cells", breaks=80, main="", col="grey80")
+
+par(mfrow=c(2,2), mar=c(5, 4, 1, 1), bty="n")
+smoothScatter(log10(sce$total_counts), log10(sce$total_features), 
+     xlab="log10(Library sizes)", ylab="log10(# of expressed genes)", 
+     nrpoints=500, cex=0.5)
+smoothScatter(log10(sce$total_counts), sce$pct_counts_Ri, 
+     xlab="log10(Library sizes)", ylab="Ribosome prop. (%)",
+     nrpoints=500, cex=0.5)
+abline(h=10,  lty=1)
+
+smoothScatter(log10(sce$total_counts), sce$pct_counts_Mt, 
+     xlab="log10(Library sizes)", ylab="Mitochondrial prop. (%)",
+     nrpoints=500, cex=0.5)
+abline(h=5,  lty=1)
+
+smoothScatter(sce$pct_counts_Ri, sce$pct_counts_Mt, 
+     xlab="Ribosome prop. (%)", ylab="Mitochondrial prop. (%)",
+     nrpoints=500, cex=0.5)
+abline(h=5,  lty=1)
+abline(v=10, lty=1)
+```
+
+It is not clear why some cells have very low proportion of ribosome genes. To be a little bit conservative, we remove those genes with low proportion of ribosomeal genes ($<10\%$) or high proportion of Mitochondrial genes ($>5\%$). 
+
+```{r}
+table(sce$pct_counts_Mt > 5, sce$pct_counts_Ri < 10)
+sce.lq = sce[,which(sce$pct_counts_Mt > 5 | sce$pct_counts_Ri < 10)]
+dim(sce.lq)
+
+sce = sce[,which(sce$pct_counts_Mt <= 5 | sce$pct_counts_Ri >= 10)]
+dim(sce)
+```
+
+### Summarize gene-level information
+```{r warning = FALSE, message = FALSE, fig.asp = 0.33}
+
+rowData(sce)[1:2,]
+min(rowData(sce)$mean_counts)
+min(rowData(sce)$mean_counts[rowData(sce)$mean_counts>0])
+min(rowData(sce)$n_cells_counts)
+
+par(mfrow=c(1,3), mar=c(5,4,1,1))
+hist(log10(rowData(sce)$mean_counts+1e-6), col="grey80",  main="", 
+     breaks=40, xlab="log10(ave # of UMI + 1e-6)")
+hist(log10(rowData(sce)$n_cells_counts+1), col="grey80", main="", 
+     breaks=40, xlab="log10(# of expressed cells + 1)")
+smoothScatter(log10(rowData(sce)$mean_counts+1e-6), 
+              log10(rowData(sce)$n_cells_counts + 1), 
+              xlab="log10(ave # of UMI + 1e-6)", 
+              ylab="log10(# of expressed cells + 1)")
+
+tb1 = table(rowData(sce)$n_cells_counts)
+tb1[1:11]
+
+```
+
+We remove those genes that are expressed in zero or only one cell. The variable _strand_ need to be renamed, otherwise there is an error message that such a variabel name cannot be used. 
+
+```{r}
+names(rowData(sce))[6] = "strand_n"
+sce = sce[which(rowData(sce)$n_cells_counts > 1),]
+dim(sce)
+```
+
+Next we check those highly expressed genes 
+```{r}
+par(mar=c(5,4,1,1))
+od1 = order(rowData(sce)$mean_counts, decreasing = TRUE)
+barplot(rowData(sce)$mean_counts[od1[20:1]], las=1, 
+        names.arg=rowData(sce)$hgnc_symbol[od1[20:1]], 
+        horiz=TRUE, cex.names=0.5, cex.axis=0.7, 
+        xlab="ave # of UMI")
+
+```
+
+### Normalization
+A simple solution for normalization and stablizing expression varaince across genes is to tranform the count data by log(count/size.factor + 1). One may calcualte size.factor per cell as the total number of UMIs, and this assumes the total expression are the same across all the cells. However, the total expression of each cell may vary with respect to cell type and/or cell size, and the ```computeSumFactors``` function in R package scran provides a more  sophisicated way to calcualte size.factor to allow such variaation across cells [@lun2016pooling]. ```computeSumFactors``` can use initial clustering of cells to normalize expression within and beetween clusters.  Within a cluster, it estimates the size factor for many groups of cells so that there are more groups than cells, and then it can calcualte the size factor per cell using a lienar deconvolution system. 
+
+As shown in the following plot, the final size factor estimation is indeed highly correlated with the naive definition by total count. 
+
+Finally, the command ```normalize(sce)``` adds the normalized expression into the variable ```sce```.
+```{r warning = FALSE, message = FALSE, fig.asp = 0.5}
+
+library(scran)
+date()
+clusters = quickCluster(sce, min.mean=0.1, method="igraph")
+date()
+sce      = computeSumFactors(sce, cluster=clusters, min.mean=0.1)
+date()
+summary(sizeFactors(sce))
+
+par(mfrow=c(1,2), mar=c(5,4,2,1), bty="n")
+smoothScatter(sce$total_counts, sizeFactors(sce), log="xy", 
+              xlab="total counts", ylab="size factors")
+plot(sce$total_counts, sizeFactors(sce), log="xy", 
+     xlab="total counts", ylab="size factors", 
+     cex=0.3, pch=20, col=rgb(0.1,0.2,0.7,0.3))
+
+sce = normalize(sce)
+```
+
+## Dimension reduction
+
+For dimension reduction, such as calculating PCA or performing TSNE, we should start by identifying a subset of genes with high level of biological signal relative to background (technical) noise. The ```decomposeVar``` function from R/cran is designed for this task. 
+```{r warning = FALSE, message = FALSE, fig.asp = 1}
+
+new.trend = makeTechTrend(x=sce)
+fit = trendVar(sce, use.spikes=FALSE, loess.args=list(span=0.05))
+
+par(mfrow=c(1,1), mar=c(5,4,2,1), bty="n")
+plot(fit$mean, fit$var, pch=20, col=rgb(0.1,0.2,0.7,0.6), 
+     xlab="log(mean)", ylab="var")
+curve(fit$trend(x), col="orange", lwd=2, add=TRUE)
+curve(new.trend(x), col="red", lwd=2, add=TRUE)
+legend("topright", legend=c("Poisson noise", "observed trend"), 
+       lty=1, lwd=2, col=c("red", "orange"), bty="n")
+
+fit$trend = new.trend
+dec = decomposeVar(fit=fit)
+top.dec = dec[order(dec$bio, decreasing=TRUE),]
+plotExpression(sce, features=rownames(top.dec)[1:10])
+```
+
+When performing PCA, we can use all the genes or just those genes with high signal-to-noise ratio. TSNE analysis is usually based on the top PCs rather than the original gene expression data. We first perform PCA using all the genes and the function ```denoisePCA``` can automatically select the PCs based on modeling of technical noise. 
+
+```{r warning = FALSE, message = FALSE, fig.asp = 0.8}
+date()
+sce = denoisePCA(sce, technical=new.trend, approx=TRUE)
+date()
+dim(reducedDim(sce, "PCA"))
+
+plot(log10(attr(reducedDim(sce), "percentVar")), xlab="PC",
+     ylab="log10(Prop of variance explained)", pch=20, cex=0.6, 
+     col=rgb(0.8, 0.2, 0.2, 0.5))
+abline(v=ncol(reducedDim(sce, "PCA")), lty=2, col="red")
+
+
+df_pcs = data.frame(reducedDim(sce, "PCA"))
+df_pcs$log10_total_features = colData(sce)$log10_total_features
+
+gp1 = ggplot(df_pcs, aes(PC1,PC2,col=log10_total_features)) + 
+  geom_point(size=0.2,alpha=0.6) + theme_classic() + 
+  scale_colour_gradient(low="lightblue",high="red") +
+  guides(color = guide_legend(override.aes = list(size=3)))
+gp1
+
+date()
+sce = runTSNE(sce, use_dimred="PCA", perplexity=30, rand_seed=100)
+date()
+
+df_tsne = data.frame(reducedDim(sce, "TSNE"))
+df_tsne$log10_total_features = colData(sce)$log10_total_features
+
+gp1 = ggplot(df_tsne, aes(X1,X2,col=log10_total_features)) + 
+  geom_point(size=0.2,alpha=0.6) + theme_classic() + 
+  scale_colour_gradient(low="lightblue",high="red") +
+  guides(color = guide_legend(override.aes = list(size=3)))
+gp1
+```
+
+Next we only select around top 1000 genes for the PCA and use the top 50 PCs for TSNE projection. 
+
+```{r warning = FALSE, message = FALSE, fig.asp = 0.8}
+
+
+library(svd)
+library(Rtsne)
+
+summary(dec$bio)
+dec1 = dec
+dec1$bio[which(dec$bio < 1e-8)] = 1e-8
+dec1$FDR[which(dec$FDR < 1e-100)] = 1e-100
+
+par(mfrow=c(1,2))
+hist(log10(dec1$bio), breaks=100, main="")
+hist(log10(dec1$FDR), breaks=100, main="")
+
+summary(dec$FDR[dec$bio > 0.001])
+table(dec$FDR < 1e-10, dec$bio > 0.01)
+
+w2kp = which(dec$FDR < 1e-10 & dec$bio > 0.01)
+sce_sub = sce[w2kp,]
+sce_sub
+
+edat = t(as.matrix(logcounts(sce_sub)))
+edat = scale(edat)
+dim(edat)
+edat[1:2,1:3]
+
+date()
+ppk  = propack.svd(edat,neig=50)
+date()
+pca = t(ppk$d*t(ppk$u))
+
+df_pcs = data.frame(pca)
+df_pcs$log10_total_features = colData(sce_sub)$log10_total_features
+df_pcs[1:2,]
+
+gp1 = ggplot(df_pcs, aes(X1,X2,col=log10_total_features)) + 
+  geom_point(size=0.2,alpha=0.6) + theme_classic() + 
+  scale_colour_gradient(low="lightblue",high="red") +
+  guides(color = guide_legend(override.aes = list(size=3)))
+gp1
+
+set.seed(100)
+date()
+tsne = Rtsne(pca, pca = FALSE)
+date()
+
+
+df_tsne = data.frame(tsne$Y)
+df_tsne$log10_total_features = colData(sce_sub)$log10_total_features
+dim(df_tsne)
+df_tsne[1:2,]
+
+gp1 = ggplot(df_tsne, aes(X1,X2,col=log10_total_features)) + 
+  geom_point(size=0.2,alpha=0.6) + theme_classic() + 
+  scale_colour_gradient(low="lightblue",high="red") +
+  guides(color = guide_legend(override.aes = list(size=3)))
+gp1
+
+reducedDims(sce_sub) = SimpleList(PCA=pca, TSNE=tsne$Y)
+sce_sub
+```
+
+### Clustering
+There are many methods for clustering of single cell RNA-seq data. The performance of each method may also depend on pre-processing steps, such as performing imputation or not. We wil compare these methods in a seperate document. Here we just illustrate the clustering reuslts using a simple kmeans method on the top 50 PCs. 
+
+```{r warning = FALSE, message = FALSE, fig.asp = 0.8}
+
+k10_50_pcs = kmeans(reducedDim(sce_sub, "PCA"), centers=10, 
+                    iter.max=150, algorithm="MacQueen")
+names(k10_50_pcs)
+dim(k10_50_pcs$centers)
+
+df_tsne$cluster_kmean = as.factor(k10_50_pcs$cluster)
+cols = c("#FB9A99","#FF7F00","yellow","orchid","grey",
+         "red","dodgerblue2","tan4","green4","#99c9fb")
+
+gp1 = ggplot(df_tsne, aes(X1,X2,col=cluster_kmean)) + 
+  geom_point(size=0.2,alpha=0.6) + theme_classic() + 
+  scale_color_manual(values=cols) + 
+  guides(color = guide_legend(override.aes = list(size=3)))
+
+gp1
+```
+
+An alternative popular clustreing method is a graph based method that first construct a graph for all the cells and then identify clusters of cells by identifying densely connected subgraphs [@xu2015identification]. One possible implementation is the following approach 
+
+```{r eval=FALSE}
+snn.gr   = buildSNNGraph(sce_sub, use.dimred="PCA")
+clusters = igraph::cluster_walktrap(snn.gr)
+```
+
+Though this implementation is very slow for this large dataset. It took more than 3 hours on a MacbookPro with 2.8 G i7 core and 16G memmory. The results of graphical model based on clustering and Kmeans have large overlap in some cluters. Though in general, graph-based identify many small clusters. 
+
+```{r, out.width='80%', fig.align='center', fig.cap='Compare the clustering resutls of Kmeans vs. a graph based method. Each column corresponds to one of 31 clusters by graph-based method. Each row corresponds to one of the 10 clusters by kmeans', echo=FALSE}
+knitr::include_graphics('figures/compare_cluster_kmean_graph.png')
+```
+
+Next we identify the most likely cell type of each cell by comparing the expression of each cell versus gene expression for 11 cell types. We chose to use a small set of genes that are known to be differentially expressed across immune cell types. This gene set is constructed by the union of the signature genes used by CIBERSORT [@newman2015robust] and 31 known cell type markers. 
+
+```{r warning = FALSE, message = FALSE, fig.asp = 0.8}
+
+purified_ref_11 = readRDS("data/expression_11_cell_types_Zheng_2016.rds")
+row2kp = rowData(sce)$ensembl_gene_id %in% rownames(purified_ref_11)
+sce_ct = sce[which(row2kp),]
+dim(sce_ct)
+
+
+lm22 = fread("data/LM22.txt")
+dim(lm22)
+lm22[1:2,1:5]
+
+genes2use = c("CD19", "IGKC", "IGLC2", "MS4A1", "MME", "HLA-DRB1", 
+              "CD80", "CD3E", "CD4", "CD8A", "IL2RA", "SELL", "CCR7", 
+              "IL7R", "FOXP3", "CD14", "CD33", "NCAM1", "CXCR3", "FAS", 
+              "FASLG", "CD44", "PDCD1", "CD274", "PDCD1LG2", "EOMES", 
+              "TBX21", "IFNG", "GZMB", "CD38", "TNFRSF9")
+length(genes2use)
+
+genes2use = union(lm22$`Gene symbol`, genes2use)
+length(genes2use)
+
+genes2use = intersect(genes2use, rowData(sce_ct)$hgnc_symbol)
+sce_ct = sce_ct[match(genes2use, rowData(sce_ct)$hgnc_symbol),]
+dim(sce_ct)
+
+mat1 = match(rowData(sce_ct)$ensembl_gene_id, rownames(purified_ref_11))
+purified_ref_11 = purified_ref_11[mat1,]
+dim(purified_ref_11)
+purified_ref_11[1:3,]
+```
+
+We calculate the rank-based spearman correlation beween each cell and 11 cell type-specifid gene expression profiles. It is interesting to note that for many cells, the second largest correlation is very similar to the largest one and thus this assignment of cell type is with considerable amount of uncertainty. 
+
+```{r warning = FALSE, message = FALSE, fig.asp = 0.8}
+
+edat = as.matrix(logcounts(sce_ct))
+dim(edat)
+edat[1:2,1:2]
+
+cor.ct = cor(edat, purified_ref_11, method="spearman")
+dim(cor.ct)
+summary(c(cor.ct))
+
+largest2 <- function(v){
+  sort(v, decreasing=TRUE)[2]
+}
+
+cor_top1 = apply(cor.ct, 1, max)
+cor_top2 = apply(cor.ct, 1, largest2)
+
+summary(cor_top1)
+summary(cor_top1)
+summary(cor_top1 - cor_top2)
+summary((cor_top1 - cor_top2)/cor_top1)
+
+par(mar=c(5,4,1,1), bty="n")
+plot(cor_top1, cor_top2, pch=20, col=rgb(0.8, 0.2, 0.2, 0.5), 
+     cex=0.2, xlab="largest correlation", 
+     ylab="2nd largest correlation")
+abline(0,1)
+abline(0, 0.8, lty=2)
+abline(v=0.2, lty=2)
+text(0.5, 0.38, pos=1, "y=0.8x")
+
+df_tsne$ct = colnames(cor.ct)[apply(cor.ct, 1, which.max)]
+
+.set_pbmc_color_11<-function() {
+  myColors <- c( "dodgerblue2",
+                 "green4", 
+                 "#6A3D9A", # purple
+                 "grey",
+                 "tan4",
+                 "yellow", 
+                 "#FF7F00", # orange
+                 "black",
+                 "#FB9A99", # pink
+                 "orchid",
+                 "red")
+  id <- c("CD19+ B", 
+          "CD14+ Monocyte",
+          "Dendritic",
+          "CD56+ NK",
+          "CD34+", 
+          "CD4+/CD25 T Reg",
+          "CD4+/CD45RA+/CD25- Naive T",
+          "CD4+/CD45RO+ Memory",
+          "CD4+ T Helper2",
+          "CD8+/CD45RA+ Naive Cytotoxic",
+          "CD8+ Cytotoxic T")
+  names(myColors)<-id
+  scale_colour_manual(name = "ct",values = myColors)
+}
+
+gp1 = ggplot(df_tsne,aes(X1,X2,col=ct)) + 
+  geom_point(size=0.2,alpha=0.6) + theme_classic() + 
+  .set_pbmc_color_11() + 
+  guides(color = guide_legend(override.aes = list(size=3)))
+gp1
+
+```
+
+# Session information
+```{r}
+sessionInfo()
+```
+
+# Reference
+
