@@ -1,5 +1,5 @@
 
-setwd("~/research/scRNAseq/data/GTEx_droncseq_hip_pcf/")
+setwd("~/research/GitHub/scRNAseq_pipelines/dronc/")
 
 # ------------------------------------------------------------------
 # here are the cell types 
@@ -30,18 +30,22 @@ dim(colData(sce))
 dim(clusters)
 clusters[1:2,]
 
-table(clusters$part_cell_id, clusters$Cell_Type)
-table(clusters$part_cell_id, clusters$Cluster.ID)
+t1 = table(clusters$part_cell_id, clusters$Cell_Type)
+t2 = table(clusters$part_cell_id, clusters$Cluster.ID)
+t1
+t2
+
+pdf("part_cell_id_vs_cell_type.pdf", width=5, height=5)
+heatmap(t1)
+dev.off()
 
 # ------------------------------------------------------------------
 # I cannot see lable of samples for each cell, based on supp. Fig 7
 # and the part_cell_id, I assume those part_cell_id that have 
-# large number of cells from exPFC and GABA are PFC samples, 
-# as well as those start with PFC
+# large number of cells from exPFC and GABA. 
 # ------------------------------------------------------------------
 
-PFC = c("hCc", "hCd", "hCe", "hCf", "humanPFCa", "humanPFCb")
-PFC = c(PFC, "PFC-CD", "PFC2-A1", "PFC2-A2", "PFC2-A3", "PFC2-A5")
+PFC = c("hCc", "hCd", "hCe", "hCf", "humanPFCa", "humanPFCb", "PFC-CD")
 
 # ------------------------------------------------------------------
 # for each cell type, find the largest cluster, except for ODC, use  

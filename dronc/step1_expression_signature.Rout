@@ -18,7 +18,7 @@ Type 'demo()' for some demos, 'help()' for on-line help, or
 Type 'q()' to quit R.
 
 > 
-> setwd("~/research/scRNAseq/data/GTEx_droncseq_hip_pcf/")
+> setwd("~/research/GitHub/scRNAseq_pipelines/dronc/")
 > 
 > # ------------------------------------------------------------------
 > # here are the cell types 
@@ -131,7 +131,9 @@ Warning messages:
 1               5               1  2.804881 -1.888592
 2               8               1 16.965708 -6.768078
 > 
-> table(clusters$part_cell_id, clusters$Cell_Type)
+> t1 = table(clusters$part_cell_id, clusters$Cell_Type)
+> t2 = table(clusters$part_cell_id, clusters$Cluster.ID)
+> t1
               
                ASC END exCA1 exCA3 exDG exPFC GABA  MG NSC ODC OPC
   hCc           48   1     2     3    1   473  166   6   0  22  37
@@ -156,7 +158,7 @@ Warning messages:
   PFC2-A2      176  22    19    12  245    10   48  22  31 307  52
   PFC2-A3      220  20    13    11  289    12   48  25  37 327  74
   PFC2-A5       78  10     8    10  217     5   24   4  28  71  11
-> table(clusters$part_cell_id, clusters$Cluster.ID)
+> t2
               
                  1   2   3   4   5   6   7   8   9  10  11  12  13  14  15  16
   hCc          466   7   2   3  99  67   1  40   8  13   9  37   6   0   1  20
@@ -206,15 +208,19 @@ Warning messages:
   PFC2-A3        0   7
   PFC2-A5        0   6
 > 
+> pdf("part_cell_id_vs_cell_type.pdf", width=5, height=5)
+> heatmap(t1)
+> dev.off()
+null device 
+          1 
+> 
 > # ------------------------------------------------------------------
 > # I cannot see lable of samples for each cell, based on supp. Fig 7
 > # and the part_cell_id, I assume those part_cell_id that have 
-> # large number of cells from exPFC and GABA are PFC samples, 
-> # as well as those start with PFC
+> # large number of cells from exPFC and GABA. 
 > # ------------------------------------------------------------------
 > 
-> PFC = c("hCc", "hCd", "hCe", "hCf", "humanPFCa", "humanPFCb")
-> PFC = c(PFC, "PFC-CD", "PFC2-A1", "PFC2-A2", "PFC2-A3", "PFC2-A5")
+> PFC = c("hCc", "hCd", "hCe", "hCf", "humanPFCa", "humanPFCb", "PFC-CD")
 > 
 > # ------------------------------------------------------------------
 > # for each cell type, find the largest cluster, except for ODC, use  
@@ -377,43 +383,43 @@ AC004893.11     0     0    45
  3rd Qu.:    9.000   3rd Qu.:   22.00   3rd Qu.:   18.00  
  Max.   :14887.000   Max.   :19781.00   Max.   :20005.00  
 > summary(ct.matrx.PFC)
-     exCA3             exCA1              exPFC             ASC           
- Min.   :   0.00   Min.   :   0.000   Min.   :     0   Min.   :     0.00  
- 1st Qu.:   0.00   1st Qu.:   0.000   1st Qu.:    74   1st Qu.:    10.00  
- Median :   2.00   Median :   2.000   Median :   149   Median :    21.00  
- Mean   :   4.48   Mean   :   3.669   Mean   :   310   Mean   :    51.21  
- 3rd Qu.:   4.00   3rd Qu.:   4.000   3rd Qu.:   296   3rd Qu.:    42.00  
- Max.   :8627.00   Max.   :4765.000   Max.   :377151   Max.   :104845.00  
-      GABA               ODC               exDG               END          
- Min.   :    0.00   Min.   :    0.0   Min.   :     0.0   Min.   :   0.000  
- 1st Qu.:   19.00   1st Qu.:    7.0   1st Qu.:    22.0   1st Qu.:   1.000  
- Median :   38.00   Median :   19.0   Median :    48.0   Median :   4.000  
- Mean   :   76.01   Mean   :   52.9   Mean   :   106.4   Mean   :   9.546  
- 3rd Qu.:   75.00   3rd Qu.:   42.0   3rd Qu.:    99.0   3rd Qu.:   9.000  
- Max.   :86303.00   Max.   :95312.0   Max.   :160520.0   Max.   :9467.000  
-       MG               OPC                NSC          
- Min.   :   0.00   Min.   :    0.00   Min.   :    0.00  
- 1st Qu.:   0.00   1st Qu.:    2.00   1st Qu.:    2.00  
- Median :   1.00   Median :    6.00   Median :    6.00  
- Mean   :   3.32   Mean   :   12.75   Mean   :   14.87  
- 3rd Qu.:   3.00   3rd Qu.:   12.00   3rd Qu.:   14.00  
- Max.   :6673.00   Max.   :13660.00   Max.   :15389.00  
+     exCA3              exCA1       exPFC               ASC          
+ Min.   :   0.000   Min.   :0   Min.   :     0.0   Min.   :    0.00  
+ 1st Qu.:   0.000   1st Qu.:0   1st Qu.:    74.0   1st Qu.:    2.00  
+ Median :   0.000   Median :0   Median :   149.0   Median :    6.00  
+ Mean   :   1.071   Mean   :0   Mean   :   309.5   Mean   :   13.63  
+ 3rd Qu.:   1.000   3rd Qu.:0   3rd Qu.:   295.0   3rd Qu.:   12.00  
+ Max.   :1382.000   Max.   :0   Max.   :376291.0   Max.   :25687.00  
+      GABA              ODC                exDG        END         
+ Min.   :    0.0   Min.   :   0.000   Min.   :0   Min.   :   0.00  
+ 1st Qu.:   14.0   1st Qu.:   1.000   1st Qu.:0   1st Qu.:   0.00  
+ Median :   29.0   Median :   2.000   Median :0   Median :   1.00  
+ Mean   :   57.9   Mean   :   6.261   Mean   :0   Mean   :   2.88  
+ 3rd Qu.:   57.0   3rd Qu.:   6.000   3rd Qu.:0   3rd Qu.:   3.00  
+ Max.   :66737.0   Max.   :8783.000   Max.   :0   Max.   :2263.00  
+       MG               OPC                NSC   
+ Min.   :  0.000   Min.   :   0.000   Min.   :0  
+ 1st Qu.:  0.000   1st Qu.:   1.000   1st Qu.:0  
+ Median :  0.000   Median :   2.000   Median :0  
+ Mean   :  0.261   Mean   :   5.304   Mean   :0  
+ 3rd Qu.:  0.000   3rd Qu.:   5.000   3rd Qu.:0  
+ Max.   :367.000   Max.   :5309.000   Max.   :0  
 > 
 > dim(nCells)
 [1] 11  3
 > nCells
    Cell_Type nCells_All nCells_PFC
-1      exCA3        545         43
-2      exCA1        219         27
-3      exPFC       2817       2794
-4        ASC       1790        974
-5       GABA       1045        813
-6        ODC       2907       1232
-7       exDG       1345        971
-8        END        237        103
-9         MG        279         85
-10       OPC        631        341
-11       NSC        180        127
+1      exCA3        545         14
+2      exCA1        219          0
+3      exPFC       2817       2790
+4        ASC       1790        318
+5       GABA       1045        672
+6        ODC       2907        171
+7       exDG       1345          0
+8        END        237         34
+9         MG        279          9
+10       OPC        631        162
+11       NSC        180          0
 > 
 > ct.matrx = list(all=ct.matrx, PFC=ct.matrx.PFC)
 > saveRDS(ct.matrx, "ct_matrix.rds")
@@ -422,4 +428,4 @@ AC004893.11     0     0    45
 > q(save="no")
 > proc.time()
    user  system elapsed 
- 32.739  16.466  49.393 
+ 32.255  15.385  49.750 
