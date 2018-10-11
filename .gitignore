@@ -1,2 +1,4 @@
-
+*.gz
+*.tar
+*.txt
 .DS_Store
