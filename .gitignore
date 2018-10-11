@@ -1,4 +1,5 @@
 *.gz
 *.tar
 *.txt
+*.rds
 .DS_Store
