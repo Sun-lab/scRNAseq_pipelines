@@ -1,6 +1,6 @@
 ---
 title: "A workflow for single cell RNA-seq data analysis: MTG dataset"
-author: "Paul Little"
+author: "Paul Little, Wei Sun"
 date: "`r Sys.Date()`"
 output: 
   html_document:
@@ -28,16 +28,11 @@ The dataset is available [here](http://celltypes.brain-map.org/api/v2/well_known
 
 ```{r}
 
-where_file = c("mycomp","longleaf")[2]
-if(where_file == "mycomp"){
-	drive = strsplit(getwd(),"/")[[1]][1]
-	src_dir = file.path(drive,"Files to KEEP/SOURCE_files")
-	data_dir = file.path(drive,"Files to KEEP/BIOS_eQTL/documents/MTG")
-} else if(where_file == "longleaf"){
-	data_dir = "/pine/scr/p/l/pllittle/CS_eQTL/s3_Real/original/MTG"
-	src_dir = system("echo $HOME",intern = TRUE)
+where_file = c("pllittle")[1]
+if(where_file == "pllittle"){
+	src_dir = "/pine/scr/p/l/pllittle/CS_eQTL/s3_Real/scRNAseq_pipelines"
+	data_dir = file.path(src_dir,"MTG")
 	source(file.path(src_dir,"SOURCE.R"))
-	# source(file.path(src_dir,"scRNAseq.R"))
 }
 
 # Source/Libraries

@@ -61,8 +61,8 @@ where_file = c("pllittle","weisun")[1]
 if(where_file == "pllittle"){
   # cd /pine/scr/p/l/pllittle/CS_eQTL/s3_Real
   # git clone https://github.com/Sun-lab/scRNAseq_pipelines.git
-  data_dir = "/pine/scr/p/l/pllittle/CS_eQTL/s3_Real/scRNAseq_pipelines/dronc"
-  src_dir = data_dir
+  src_dir = "/pine/scr/p/l/pllittle/CS_eQTL/s3_Real/scRNAseq_pipelines"
+  data_dir = file.path(src_dir,"dronc")
   dronc_dir = file.path(data_dir,"GTEx_droncseq_hip_pcf")
 } else if(where_file == "weisun"){
   src_dir = "~/research/GitHub/scRNAseq_pipelines/dronc"
