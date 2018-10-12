@@ -545,14 +545,14 @@ Next seek to cluster cells using another method SC3. The code used here is based
 
 By default, SC3 filter genes to select those with dropout percentage between 10 and 90%. 
 
-```{r cache=TRUE, warning = FALSE, message = FALSE, fig.height=14, fig.width=14}
+```{r fig.height=14, fig.width=14}
 summary(rowData(sce)$pct_dropout_counts)
 table(rowData(sce)$pct_dropout_counts < 90)
 ```
 
 This will end up with 1418 genes. However, we found the clustering resutls using these 1418 genes have considerable discrepency with clustering resutls from Kmeans and cell types reported by [@habib2017massively]. Therefore, we chose to use those genes identified from previous step for SC3.
 
-```{r cache=TRUE, warning = FALSE, message = FALSE, fig.height=14, fig.width=14}
+```{r fig.height=14, fig.width=14}
 library(SC3)
 rowData(sce_sub)$feature_symbol = rowData(sce_sub)$external_gene_name
 date()
