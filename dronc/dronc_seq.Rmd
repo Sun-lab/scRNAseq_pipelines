@@ -33,8 +33,7 @@ We will first load a few libraries. Among them,
 
 ```{r, , warning = FALSE, message = FALSE}
 
-bio_packs = c("SingleCellExperiment","DropletUtils","biomaRt",
-              "scater","scran","limma","org.Hs.eg.db","SC3")
+bio_packs = c("SingleCellExperiment","DropletUtils","biomaRt","scater","scran","limma","org.Hs.eg.db","SC3")
 bio_packs = bio_packs[! bio_packs %in% installed.packages()[,"Package"]]
 
 if( length(bio_packs) > 0 ){
@@ -58,14 +57,32 @@ library(scran)
 library(limma)
 library(ggplot2)
 
-src_dir   = "~/research/GitHub/scRNAseq_pipelines/dronc"
-data_dir  = "~/research/scRNAseq/workflow/data"
-dronc_dir = "~/research/scRNAseq/data/GTEx_droncseq_hip_pcf"
+where_file = c("pllittle","weisun")[1]
+if(where_file == "pllittle"){
+  # cd /pine/scr/p/l/pllittle/CS_eQTL/s3_Real
+  # git clone https://github.com/Sun-lab/scRNAseq_pipelines.git
+  data_dir = "/pine/scr/p/l/pllittle/CS_eQTL/s3_Real/scRNAseq_pipelines/dronc"
+  src_dir = data_dir
+  dronc_dir = file.path(data_dir,"GTEx_droncseq_hip_pcf")
+} else if(where_file == "weisun"){
+  src_dir = "~/research/GitHub/scRNAseq_pipelines/dronc"
+  data_dir = "~/research/scRNAseq/workflow/data"
+  dronc_dir = "~/research/scRNAseq/data/GTEx_droncseq_hip_pcf"
+}
 ```
 
 # Obtaining/Loading Counts
 
 Next we read in the count data. The dataset is available [here](https://storage.googleapis.com/gtex_additional_datasets/single_cell_data/GTEx_droncseq_hip_pcf.tar).
+
+```{r echo=FALSE}
+tmp_fn = file.path(data_dir,"GTEx_droncseq_hip_pcf.tar")
+if( !file.exists(tmp_fn) ){
+  tmp_link = "https://storage.googleapis.com/gtex_additional_datasets/single_cell_data/GTEx_droncseq_hip_pcf.tar"
+  system(sprintf("cd %s; wget %s; tar -xvf %s",data_dir,tmp_link,tmp_fn))
+}
+
+```
 
 ```{r}
 fname  = file.path(dronc_dir, "GTEx_droncseq_hip_pcf.umi_counts.txt.gz")
@@ -73,10 +90,13 @@ counts = fread(paste('zcat <', fname))
 dim(counts)
 counts[1:3,1:2]
 
-counts.mx = as.matrix(counts[,-1])
-rownames(counts.mx) = counts$V1
-sce = SingleCellExperiment(assays = list(counts = counts.mx))
+counts = data.frame(counts,stringsAsFactors = FALSE)
+rownames(counts) = counts$V1
+counts = counts[,-1]
+
+sce = SingleCellExperiment(assays = list(counts = as.matrix(counts)))
 sce
+rm(fname,counts)
 ```
 
 
@@ -87,11 +107,10 @@ sce
 We will extract annotation information based on gene names
 
 ```{r}
-anno.file = file.path(data_dir, "gene.annoation_dronc.rds")
-if(file.exists(anno.file)){
-  gene_anno = readRDS(anno.file)
-}else{
-
+anno_file = file.path(data_dir, "gene_annoation_dronc.rds")
+if( file.exists(anno_file) ){
+  gene_anno = readRDS(anno_file)
+} else {
   ensembl = useEnsembl(biomart="ensembl",GRCh=37,
                        dataset="hsapiens_gene_ensembl")
   
@@ -103,12 +122,13 @@ if(file.exists(anno.file)){
                     filters = "external_gene_name",
                     values = rownames(sce),
                     mart = ensembl)
-  saveRDS(gene_anno, file=anno.file)
+  saveRDS(gene_anno,file = anno_file)
 }
 
 dim(sce); dim(gene_anno)
+gene_anno[1:3,]
 
-w2rm = which(!gene_anno$external_gene_name %in% rownames(sce))
+w2rm = which(!(gene_anno$external_gene_name %in% rownames(sce)))
 w2rm
 
 gene_anno[w2rm,]
@@ -121,8 +141,8 @@ Many genes have multiple entries in annotation, often because they are annotatd 
 ```{r}
 table(gene_anno$chromosome_name)[1:30]
 
-chr.nms = c(1:22,"X","Y","MT")
-gene_anno = gene_anno[which(gene_anno$chromosome_name %in% chr.nms),]
+chr_nms = c(1:22,"X","Y","MT")
+gene_anno = gene_anno[which(gene_anno$chromosome_name %in% chr_nms),]
 dim(sce); dim(gene_anno)
 
 t1 = table(gene_anno$external_gene_name)
@@ -131,8 +151,8 @@ length(t2)
 t2[1:10]
 
 gene_anno[which(gene_anno$external_gene_name %in% names(t2)[1:4]), 1:4]
-w.duplicate = which(gene_anno$external_gene_name %in%  names(t2))
-ganno2 = gene_anno[w.duplicate,]
+w_duplicate = which(gene_anno$external_gene_name %in%  names(t2))
+ganno2 = gene_anno[w_duplicate,]
 dim(ganno2)
 
 table(ganno2$hgnc_symbol == ganno2$external_gene_name)
@@ -142,10 +162,11 @@ dim(ganno2)
 ganno2 = dplyr::distinct(ganno2,external_gene_name,.keep_all = TRUE)
 dim(ganno2)
 
-gene_anno = rbind(gene_anno[-w.duplicate,], ganno2)
+gene_anno = rbind(gene_anno[-w_duplicate,], ganno2)
 dim(gene_anno)
 table(gene_anno$gene_biotype)
 
+# which genes in sce are missing in the annotation
 gene_missing = setdiff(rownames(sce),gene_anno$external_gene_name)
 gene_missing[1:10]
 length(gene_missing)
@@ -196,7 +217,7 @@ table(e.out$FDR)
 tapply(e.out$Total, e.out$FDR, summary)
 ```
 
-From the above analysis, some cells with very small number of UMI's. Here we chose do not remove any cells because it appears all these 14,963 cells were used in the main anlaysis. Based on Figure 2 of their paper, there are 
+From the above analysis, some cells with very small number of UMIs. Here we chose do not remove any cells because it appears all these 14,963 cells were used in the main anlaysis. Based on Figure 2 of their paper, there are 
 
 > 14,963 DroNc-seq nuclei profiles (each with >10,000 reads and >200 genes)
 
@@ -206,13 +227,11 @@ We will generate a set of QC features per cell, including the expression of mito
 
 ```{r fig.asp = 1, warning = FALSE, message = FALSE}
 file_link = "https://www.genenames.org/cgi-bin/genefamilies/set/1054/download/branch"
-file_name = "ribosome_genes.txt"
-ribo_fn   = file.path(data_dir, file_name)
+file_name = "branch"
+ribo_fn = file.path(data_dir, file_name)
 
 if( !file.exists(ribo_fn) ){
-  cmd = sprintf("cd %s; wget %s",data_dir, file_link)
-  print(cmd)
-  system(cmd)
+  system(sprintf("cd %s; wget %s",data_dir, file_link))
 }
 
 ribo = read.table(ribo_fn, sep='\t', header=TRUE, stringsAsFactors = FALSE)
@@ -282,13 +301,15 @@ and
 
 > A gene is considered detected in a cell if it has at least two unique UMIs (transcripts) associated with it. For each analysis, genes were removed that were detected in less than 10 nuclei.
 
-Therefore it seems we should remove all the cells having less than 200 genes with two or more UMI counts. However, this would remove majorify of the cells. Therefore, we conlcude that they meant to remove the cells having less than 200 genes with one or more UMI counts. To filter genes, we follow their threshold to remove genes with two or more UMIs in less than 10 nuclei.
+Therefore it seems we should remove all the cells having less than 200 genes with two or more UMI counts. However, this would remove a majority of the cells. Therefore, we conclude that they meant to remove the cells having less than 200 genes with one or more UMI counts. To filter genes, we follow their threshold to remove genes with two or more UMIs in less than 10 nuclei.
 
-Note taht the variable _strand_ need to be renamed, otherwise there is an error message that such a variabel name cannot be used. 
+Note that the variable _strand_ need to be renamed, otherwise there is an error message that such a variabel name cannot be used. 
 
 ```{r}
+names(rowData(sce))
 names(rowData(sce))[6] = "strand_n"
 
+# Count number of genes "detected" in each sample
 n.genes = colSums(counts(sce) >= 2)
 summary(n.genes)
 table(n.genes >= 100)
@@ -299,9 +320,10 @@ summary(n.genes)
 table(n.genes >= 100)
 table(n.genes >= 200)
 
+# Count number of samples "detected" for each gene
 n.cells = rowSums(counts(sce) >= 2)
 summary(n.cells)
-table(n.cells >= 10)
+table(n.cells >= 10) # How many genes had >= 2 UMIs in at least 10 cells
 
 sce = sce[which(n.cells >= 10),]
 dim(sce)
