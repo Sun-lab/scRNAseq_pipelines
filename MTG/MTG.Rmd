@@ -20,7 +20,7 @@ knitr::opts_chunk$set(echo = TRUE)
 
 # Introduction
 
-This markdown is for analyzing the [Allen Brain Atlas MTG dataset](http://celltypes.brain-map.org/rnaseq).
+This markdown is for analyzing the [Allen Brain Atlas MTG dataset](http://celltypes.brain-map.org/rnaseq). While some details of their analysis is provided [here](http://help.brain-map.org/download/attachments/8323525/CellTypes_Transcriptomics_Overview.pdf), we ran a workflow similar to the DroNc dataset.
 
 # Obtaining/Loading Counts
 
@@ -32,14 +32,14 @@ where_file = c("pllittle")[1]
 if(where_file == "pllittle"){
 	src_dir = "/pine/scr/p/l/pllittle/CS_eQTL/s3_Real/scRNAseq_pipelines"
 	data_dir = file.path(src_dir,"MTG")
-	source(file.path(src_dir,"SOURCE.R"))
 }
 
 # Source/Libraries
-source("https://bioconductor.org/biocLite.R")
+source(file.path(src_dir,"SOURCE.R"))
 # biocLite("BiocUpgrade")
 bio_packs = c("SingleCellExperiment","DropletUtils","biomaRt","scater","scran","SC3")
 if( !all(bio_packs %in% installed.packages()[,"Package"]) ){
+	source("https://bioconductor.org/biocLite.R")
 	biocLite(bio_packs,suppressUpdates = TRUE)
 	# biocLite("SC3",suppressUpdates = TRUE)
 }
@@ -67,20 +67,25 @@ if( !file.exists(counts_fn) ){
 	file_name = file.path(data_dir,file_name)
 	if( !file.exists(file_name) ){
 		cmd = sprintf("cd %s; wget %s",data_dir,file_link)
-		print(cmd)
 		system(cmd)
 	}
-	cmd = sprintf("cd %s; unzip -o %s",data_dir,file_name)
-	cmd
-	system(cmd)
-	matrix_fn = file.path(data_dir,"human_MTG_2018-06-14_exon-matrix.csv")
-	# Preview
-	system(sprintf("head %s | cut -d ',' -f1-10",matrix_fn))
-	num_lines = as.numeric(system(sprintf("wc -l %s | cut -d ' ' -f1",matrix_fn),intern = TRUE))
-	counts = read.delim(matrix_fn,sep = ',',header = TRUE,row.names = 1,check.names = FALSE,nrows = num_lines - 1)
+	cmd = sprintf("cd %s; unzip -o %s",data_dir,file_name); system(cmd)
+	
+	exons_fn = file.path(data_dir,"human_MTG_2018-06-14_exon-matrix.csv")
+	num_lines = as.numeric(system(sprintf("wc -l %s | cut -d ' ' -f1",exons_fn),intern = TRUE))
+	exon_counts = read.delim(exons_fn,sep = ',',header = TRUE,row.names = 1,check.names = FALSE,nrows = num_lines - 1)
+
+	introns_fn = file.path(data_dir,"human_MTG_2018-06-14_intron-matrix.csv")
+	num_lines = as.numeric(system(sprintf("wc -l %s | cut -d ' ' -f1",introns_fn),intern = TRUE))
+	intron_counts = read.delim(introns_fn,sep = ',',header = TRUE,row.names = 1,check.names = FALSE,nrows = num_lines - 1)
+
+	# Add exon and intron counts
+	counts = as.matrix(exon_counts) + as.matrix(intron_counts)
 
 	print(dim(counts))
 	saveRDS(counts,counts_fn)
+	saveRDS(exon_counts,file.path(data_dir,"exons.rds"))
+
 }
 
 counts = readRDS(counts_fn)
@@ -94,7 +99,7 @@ sce
 
 # Define spikes
 rowData(sce)$gene[grep("^ERCC",rowData(sce)$gene)]
-# isSpike(sce,"ERCC") = grepl("^ERCC",rowData(sce)$gene)
+isSpike(sce,"ERCC") = grepl("^ERCC",rowData(sce)$gene)
 ```
 
 # Pre-processing: Quality Control, Gene Detection, Normalization
@@ -150,21 +155,20 @@ rowData(sce) = cbind(rowData(sce),gene_anno)
 
 ### barcodeRanks filtering
 Look [here](https://bioconductor.org/packages/release/workflows/vignettes/simpleSingleCell/inst/doc/work-3-tenx.html#calling-cells-from-empty-droplets) for reference.
-```{r warning = FALSE, message = FALSE, fig.height = 10,fig.width = 15}
+```{r fig.height = 10,fig.width = 15}
+date()
 bcrank = barcodeRanks(counts(sce))
+date()
 
 # Only showing unique points for plotting speed.
 uniq = !duplicated(bcrank$rank)
 
 par(mar=c(5,4,2,1), bty="n")
-plot(bcrank$rank[uniq], bcrank$total[uniq], log="xy", 
-     xlab="Rank", ylab="Total UMI count", cex=0.5, cex.lab=1.2)
-
+plot(bcrank$rank[uniq], bcrank$total[uniq], log="xy",xlab="Rank", ylab="Total UMI count", cex=0.5, cex.lab=1.2)
 abline(h=bcrank$inflection, col="darkgreen", lty=2)
 abline(h=bcrank$knee, col="dodgerblue", lty=2)
-
-legend("left", legend=c("Inflection", "Knee"), bty="n", 
-       col=c("darkgreen", "dodgerblue"), lty=2, cex=1.2)
+legend("left", legend=c("Inflection", "Knee"), bty="n",col=c("darkgreen", "dodgerblue"), lty=2, cex=1.2)
+par(mar=c(5,4,4,2)+0.1,bty="o")
 
 bcrank$inflection
 bcrank$knee
@@ -175,19 +179,19 @@ table(bcrank$total >= bcrank$inflection)
 
 set.seed(100)
 date()
-e.out = emptyDrops(counts(sce))
+e_out = emptyDrops(counts(sce))
 date()
-e.out
-is.cell = (e.out$FDR <= 0.01)
+e_out
+is.cell = (e_out$FDR <= 0.01)
 
 # Temp save image
 post_eDrops_fn = file.path(data_dir,"post_eDrops.rds")
 if(where_file == "longleaf"){
-  saveRDS(list(sce=sce,e.out=e.out,is.cell=is.cell),post_eDrops_fn)
+  saveRDS(list(sce=sce,e_out=e_out,is.cell=is.cell),post_eDrops_fn)
 } else if(FALSE){
   rds = readRDS(post_eDrops_fn)
   sce = rds$sce
-  e.out = rds$e.out
+  e_out = rds$e_out
   is.cell = rds$is.cell
   rm(rds)
 }
@@ -196,14 +200,14 @@ if(where_file == "longleaf"){
 
 ```{r fig.height = 10,fig.width = 10}
 par(mar=c(5,4,1,1), mfrow=c(1,2), bty="n")
-plot(e.out$Total, -e.out$LogProb, col=ifelse(is.cell, "red", "black"),
+plot(e_out$Total, -e_out$LogProb, col=ifelse(is.cell, "red", "black"),
     xlab="Total UMI count", ylab="-Log Probability", cex=0.2)
 abline(v = bcrank$inflection, col="darkgreen")
 abline(v = bcrank$knee, col="dodgerblue")
 legend("bottomright", legend=c("Inflection", "Knee"), bty="n", 
        col=c("darkgreen", "dodgerblue"), lty=1, cex=1.2)
 
-plot(e.out$Total, -e.out$LogProb, col=ifelse(is.cell, "red", "black"),
+plot(e_out$Total, -e_out$LogProb, col=ifelse(is.cell, "red", "black"),
     xlab="Total UMI count", ylab="-Log Probability", cex=0.2, xlim=c(0,2000), ylim=c(0,2000))
 abline(v = bcrank$inflection, col="darkgreen")
 abline(v = bcrank$knee, col="dodgerblue")
@@ -211,10 +215,10 @@ abline(v = bcrank$knee, col="dodgerblue")
 
 From the above analysis, some cells with very small number of UMIs may also have small FDR suggesting the distribution of UMI counts are different from what is expected from ambient profile. We choose a more conservative strategy, to keep the cells with total number of UMI larger than the inflection point estimate (bcrank\$inflection=```bcrank$inflection```) and FDR < 0.01. 
 ```{r}
-table(colnames(sce) == rownames(e.out))
-table(e.out$FDR <= 0.01, useNA="ifany")
-table(is.cell, e.out$Total >= bcrank$inflection)
-w2kp = which(is.cell & e.out$Total >= bcrank$inflection)
+table(colnames(sce) == rownames(e_out))
+table(e_out$FDR <= 0.01, useNA="ifany")
+table(is.cell, e_out$Total >= bcrank$inflection)
+w2kp = which(is.cell & e_out$Total >= bcrank$inflection)
 sce = sce[,w2kp]
 dim(sce)
 ```
