@@ -182,17 +182,17 @@ date()
 e_out = emptyDrops(counts(sce))
 date()
 e_out
-is.cell = (e_out$FDR <= 0.01)
+is_cell = (e_out$FDR <= 0.01)
 
 # Temp save image
 post_eDrops_fn = file.path(data_dir,"post_eDrops.rds")
-if(where_file == "longleaf"){
-  saveRDS(list(sce=sce,e_out=e_out,is.cell=is.cell),post_eDrops_fn)
+if(where_file == "pllittle"){
+  saveRDS(list(sce=sce,e_out=e_out,is_cell=is_cell),post_eDrops_fn)
 } else if(FALSE){
   rds = readRDS(post_eDrops_fn)
   sce = rds$sce
   e_out = rds$e_out
-  is.cell = rds$is.cell
+  is_cell = rds$is_cell
   rm(rds)
 }
 
@@ -200,14 +200,14 @@ if(where_file == "longleaf"){
 
 ```{r fig.height = 10,fig.width = 10}
 par(mar=c(5,4,1,1), mfrow=c(1,2), bty="n")
-plot(e_out$Total, -e_out$LogProb, col=ifelse(is.cell, "red", "black"),
+plot(e_out$Total, -e_out$LogProb, col=ifelse(is_cell, "red", "black"),
     xlab="Total UMI count", ylab="-Log Probability", cex=0.2)
 abline(v = bcrank$inflection, col="darkgreen")
 abline(v = bcrank$knee, col="dodgerblue")
 legend("bottomright", legend=c("Inflection", "Knee"), bty="n", 
        col=c("darkgreen", "dodgerblue"), lty=1, cex=1.2)
 
-plot(e_out$Total, -e_out$LogProb, col=ifelse(is.cell, "red", "black"),
+plot(e_out$Total, -e_out$LogProb, col=ifelse(is_cell, "red", "black"),
     xlab="Total UMI count", ylab="-Log Probability", cex=0.2, xlim=c(0,2000), ylim=c(0,2000))
 abline(v = bcrank$inflection, col="darkgreen")
 abline(v = bcrank$knee, col="dodgerblue")
@@ -217,8 +217,8 @@ From the above analysis, some cells with very small number of UMIs may also have
 ```{r}
 table(colnames(sce) == rownames(e_out))
 table(e_out$FDR <= 0.01, useNA="ifany")
-table(is.cell, e_out$Total >= bcrank$inflection)
-w2kp = which(is.cell & e_out$Total >= bcrank$inflection)
+table(is_cell, e_out$Total >= bcrank$inflection)
+w2kp = which(is_cell & e_out$Total >= bcrank$inflection)
 sce = sce[,w2kp]
 dim(sce)
 ```
