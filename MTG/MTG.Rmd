@@ -296,7 +296,7 @@ smoothScatter(log10(sce$total_counts), sce$pct_counts_Mt,
 smoothScatter(sce$pct_counts_Ri, sce$pct_counts_Mt, 
      xlab="Ribosome prop. (%)", ylab="Mitochondrial prop. (%)",
      nrpoints=500, cex=0.5)
-# abline(h=5,  lty=1)i
+# abline(h=5,  lty=1)
 # abline(v=10, lty=1)
 
 par(mfrow=c(2,1))
