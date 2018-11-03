@@ -12,6 +12,7 @@ output:
       collapsed: true
       smooth_scroll: false
     number_sections: true
+bibliography: MTG.bib
 ---
 
 ```{r setup, include=FALSE}
@@ -26,27 +27,27 @@ This markdown is for analyzing the [Allen Brain Atlas MTG dataset](http://cellty
 
 The dataset is available [here](http://celltypes.brain-map.org/api/v2/well_known_file_download/694416044).
 
+Change the following `src_dir` and `data_dir` variables to your own respective local working directory.
 ```{r}
-
-where_file = c("pllittle")[1]
-if(where_file == "pllittle"){
-	src_dir = "/pine/scr/p/l/pllittle/CS_eQTL/s3_Real/scRNAseq_pipelines"
-	data_dir = file.path(src_dir,"MTG")
-}
+# Specifying working directories
+src_dir = "/pine/scr/p/l/pllittle/CS_eQTL/s3_Real/scRNAseq_pipelines"
+data_dir = file.path(src_dir,"MTG")
+setwd(data_dir)
 
 # Source/Libraries
 source(file.path(src_dir,"SOURCE.R"))
 # biocLite("BiocUpgrade")
 bio_packs = c("SingleCellExperiment","DropletUtils","biomaRt","scater","scran","SC3")
 if( !all(bio_packs %in% installed.packages()[,"Package"]) ){
-	source("https://bioconductor.org/biocLite.R")
-	biocLite(bio_packs,suppressUpdates = TRUE)
-	# biocLite("SC3",suppressUpdates = TRUE)
+        source("https://bioconductor.org/biocLite.R")
+        biocLite(bio_packs,suppressUpdates = TRUE)
+        # biocLite("SC3",suppressUpdates = TRUE)
 }
 cran_packs = c("stringi","irlba")
 if( !all(cran_packs %in% installed.packages()[,"Package"]) ){
-	install.packages(cran_packs)
+        install.packages(cran_packs)
 }
+
 # DropletUtils: provides functions for data from droplet technologies such as 10X Genomics
 # biomaRt: provides easy access to databases, such as Ensembl, COSMIC, Uniprot, HGNC, etc.
 # scater: collection of tools for doing quality control analyses of scRNA-seq
@@ -99,139 +100,17 @@ sce
 
 # Define spikes
 rowData(sce)[grep("^ERCC",rowData(sce)$gene),]
-# isSpike(sce,"ERCC") = grepl("^ERCC",rowData(sce)$gene)
+isSpike(sce,"ERCC") = grepl("^ERCC",rowData(sce)$gene)
+
 ```
 
 # Pre-processing: Quality Control, Gene Detection, Normalization
 
-## Gene Annotation
-```{r eval=FALSE,echo=FALSE}
-
-listMarts()
-ensembl = useMart("ENSEMBL_MART_ENSEMBL",dataset="hsapiens_gene_ensembl")
-
-attr_string = c('ensembl_gene_id', 'hgnc_symbol', 'chromosome_name')
-attr_string = c(attr_string, 'start_position', 'end_position', 'strand')
-attr_string = c(attr_string, 'description', 'percentage_gene_gc_content')
-attr_string = c(attr_string, 'gene_biotype')
-
-rowData(sce)[1:2,]
-# bb = listFilters(ensembl); bb[1:5,]
-gene_anno = getBM(attributes=attr_string, 
-	filters = 'hgnc_symbol', 
-	values = rowData(sce)$gene, 
-	mart = ensembl)
-
-dim(gene_anno)
-dim(sce)
-gene_anno[1:2,]
-
-t1 = table(gene_anno$ensembl_gene_id)
-t2 = t1[t1 > 1]
-t2 
-
-gene_anno[which(gene_anno$ensembl_gene_id %in% names(t2)),]
-gene_anno = distinct(gene_anno, ensembl_gene_id,.keep_all = TRUE)
-
-dim(gene_anno)
-gene_anno[1:2,]
-
-table(gene_anno$chromosome_name)
-table(gene_anno$gene_biotype)
-
-# some genes do not have annotation because their ids are retired
-gene.missing = setdiff(rowData(sce)$ID, gene_anno$ensembl_gene_id)
-length(gene.missing)
-gene.missing[1:6]
-
-w2kp = match(gene_anno$hgnc_symbol, rowData(sce)$gene)
-sce  = sce[w2kp,]
-dim(sce)
-table(gene_anno$hgnc_symbol == rowData(sce)$gene)
-rowData(sce) = cbind(rowData(sce),gene_anno)
-```
-
-## Identify low quallity cells
-
-### barcodeRanks filtering
-Look [here](https://bioconductor.org/packages/release/workflows/vignettes/simpleSingleCell/inst/doc/work-3-tenx.html#calling-cells-from-empty-droplets) for reference.
-```{r fig.height = 10,fig.width = 15}
-date()
-bcrank = barcodeRanks(counts(sce))
-date()
-
-# Only showing unique points for plotting speed.
-uniq = !duplicated(bcrank$rank)
-
-par(mar=c(5,4,2,1), bty="n")
-plot(bcrank$rank[uniq], bcrank$total[uniq], log="xy",xlab="Rank", ylab="Total UMI count", cex=0.5, cex.lab=1.2)
-abline(h=bcrank$inflection, col="darkgreen", lty=2)
-abline(h=bcrank$knee, col="dodgerblue", lty=2)
-legend("left", legend=c("Inflection", "Knee"), bty="n",col=c("darkgreen", "dodgerblue"), lty=2, cex=1.2)
-par(mar=c(5,4,4,2)+0.1,bty="o")
-
-bcrank$inflection
-bcrank$knee
-
-summary(bcrank$total)
-table(bcrank$total >= bcrank$knee)
-table(bcrank$total >= bcrank$inflection)
-
-set.seed(100)
-date()
-e_out = emptyDrops(counts(sce))
-date()
-e_out
-is_cell = (e_out$FDR <= 0.01)
-
-# Temp save image
-post_eDrops_fn = file.path(data_dir,"post_eDrops.rds")
-if(where_file == "pllittle"){
-	saveRDS(list(sce=sce,e_out=e_out,is_cell=is_cell),post_eDrops_fn)
-} else if(FALSE){
-	rds = readRDS(post_eDrops_fn)
-	sce = rds$sce
-	e_out = rds$e_out
-	is_cell = rds$is_cell
-	rm(rds)
-}
-
-```
-
-```{r fig.height = 10,fig.width = 10}
-if( !all(is.na(e_out$LogProb)) ){
-
-par(mar=c(5,4,1,1), mfrow=c(1,2), bty="n")
-plot(e_out$Total, -e_out$LogProb, col=ifelse(is_cell, "red", "black"),
-    xlab="Total UMI count", ylab="-Log Probability", cex=0.2)
-abline(v = bcrank$inflection, col="darkgreen")
-abline(v = bcrank$knee, col="dodgerblue")
-legend("bottomright", legend=c("Inflection", "Knee"), bty="n", 
-       col=c("darkgreen", "dodgerblue"), lty=1, cex=1.2)
-
-plot(e_out$Total, -e_out$LogProb, col=ifelse(is_cell, "red", "black"),
-    xlab="Total UMI count", ylab="-Log Probability", cex=0.2, xlim=c(0,2000), ylim=c(0,2000))
-abline(v = bcrank$inflection, col="darkgreen")
-abline(v = bcrank$knee, col="dodgerblue")
-
-fi
-```
-
-From the above analysis, some cells with very small number of UMIs may also have small FDR suggesting the distribution of UMI counts are different from what is expected from ambient profile. We choose a more conservative strategy, to keep the cells with total number of UMI larger than the inflection point estimate (bcrank\$inflection=```bcrank$inflection```) and FDR < 0.01. 
-```{r}
-table(colnames(sce) == rownames(e_out))
-table(e_out$FDR <= 0.01, useNA="ifany")
-table(is_cell, e_out$Total >= bcrank$inflection)
-# w2kp = which(is_cell & e_out$Total >= bcrank$inflection)
-# sce = sce[,w2kp]
-# dim(sce)
-```
-
 ### Incorporate Mito and Ribo to calculate QC metrics
 
-Next step we apply more QC based on a set of features per cell. We will look at ribosomal genes. The imported file can be found [here](https://www.genenames.org/cgi-bin/genefamilies/set/1054/download/branch).
+Next step we apply QC based on a set of features per cell. We will look at ribosomal genes. The imported file can be found [here](https://www.genenames.org/cgi-bin/genefamilies/set/1054/download/branch).
 
-```{r fig.asp = 1, warning = FALSE, message = FALSE}
+```{r warning = FALSE, message = FALSE}
 file_link = "https://www.genenames.org/cgi-bin/genefamilies/set/1054/download/branch"
 file_name = strsplit(file_link,"/")[[1]]
 file_name = file_name[length(file_name)]
@@ -248,66 +127,54 @@ ribo[1:2,]
 
 # Temp save image
 post_ribo_download_fn = file.path(data_dir,"post_ribo_download.rds")
-if(where_file == "pllittle"){
-  saveRDS(list(sce=sce,ribo=ribo),post_ribo_download_fn)
-} else if(FALSE){
-  rds = readRDS(post_ribo_download_fn)
-  sce = rds$sce
-  ribo = rds$ribo
-  rm(rds)
-}
+saveRDS(list(sce=sce,ribo=ribo),post_ribo_download_fn)
 
 table(rowData(sce)$chromosome)
 is_mito = which(rowData(sce)$chromosome == "MT")
 is_ribo = which(rowData(sce)$gene %in% ribo$Approved.Symbol)
 length(is_mito)
 length(is_ribo)
+```
 
-sce = calculateQCMetrics(sce, feature_controls=list(Mt=is_mito, Ri=is_ribo))
+```{r fig.width = 12,fig.height = 12}
+sce = calculateQCMetrics(sce, feature_controls=list(ERCC=isSpike(sce),Mt=is_mito, Ri=is_ribo))
 sort(colnames(colData(sce)))
 
 par(mfrow=c(2,2), mar=c(5, 4, 1, 1), bty="n")
 hist(log10(sce$total_counts), xlab="log10(Library sizes)", main="", 
-    breaks=20, col="grey80", ylab="Number of cells")
-
+	breaks=20, col="grey80", ylab="Number of cells")
 hist(log10(sce$total_features), xlab="log10(# of expressed genes)", 
-     main="", breaks=20, col="grey80", ylab="Number of cells")
-
+	main="", breaks=20, col="grey80", ylab="Number of cells")
 hist(sce$pct_counts_Ri, xlab="Ribosome prop. (%)",
-    ylab="Number of cells", breaks=40, main="", col="grey80")
-
+	ylab="Number of cells", breaks=40, main="", col="grey80")
 hist(sce$pct_counts_Mt, xlab="Mitochondrial prop. (%)", 
-    ylab="Number of cells", breaks=80, main="", col="grey80")
+	ylab="Number of cells", breaks=80, main="", col="grey80")
 
 par(mfrow=c(2,2), mar=c(5, 4, 1, 1), bty="n")
 smoothScatter(log10(sce$total_counts), log10(sce$total_features), 
-     xlab="log10(Library sizes)", ylab="log10(# of expressed genes)", 
-     nrpoints=500, cex=0.5)
+	xlab="log10(Library sizes)", ylab="log10(# of expressed genes)", 
+	nrpoints=500, cex=0.5)
 smoothScatter(log10(sce$total_counts), sce$pct_counts_Ri, 
-     xlab="log10(Library sizes)", ylab="Ribosome prop. (%)",
-     nrpoints=500, cex=0.5)
-# abline(h=10,  lty=1)
-
+	xlab="log10(Library sizes)", ylab="Ribosome prop. (%)",
+	nrpoints=500, cex=0.5)
 smoothScatter(log10(sce$total_counts), sce$pct_counts_Mt, 
-     xlab="log10(Library sizes)", ylab="Mitochondrial prop. (%)",
-     nrpoints=500, cex=0.5)
-# abline(h=5,  lty=1)
+	xlab="log10(Library sizes)", ylab="Mitochondrial prop. (%)",
+	nrpoints=500, cex=0.5)
 
 smoothScatter(sce$pct_counts_Ri, sce$pct_counts_Mt, 
-     xlab="Ribosome prop. (%)", ylab="Mitochondrial prop. (%)",
-     nrpoints=500, cex=0.5)
-# abline(h=5,  lty=1)
-# abline(v=10, lty=1)
+	xlab="Ribosome prop. (%)", ylab="Mitochondrial prop. (%)",
+	nrpoints=500, cex=0.5)
 
-par(mfrow=c(2,1))
+par(mfrow=c(2,2))
 hist(sce$pct_counts_Ri,breaks=40,col="gray")
 hist(sce$pct_counts_Mt,breaks=40,col="gray")
-par(mfrow=c(1,1))
-
+hist(sce$pct_counts_ERCC,xlab="ERCC proportion(%)",
+        ylab="Number of cells",breaks=30,main="",col="gray")
 plot(x=sce$pct_counts_Ri,y=sce$pct_counts_Mt,pch=16,col=rgb(0,0,0,0.4))
 ribo_cut = 1.5
 mito_cut = 1
 abline(v=ribo_cut,lty=2); abline(h=mito_cut,lty=2)
+par(mfrow=c(1,1))
 
 table(sce$pct_counts_Mt < mito_cut,sce$pct_counts_Ri < ribo_cut)
 sce = sce[,which(sce$pct_counts_Mt < mito_cut & sce$pct_counts_Ri < ribo_cut)]
@@ -315,27 +182,35 @@ dim(sce)
 ```
 
 ## Summarize gene-level information
-```{r warning = FALSE, message = FALSE, fig.width=15, fig.height=9}
+```{r warning = FALSE, message = FALSE, fig.width=12, fig.height=12}
 
 rowData(sce)[1:2,]
-min(rowData(sce)$mean_counts)
-min(rowData(sce)$mean_counts[rowData(sce)$mean_counts>0])
-min(rowData(sce)$n_cells_counts)
+summary(rowData(sce)$mean_counts)
+summary(rowData(sce)$mean_counts[rowData(sce)$mean_counts>0])
+summary(rowData(sce)$n_cells_counts)
 
-par(mfrow=c(1,3), mar=c(5,4,1,1))
-hist(log10(rowData(sce)$mean_counts+1e-6), col="grey80",  main="", 
-     breaks=40, xlab="log10(ave # of UMI + 1e-6)")
-hist(log10(rowData(sce)$n_cells_counts+1), col="grey80", main="", 
-     breaks=40, xlab="log10(# of expressed cells + 1)")
-smoothScatter(log10(rowData(sce)$mean_counts+1e-6), 
-              log10(rowData(sce)$n_cells_counts + 1), 
-              xlab="log10(ave # of UMI + 1e-6)", 
-              ylab="log10(# of expressed cells + 1)")
+par(mfrow=c(2,2), mar=c(5,4,1,1))
+hist(log10(rowData(sce)$mean_counts+1e-6), col="grey80",  main="",
+	breaks=40, xlab="log10(ave # of UMI + 1e-6)")
+hist(log10(rowData(sce)$n_cells_counts+1), col="grey80", main="",
+	breaks=40, xlab="log10(# of expressed cells + 1)")
+smoothScatter(log10(rowData(sce)$mean_counts+1e-6),
+	log10(rowData(sce)$n_cells_counts + 1),
+	xlab="log10(ave # of UMI + 1e-6)",
+	ylab="log10(# of expressed cells + 1)")
+par(mfrow=c(1,1),mar=c(5,4,4,2)+0.1)
 
 tb1 = table(rowData(sce)$n_cells_counts)
 tb1[1:11]
 
-# Dr. Sun's code
+# Filter genes
+## n_cells_counts = number of cells with non-zero counts for a gene
+
+par(mfrow=c(2,1),mar=c(5,4,1,1))
+hist(rowData(sce)$n_cells_counts,breaks=50,freq=FALSE,col="gray")
+hist(log10(1+rowData(sce)$n_cells_counts),breaks=50,freq=FALSE,col="gray")
+par(mfrow=c(1,1))
+
 rowData(sce)$n_cell_count_filter = rowData(sce)$n_cells_counts > 1
 table(rowData(sce)$n_cell_count_filter)
 sce = sce[which(rowData(sce)$n_cell_count_filter == TRUE),]
@@ -343,20 +218,17 @@ dim(sce)
 ```
 
 Next we check those highly expressed genes 
-```{r fig.asp=1.5}
-par(mar=c(5,4,1,1))
+```{r fig.height=10,fig.width=10}
+par(mar=c(5,5,1,1))
 od1 = order(rowData(sce)$mean_counts, decreasing = TRUE)
 barplot(rowData(sce)$mean_counts[od1[20:1]], las=1, 
         names.arg=rowData(sce)$gene[od1[20:1]], 
         horiz=TRUE, cex.names=1, cex.axis=0.7, 
         xlab="ave # of UMI")
+par(mar=c(5,4,1,1))
 
 pre_norm_fn = file.path(data_dir,"pre_norm.rds")
-if(where_file == "pllittle"){
-	saveRDS(sce,pre_norm_fn)
-} else {
-	sce = readRDS(pre_norm_fn)
-}
+saveRDS(sce,pre_norm_fn)
 ```
 
 ## Normalization
@@ -365,7 +237,7 @@ A simple solution for normalization and stablizing expression varaince across ge
 As shown in the following plot, the final size factor estimation is indeed highly correlated with the naive definition by total count. 
 
 Finally, the command ```normalize(sce)``` adds the normalized expression into the variable ```sce```.
-```{r warning = FALSE, message = FALSE}
+```{r warning = FALSE, message = FALSE,fig.width=14,fig.height=8}
 
 date()
 clusters = quickCluster(sce, min.mean=0.1, method="igraph")
@@ -381,20 +253,17 @@ dim(sce)
 
 par(mfrow=c(1,2), mar=c(5,4,2,1), bty="n")
 smoothScatter(sce$total_counts, sizeFactors(sce), log="xy", 
-              xlab="total counts", ylab="size factors")
+	xlab="total counts", ylab="size factors")
 plot(sce$total_counts, sizeFactors(sce), log="xy", 
-     xlab="total counts", ylab="size factors", 
-     cex=0.3, pch=20, col=rgb(0.1,0.2,0.7,0.3))
+	xlab="total counts", ylab="size factors", 
+	cex=0.3, pch=20, col=rgb(0.1,0.2,0.7,0.3))
+par(mfrow=c(1,1))
 
 sce = normalize(sce)
 
 # Save temp image
 post_norm_fn = file.path(data_dir,"post_norm.rds")
-if( where_file == "pllittle" ){
-	saveRDS(sce,post_norm_fn)
-} else if(FALSE){
-	sce = readRDS(post_norm_fn)
-}
+saveRDS(sce,post_norm_fn)
 ```
 
 ## Dimension reduction
@@ -404,7 +273,15 @@ For dimension reduction, such as calculating PCA or performing TSNE, we should s
 date()
 new.trend = makeTechTrend(x=sce)
 date()
-fit = trendVar(sce, use.spikes=FALSE, loess.args=list(span=0.05))
+
+# fit = trendVar(sce, use.spikes=FALSE, loess.args=list(span=0.05))
+fit = trendVar(sce,use.spikes=c(FALSE,NA)[2],loess.args=list(span=0.05))
+
+
+##############################
+##############################
+
+
 
 par(mfrow=c(1,1), mar=c(5,4,2,1), bty="n")
 plot(fit$mean, fit$var, pch=20, col=rgb(0.1,0.2,0.7,0.6), 
@@ -458,14 +335,7 @@ gp1
 
 # Save temp image
 post_dimRed_fn = file.path(data_dir,"post_dimRed.rds")
-if( where_file == "pllittle" ){
-	saveRDS(list(sce=sce,dec=dec),post_dimRed_fn)
-} else if(FALSE){
-	rds = readRDS(post_dimRed_fn)
-	sce = rds$sce
-	dec = rds$dec
-	rm(rds)
-}
+saveRDS(list(sce=sce,dec=dec),post_dimRed_fn)
 ```
 
 Next we only select around top 1000 genes for the PCA and use the top 50 PCs for TSNE projection. 
@@ -532,15 +402,7 @@ reducedDims(sce_sub) = SimpleList(PCA=pca, TSNE=tsne$Y)
 sce_sub
 
 post_redDim_fn = file.path(data_dir,"post_redDim.rds")
-if(where_file == "pllittle"){
-	saveRDS(list(sce=sce,sce_sub=sce_sub,df_tsne=df_tsne),post_redDim_fn)
-} else {
-	rds = readRDS(post_redDim_fn)
-	sce = rds$sce
-	sce_sub = rds$sce_sub
-	df_tsne = rds$df_tsne
-	rm(rds)
-}
+saveRDS(list(sce=sce,sce_sub=sce_sub,df_tsne=df_tsne),post_redDim_fn)
 ```
 
 ## Clustering
@@ -567,18 +429,9 @@ gp1
 
 # Save temp image
 post_cluster_fn = file.path(data_dir,"post_cluster.rds")
-if(where_file == "pllittle"){
-	saveRDS(list(sce=sce,sce_sub=sce_sub,
-		k10_50_pcs=k10_50_pcs,df_tsne=df_tsne),
-		post_cluster_fn)
-} else if(FALSE){
-	rds = readRDS(post_cluster_fn)
-	sce = rds$sce
-	sce_sub = rds$sce_sub
-	k10_50_pcs = rds$k10_50_pcs
-	df_tsne = rds$df_tsne
-	rm(rds)
-}
+saveRDS(list(sce=sce,sce_sub=sce_sub,
+	k10_50_pcs=k10_50_pcs,df_tsne=df_tsne),
+	post_cluster_fn)
 
 ```
 
@@ -604,14 +457,7 @@ date()
 
 # Save temp image
 post_sc3_fn = file.path(data_dir,"post_sc3.rds")
-if(where_file == "pllittle"){
-	saveRDS(list(sce=sce,all_ks=all_ks),post_sc3_fn)
-} else if(FALSE){
-	rds = readRDS(post_sc3_fn)
-	sce = rds$sce
-	all_ks = rds$all_ks
-	rm(rds)
-}
+saveRDS(list(sce=sce,all_ks=all_ks),post_sc3_fn)
 
 # Plotting
 for(one_ks in all_ks){
