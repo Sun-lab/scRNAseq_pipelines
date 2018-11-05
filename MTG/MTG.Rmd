@@ -298,7 +298,6 @@ plot(sce$total_counts, sizeFactors(sce), log="xy",
 par(mfrow=c(1,1))
 
 sce = normalize(sce)
-
 saveRDS(sce,"post_norm.rds")
 ```
 
@@ -504,7 +503,7 @@ Code used here is based on [this link](https://bioconductor.org/packages/devel/b
 library(SC3)
 rowData(sce_hvg)$feature_symbol = rowData(sce_hvg)$gene
 date()
-all_ks = c(5,10:15)
+all_ks = c(5,10,12,15)
 # all_ks = 10
 sce_hvg = sc3(sce_hvg,ks = all_ks,biology = TRUE,
 	n_cores = 1,rand_seed = 100,svm_num_cells = 2000)
