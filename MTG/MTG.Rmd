@@ -129,7 +129,7 @@ sce
 
 Next step we apply QC based on a set of features per cell. We will look at ribosomal genes. The imported file can be found [here](https://www.genenames.org/cgi-bin/genefamilies/set/1054/download/branch).
 
-```{r warning = FALSE, message = FALSE}
+```{r}
 file_link = "https://www.genenames.org/cgi-bin/genefamilies/set/1054/download/branch"
 file_name = strsplit(file_link,"/")[[1]]
 file_name = file_name[length(file_name)]
@@ -210,7 +210,7 @@ dim(sce)
 ```
 
 ## Summarize gene-level information
-```{r warning = FALSE, message = FALSE,fig.width=12,fig.height=12}
+```{r fig.width=12,fig.height=12}
 
 rowData(sce)[1:2,]
 summary(rowData(sce)$mean_counts)
@@ -274,7 +274,7 @@ A simple solution for normalization and stablizing expression varaince across ge
 As shown in the following plot, the final size factor estimation is indeed highly correlated with the naive definition by total count. 
 
 Finally, the command ```normalize(sce)``` adds the normalized expression into the variable ```sce```.
-```{r warning = FALSE, message = FALSE,fig.width=14,fig.height=8}
+```{r fig.width=14,fig.height=8}
 min_mean = 1
 date()
 clusters = quickCluster(sce, min.mean=min_mean, method="igraph")
@@ -309,7 +309,7 @@ Since the MTG dataset does not contain spikeIn transcripts, we implemented the c
 ## Dimension reduction
 
 For dimension reduction, such as calculating PCA or performing TSNE, we should start by identifying a subset of genes with high level of biological signal relative to background (technical) noise. The ```decomposeVar``` function from R/cran is designed for this task. 
-```{r warning = FALSE, message = FALSE, fig.height=8,fig.width=8}
+```{r fig.height=8,fig.width=8}
 date()
 new_trend = makeTechTrend(x=sce)
 date()
@@ -326,7 +326,7 @@ legend("topright", legend=c("Poisson noise", "observed trend"),
 
 The above function `makeTechTrend()` assumes a Poisson model and from the above plot, it is clearly not a suitable fit. So we will keep `fit` equal to the loess fit from `trendVar()` rather than setting it equal to the output from `makeTechTrend()`.
 
-```{r warning = FALSE,message = FALSE,fig.height = 8,fig.width = 8}
+```{r fig.height = 8,fig.width = 8}
 # fit$trend = new_trend
 dec = decomposeVar(fit=fit)
 top_dec = dec[order(dec$bio,decreasing=TRUE),]
@@ -341,7 +341,7 @@ plotExpression(sce, features=rownames(top_dec)[1:10])
 
 When performing PCA, we can use all the genes or just those genes with high signal-to-noise ratio. TSNE analysis is usually based on the top PCs rather than the original gene expression data. We first perform PCA using all the genes and the function ```denoisePCA``` can automatically select the PCs based on modeling of technical noise. 
 
-```{r warning = FALSE, message = FALSE, fig.height = 11,fig.width = 11}
+```{r fig.height = 11,fig.width = 11}
 date()
 sce = denoisePCA(sce,technical=fit$trend,approx=TRUE)
 date()
@@ -387,11 +387,12 @@ for(one_var in all_vars){
 
 saveRDS(list(sce=sce,dec=dec),"post_redDim_all_genes.rds")
 # Note that this contains the results from PCA and TSNE with all genes
+# rds = readRDS("post_redDim_all_genes.rds"); sce = rds$sce; dec = rds$dec; rm(rds)
 ```
 
 Next we only select approximately the top 1000 highly variable genes for the PCA, based on tuning thresholds on `dec$bio` and `dec$FDR` from the earlier variance decomposition, and use the top 50 PCs for TSNE projection. 
 
-```{r warning = FALSE,message = FALSE,fig.height = 12,fig.width = 12}
+```{r fig.height = 12,fig.width = 12}
 library(svd)
 library(Rtsne)
 
@@ -442,6 +443,9 @@ df_hvg$class = colData(sce_hvg)$class
 df_hvg$cluster = colData(sce_hvg)$cluster
 df_hvg$cluster0 = colData(sce_hvg)$cluster0
 
+all_vars = c("log10_total_features","sex","brain_hemisphere",
+	"brain_subregion","facs_sort_criteria","class","cluster",
+	"cluster0")
 for(one_var in all_vars){
 	print(ggplot_custom(DATA = df_hvg,
 		X = "PC1",Y = "PC2",COL = one_var))
@@ -455,8 +459,9 @@ date()
 df_tsne = smart_df(tsne$Y)
 names(df_tsne) = paste0("TSNE",seq(ncol(tsne$Y)))
 dim(df_tsne)
-df_tsne[1:2,]
+# df_tsne[1:2,]
 df_hvg = smart_df(df_hvg,df_tsne)
+df_hvg[1:2,]
 
 for(one_var in all_vars){
 	print(ggplot_custom(DATA = df_hvg,
@@ -466,7 +471,7 @@ for(one_var in all_vars){
 reducedDims(sce_hvg) = SimpleList(PCA=pca, TSNE=tsne$Y)
 sce_hvg
 
-saveRDS(sce_hvg,"post_redDim_HVG.rds")
+saveRDS(list(sce_hvg=sce_hvg,df_hvg=df_hvg),"post_redDim_HVG.rds")
 ```
 
 ## Clustering
@@ -474,7 +479,7 @@ saveRDS(sce_hvg,"post_redDim_HVG.rds")
 ### Kmeans
 There are many methods for clustering of single cell RNA-seq data. The performance of each method may also depend on pre-processing steps, such as performing imputation or not. We wil compare these methods in a seperate document. Here we just illustrate the clustering reuslts using a simple kmeans method on the top 50 PCs. 
 
-```{r warning = FALSE,message = FALSE,fig.height = 12,fig.width = 12}
+```{r fig.height = 12,fig.width = 12}
 all_num_clust = c(5:10,15:20,25:30)
 df_hvg = df_hvg[,!grepl("^KM_",names(df_hvg))]
 for(num_clust in all_num_clust){
@@ -499,7 +504,7 @@ Code used here is based on [this link](https://bioconductor.org/packages/devel/b
 library(SC3)
 rowData(sce_hvg)$feature_symbol = rowData(sce_hvg)$gene
 date()
-all_ks = c(5,10,15)
+all_ks = c(5,10:15)
 # all_ks = 10
 sce_hvg = sc3(sce_hvg,ks = all_ks,biology = TRUE,
 	n_cores = 1,rand_seed = 100,svm_num_cells = 2000)
@@ -512,40 +517,66 @@ sce_hvg = sc3_run_svm(sce_hvg, ks = all_ks)
 date()
 
 saveRDS(list(sce_hvg=sce_hvg,all_ks=all_ks),"post_HVG_sc3.rds")
+# rds = readRDS("post_HVG_sc3.rds"); sce_hvg = rds$sce_hvg; all_ks = rds$all_ks; rm(rds)
 
-# Plotting
+df_sc3 = smart_df(reducedDim(sce_hvg,"TSNE"))
+rownames(df_sc3) = NULL
+names(df_sc3) = paste0("TSNE",seq(ncol(df_sc3)))
+df_sc3 = smart_df(sample_name = colnames(sce_hvg),df_sc3)
+df_sc3$log10_total_features = colData(sce_hvg)$log10_total_features
+df_sc3$sex = colData(sce_hvg)$sex
+df_sc3$brain_hemisphere = colData(sce_hvg)$brain_hemisphere
+df_sc3$brain_subregion = colData(sce_hvg)$brain_subregion
+df_sc3$facs_sort_criteria = colData(sce_hvg)$facs_sort_criteria
+df_sc3$class = colData(sce_hvg)$class
+df_sc3$cluster = colData(sce_hvg)$cluster
+df_sc3$cluster0 = colData(sce_hvg)$cluster0
+
+all_vars = c("log10_total_features","sex","brain_hemisphere",
+	"brain_subregion","facs_sort_criteria","class","cluster0")
+
+# TSNE plotting by cluster
 for(one_ks in all_ks){
-	# one_ks = 2
+	df_sc3$VV = as.factor(colData(sce_hvg)[,paste0("sc3_",one_ks,"_clusters")])
+	names(df_sc3)[names(df_sc3) == "VV"] = paste0("SC3_",one_ks)
+	print(ggplot_custom(DATA = df_sc3,X = "TSNE1",
+		Y = "TSNE2",COL = paste0("SC3_",one_ks)))
+}
+
+# SC3 Plotting
+for(one_ks in all_ks){
+	# one_ks = all_ks[1]
 	cat(paste0("Num Clusters = ",one_ks,"\n"))
 	plotPCA(sce_hvg,
 		colour_by = paste0("sc3_",one_ks,"_clusters"), 
 		size_by = paste0("sc3_",one_ks,"_log2_outlier_score"))
 
 	sc3_plot_consensus(sce_hvg,k = one_ks,
-		show_pdata = c("log10_total_features",
+		show_pdata = c(all_vars,
 		paste0("sc3_",one_ks,"_clusters"), 
 		paste0("sc3_",one_ks,"_log2_outlier_score")))
 
-	sc3_plot_silhouette(sce_hvg, k = one_ks)
+	# sc3_plot_silhouette(sce_hvg, k = one_ks)
 
 	sc3_plot_expression(sce_hvg, k = one_ks,
-		show_pdata = c("log10_total_features",
+		show_pdata = c(all_vars,
 		paste0("sc3_",one_ks,"_clusters"), 
 		paste0("sc3_",one_ks,"_log2_outlier_score")))
 
 	sc3_plot_cluster_stability(sce_hvg, k = one_ks)
 
-	sc3_plot_de_genes(sce_hvg, k = one_ks, 
-		show_pdata = c("log10_total_features",
-		paste0("sc3_",one_ks,"_clusters"), 
-		paste0("sc3_",one_ks,"_log2_outlier_score")))
+	#sc3_plot_de_genes(sce_hvg, k = one_ks, 
+	#	show_pdata = c(all_vars,
+	#	paste0("sc3_",one_ks,"_clusters"), 
+	#	paste0("sc3_",one_ks,"_log2_outlier_score")))
 
 	sc3_plot_markers(sce_hvg, k = one_ks, 
-		show_pdata = c("log10_total_features",
+		show_pdata = c(all_vars,
 		paste0("sc3_",one_ks,"_clusters"), 
 		paste0("sc3_",one_ks,"_log2_outlier_score")))
   
 }
+
 
 
 ```
