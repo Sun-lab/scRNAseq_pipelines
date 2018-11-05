@@ -29,10 +29,6 @@ smart_df = function(...){
 	data.frame(...,stringsAsFactors=FALSE)
 }
 
-
-####
-
-
 gg.heatmap <- function(t2, ylab){
   #create a new variable from incidence
   if(max(t2$value) > 1000){
@@ -78,5 +74,11 @@ gg.heatmap <- function(t2, ylab){
           panel.border=element_blank())
   g1
 }
-
+ggplot_custom = function(DATA,X,Y,COL){
+	ggplot(DATA,aes_string(x = X,y = Y,col = COL)) + 
+		geom_point(size=0.2,alpha=0.6) + theme_classic() + 
+		guides(color = guide_legend(override.aes = list(size=3),
+			ncol = 10,byrow = TRUE)) +
+		theme(legend.position="bottom")
+}
 

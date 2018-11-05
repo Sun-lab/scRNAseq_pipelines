@@ -106,12 +106,15 @@ cell_data = smart_RT("human_MTG_2018-06-14_samples-columns.csv",sep=',',header=T
 # Double check samples are correctly sorted
 all(colnames(counts) == cell_data$sample_name)
 sce = SingleCellExperiment(assays = list(counts = as.matrix(counts)),colData = cell_data)
+colData(sce)$cluster0 = sapply(colData(sce)$cluster,function(xx) strsplit(xx," ")[[1]][1],USE.NAMES=FALSE)
+colData(sce)$cluster0[which(colData(sce)$cluster0 == "no")] = "no class"
 rm(counts,cell_data)
 
 # Import gene info
 gene_dat = smart_RT("human_MTG_2018-06-14_genes-rows.csv",sep=',',header=TRUE)
 all(rownames(sce) == as.character(gene_dat$entrez_id))
 rowData(sce) = gene_dat; rm(gene_dat)
+rownames(sce) = rowData(sce)$gene
 sce
 
 # Checking spikes
@@ -201,6 +204,9 @@ sce$PassQC = keep
 saveRDS(sce,"preQC.rds")
 sce = sce[,keep]
 dim(sce)
+
+# To load image
+# sce = readRDS("preQC.rds"); sce = sce[,which(colData(sce)$PassQC == TRUE)]
 ```
 
 ## Summarize gene-level information
@@ -232,16 +238,20 @@ smart_hist(log10(1+rowData(sce)$n_cells_counts),breaks=50,xlab="log10(1 + # of e
 par(mfrow=c(1,1))
 
 n_cell_count_filter = rowData(sce)$n_cells_counts > 5
-table(n_cell_count_filter)
-
+	table(n_cell_count_filter)
 min_detect_min_sample = apply(counts(sce),1,function(xx) length(which(xx > 0)) > 10)
-table(min_detect_min_sample)
+	table(min_detect_min_sample)
+min_mean_counts0 = rowData(sce)$mean_counts > 0
+	table(min_mean_counts0)
+min_mean_counts1 = rowData(sce)$mean_counts > 1
+	table(min_mean_counts1)
+table(n_cell_count_filter,min_detect_min_sample,min_mean_counts0,min_mean_counts1)
 
-sce = sce[which(n_cell_count_filter == TRUE),]
+sce = sce[which(rowData(sce)$mean_counts > 1),]
 dim(sce)
 
 # Next we check those highly expressed genes 
-par(mfrow=c(2,1),mar=c(5,8,1,1))
+par(mfrow=c(1,2),mar=c(5,8,1,1))
 od1 = order(rowData(sce)$mean_counts, decreasing = TRUE)
 barplot(rowData(sce)$mean_counts[od1[20:1]], las=1, 
 	names.arg=rowData(sce)$gene[od1[20:1]], 
@@ -254,6 +264,8 @@ barplot(log10(rowData(sce)$mean_counts[od1[20:1]]), las=1,
 par(mar=c(5,4,1,1))
 
 saveRDS(sce,"post_gene_filter.rds")
+# To load image
+# sce = readRDS("post_gene_filter.rds")
 ```
 
 ## Normalization
@@ -263,11 +275,12 @@ As shown in the following plot, the final size factor estimation is indeed highl
 
 Finally, the command ```normalize(sce)``` adds the normalized expression into the variable ```sce```.
 ```{r warning = FALSE, message = FALSE,fig.width=14,fig.height=8}
-
+min_mean = 1
 date()
-clusters = quickCluster(sce, min.mean=0.1, method="igraph")
+clusters = quickCluster(sce, min.mean=min_mean, method="igraph")
+table(clusters)
 date()
-sce = computeSumFactors(sce, cluster=clusters, min.mean=0.1)
+sce = computeSumFactors(sce, cluster=clusters, min.mean=min_mean)
 date()
 summary(sizeFactors(sce))
 
@@ -289,6 +302,10 @@ sce = normalize(sce)
 saveRDS(sce,"post_norm.rds")
 ```
 
+The link at [here](https://bioconductor.org/packages/devel/workflows/vignettes/simpleSingleCell/inst/doc/work-1-reads.html#61_using_the_deconvolution_method_to_deal_with_zero_counts) mentions the choice of setting `min.mean`.
+
+Since the MTG dataset does not contain spikeIn transcripts, we implemented the code below similar to [here](http://bioconductor.org/packages/devel/workflows/vignettes/simpleSingleCell/inst/doc/xtra-3-var.html#32_when_spike-ins_are_unavailable).
+
 ## Dimension reduction
 
 For dimension reduction, such as calculating PCA or performing TSNE, we should start by identifying a subset of genes with high level of biological signal relative to background (technical) noise. The ```decomposeVar``` function from R/cran is designed for this task. 
@@ -299,87 +316,109 @@ date()
 fit = trendVar(sce, use.spikes=FALSE, loess.args=list(span=0.05))
 
 par(mfrow=c(1,1), mar=c(5,4,2,1), bty="n")
-plot(fit$mean, fit$var, pch=20, col=rgb(0.1,0.2,0.7,0.6), 
+plot(fit$mean, fit$vars, pch=20, col=rgb(0.1,0.2,0.7,0.6), 
 	xlab="log(mean)", ylab="var")
-curve(fit$trend(x), col="orange", lwd=2, add=TRUE)
 curve(new_trend(x), col="red", lwd=2, add=TRUE)
+curve(fit$trend(x), col="orange", lwd=2, add=TRUE)
 legend("topright", legend=c("Poisson noise", "observed trend"), 
 	lty=1, lwd=2, col=c("red", "orange"), bty="n")
+```
 
+The above function `makeTechTrend()` assumes a Poisson model and from the above plot, it is clearly not a suitable fit. So we will keep `fit` equal to the loess fit from `trendVar()` rather than setting it equal to the output from `makeTechTrend()`.
 
-###########
-fit$trend = new_trend
+```{r warning = FALSE,message = FALSE,fig.height = 8,fig.width = 8}
+# fit$trend = new_trend
 dec = decomposeVar(fit=fit)
-top.dec = dec[order(dec$bio, decreasing=TRUE),]
-plotExpression(sce, features=rownames(top.dec)[1:10])
+top_dec = dec[order(dec$bio,decreasing=TRUE),]
+top_dec[1:10,]
+par(mfrow=c(2,2))
+smart_hist(dec$bio,breaks=30,xlab="Biological Variance")
+smart_hist(dec$FDR,breaks=30,xlab="FDR")
+smart_hist(log10(dec$FDR + 1e-6),breaks=30,xlab="log10(FDR + 1e-6)")
+par(mfrow=c(1,1))
+plotExpression(sce, features=rownames(top_dec)[1:10])
 ```
 
 When performing PCA, we can use all the genes or just those genes with high signal-to-noise ratio. TSNE analysis is usually based on the top PCs rather than the original gene expression data. We first perform PCA using all the genes and the function ```denoisePCA``` can automatically select the PCs based on modeling of technical noise. 
 
-```{r warning = FALSE, message = FALSE, fig.height=8,fig.width=11}
+```{r warning = FALSE, message = FALSE, fig.height = 11,fig.width = 11}
 date()
-sce = denoisePCA(sce, technical=new_trend, approx=TRUE)
+sce = denoisePCA(sce,technical=fit$trend,approx=TRUE)
 date()
-dim(reducedDim(sce, "PCA"))
+dim(reducedDim(sce,"PCA"))
 
+par(mfrow=c(1,1))
 plot(log10(attr(reducedDim(sce), "percentVar")), xlab="PC",
      ylab="log10(Prop of variance explained)", pch=20, cex=0.6, 
      col=rgb(0.8, 0.2, 0.2, 0.5))
-abline(v=ncol(reducedDim(sce, "PCA")), lty=2, col="red")
+abline(v=ncol(reducedDim(sce,"PCA")), lty=2, col="red")
 
+df_redDim = smart_df(sample_name = colnames(sce),reducedDim(sce, "PCA"))
+rownames(df_redDim) = NULL
+df_redDim$log10_total_features = colData(sce)$log10_total_features
+df_redDim$sex = colData(sce)$sex
+df_redDim$brain_hemisphere = colData(sce)$brain_hemisphere
+df_redDim$brain_subregion = colData(sce)$brain_subregion
+df_redDim$facs_sort_criteria = colData(sce)$facs_sort_criteria
+df_redDim$class = colData(sce)$class
+df_redDim$cluster = colData(sce)$cluster
+df_redDim$cluster0 = colData(sce)$cluster0
 
-df_pcs = data.frame(reducedDim(sce, "PCA"))
-df_pcs$log10_total_features = colData(sce)$log10_total_features
-
-gp1 = ggplot(df_pcs, aes(PC1,PC2,col=log10_total_features)) + 
-  geom_point(size=0.2,alpha=0.6) + theme_classic() + 
-  scale_colour_gradient(low="lightblue",high="red") +
-  guides(color = guide_legend(override.aes = list(size=3)))
-gp1
+all_vars = c("log10_total_features","sex","brain_hemisphere",
+	"brain_subregion","facs_sort_criteria","class","cluster",
+	"cluster0")
+for(one_var in all_vars){
+	print(ggplot_custom(DATA = df_redDim,
+		X = "PC1",Y = "PC2",COL = one_var))
+}
 
 date()
-sce = runTSNE(sce, use_dimred="PCA", perplexity=30, rand_seed=100)
+sce = runTSNE(sce,use_dimred="PCA",perplexity=30,rand_seed=100)
 date()
 
-df_tsne = data.frame(reducedDim(sce, "TSNE"))
-df_tsne$log10_total_features = colData(sce)$log10_total_features
+df_redDim = smart_df(df_redDim,reducedDim(sce,"TSNE"))
+rownames(df_redDim) = NULL
+names(df_redDim)[c(ncol(df_redDim)-1,ncol(df_redDim))] = paste0("TSNE",1:2)
 
-gp1 = ggplot(df_tsne, aes(X1,X2,col=log10_total_features)) + 
-  geom_point(size=0.2,alpha=0.6) + theme_classic() + 
-  scale_colour_gradient(low="lightblue",high="red") +
-  guides(color = guide_legend(override.aes = list(size=3)))
-gp1
+for(one_var in all_vars){
+	print(ggplot_custom(DATA = df_redDim,
+		X = "TSNE1",Y = "TSNE2",COL = one_var))
+}
 
-# Save temp image
-post_dimRed_fn = file.path(data_dir,"post_dimRed.rds")
-saveRDS(list(sce=sce,dec=dec),post_dimRed_fn)
+saveRDS(list(sce=sce,dec=dec),"post_redDim_all_genes.rds")
+# Note that this contains the results from PCA and TSNE with all genes
 ```
 
-Next we only select around top 1000 genes for the PCA and use the top 50 PCs for TSNE projection. 
+Next we only select approximately the top 1000 highly variable genes for the PCA, based on tuning thresholds on `dec$bio` and `dec$FDR` from the earlier variance decomposition, and use the top 50 PCs for TSNE projection. 
 
-```{r warning = FALSE, message = FALSE, fig.asp = 0.8}
-
-
+```{r warning = FALSE,message = FALSE,fig.height = 12,fig.width = 12}
 library(svd)
 library(Rtsne)
 
 summary(dec$bio)
+summary(dec$FDR)
 dec1 = dec
-dec1$bio[which(dec$bio < 1e-8)] = 1e-8
-dec1$FDR[which(dec$FDR < 1e-100)] = 1e-100
+dec1$bio[which(dec1$bio < 1e-8)] = 1e-8
+dec1$FDR[which(dec1$FDR < 1e-100)] = 1e-100
 
-par(mfrow=c(1,2))
-hist(log10(dec1$bio), breaks=100, main="")
-hist(log10(dec1$FDR), breaks=100, main="")
+par(mfrow=c(2,2))
+smart_hist(log10(dec1$bio),breaks=100,main="",xlab="log10(bio)")
+smart_hist(log10(dec1$FDR),breaks=100,main="",xlab="log10(FDR)")
+smoothScatter(log10(dec1$bio),log10(dec1$FDR),xlab="log10(bio)",ylab="log10(FDR)")
 
 summary(dec$FDR[dec$bio > 0.001])
-table(dec$FDR < 1e-10, dec$bio > 0.01)
+FDR_thres = 1e-50 # 1e-10
+bio_thres = 1e-1 # 1e-2
+FDR_keep = dec$FDR < FDR_thres
+bio_keep = dec$bio > bio_thres
+table(FDR_keep,bio_keep)
+w2kp = which(dec1$FDR < FDR_thres & dec1$bio > bio_thres)
 
-w2kp = which(dec$FDR < 1e-10 & dec$bio > 0.01)
-sce_sub = sce[w2kp,]
-sce_sub
+# Subsetting highly variable genes for subsequent PCA and TSNE
+sce_hvg = sce[w2kp,]
+sce_hvg
 
-edat = t(as.matrix(logcounts(sce_sub)))
+edat = t(as.matrix(logcounts(sce_hvg)))
 edat = scale(edat)
 dim(edat)
 edat[1:2,1:3]
@@ -388,38 +427,46 @@ date()
 ppk = propack.svd(edat,neig=50)
 date()
 pca = t(ppk$d*t(ppk$u))
+dim(pca)
 
-df_pcs = data.frame(pca)
-df_pcs$log10_total_features = colData(sce_sub)$log10_total_features
-df_pcs[1:2,]
+df_hvg = smart_df(pca)
+rownames(df_hvg) = NULL
+names(df_hvg) = paste0("PC",seq(ncol(df_hvg)))
+df_hvg = smart_df(sample_name = colnames(sce_hvg),df_hvg)
+df_hvg$log10_total_features = colData(sce_hvg)$log10_total_features
+df_hvg$sex = colData(sce_hvg)$sex
+df_hvg$brain_hemisphere = colData(sce_hvg)$brain_hemisphere
+df_hvg$brain_subregion = colData(sce_hvg)$brain_subregion
+df_hvg$facs_sort_criteria = colData(sce_hvg)$facs_sort_criteria
+df_hvg$class = colData(sce_hvg)$class
+df_hvg$cluster = colData(sce_hvg)$cluster
+df_hvg$cluster0 = colData(sce_hvg)$cluster0
 
-gp1 = ggplot(df_pcs, aes(X1,X2,col=log10_total_features)) + 
-  geom_point(size=0.2,alpha=0.6) + theme_classic() + 
-  scale_colour_gradient(low="lightblue",high="red") +
-  guides(color = guide_legend(override.aes = list(size=3)))
-gp1
+for(one_var in all_vars){
+	print(ggplot_custom(DATA = df_hvg,
+		X = "PC1",Y = "PC2",COL = one_var))
+}
 
 set.seed(100)
 date()
 tsne = Rtsne(pca, pca = FALSE)
 date()
 
-df_tsne = data.frame(tsne$Y)
-df_tsne$log10_total_features = colData(sce_sub)$log10_total_features
+df_tsne = smart_df(tsne$Y)
+names(df_tsne) = paste0("TSNE",seq(ncol(tsne$Y)))
 dim(df_tsne)
 df_tsne[1:2,]
+df_hvg = smart_df(df_hvg,df_tsne)
 
-gp1 = ggplot(df_tsne, aes(X1,X2,col=log10_total_features)) + 
-  geom_point(size=0.2,alpha=0.6) + theme_classic() + 
-  scale_colour_gradient(low="lightblue",high="red") +
-  guides(color = guide_legend(override.aes = list(size=3)))
-gp1
+for(one_var in all_vars){
+	print(ggplot_custom(DATA = df_hvg,
+		X = "TSNE1",Y = "TSNE2",COL = one_var))
+}
 
-reducedDims(sce_sub) = SimpleList(PCA=pca, TSNE=tsne$Y)
-sce_sub
+reducedDims(sce_hvg) = SimpleList(PCA=pca, TSNE=tsne$Y)
+sce_hvg
 
-post_redDim_fn = file.path(data_dir,"post_redDim.rds")
-saveRDS(list(sce=sce,sce_sub=sce_sub,df_tsne=df_tsne),post_redDim_fn)
+saveRDS(sce_hvg,"post_redDim_HVG.rds")
 ```
 
 ## Clustering
@@ -427,86 +474,76 @@ saveRDS(list(sce=sce,sce_sub=sce_sub,df_tsne=df_tsne),post_redDim_fn)
 ### Kmeans
 There are many methods for clustering of single cell RNA-seq data. The performance of each method may also depend on pre-processing steps, such as performing imputation or not. We wil compare these methods in a seperate document. Here we just illustrate the clustering reuslts using a simple kmeans method on the top 50 PCs. 
 
-```{r warning = FALSE, message = FALSE, fig.asp = 1}
-
-k10_50_pcs = kmeans(reducedDim(sce_sub, "PCA"), centers=10, 
-                    iter.max=150, algorithm="MacQueen")
-names(k10_50_pcs)
-dim(k10_50_pcs$centers)
-
-df_tsne$cluster_kmean = as.factor(k10_50_pcs$cluster)
-cols = c("#FB9A99","#FF7F00","yellow","orchid","grey",
-         "red","dodgerblue2","tan4","green4","#99c9fb")
-
-gp1 = ggplot(df_tsne, aes(X1,X2,col=cluster_kmean)) + 
-  geom_point(size=0.2,alpha=0.6) + theme_classic() + 
-  scale_color_manual(values=cols) + 
-  guides(color = guide_legend(override.aes = list(size=3)))
-gp1
+```{r warning = FALSE,message = FALSE,fig.height = 12,fig.width = 12}
+all_num_clust = c(5:10,15:20,25:30)
+df_hvg = df_hvg[,!grepl("^KM_",names(df_hvg))]
+for(num_clust in all_num_clust){
+	cat(paste0("KM with ",num_clust," clusters.\n"))
+	kmeans_out = kmeans(reducedDim(sce_hvg,"PCA"),centers = num_clust,
+		iter.max = 5e2,algorithm = "MacQueen")
+	df_hvg = smart_df(df_hvg,VV = as.factor(kmeans_out$cluster))
+	names(df_hvg)[ncol(df_hvg)] = paste0("KM_",num_clust)
+	print(ggplot_custom(DATA = df_hvg,X = "TSNE1",
+		Y = "TSNE2",COL = paste0("KM_",num_clust)))
+}
 
 # Save temp image
-post_cluster_fn = file.path(data_dir,"post_cluster.rds")
-saveRDS(list(sce=sce,sce_sub=sce_sub,
-	k10_50_pcs=k10_50_pcs,df_tsne=df_tsne),
-	post_cluster_fn)
+saveRDS(list(sce_hvg=sce_hvg,df_hvg=df_hvg),"post_HVG_kmeans.rds")
 
 ```
 
 ### SC3
 Code used here is based on [this link](https://bioconductor.org/packages/devel/bioc/vignettes/SC3/inst/doc/SC3.html#run-sc3).
 
-```{r fig.height=14, fig.width=14}
+```{r fig.height = 12,fig.width = 12}
 library(SC3)
-rowData(sce)$feature_symbol = rowData(sce)$gene
+rowData(sce_hvg)$feature_symbol = rowData(sce_hvg)$gene
 date()
-all_ks = c(10,15)
-sce = sc3(sce, 
-	ks = all_ks,biology = TRUE,
-	n_cores = 1,rand_seed = 100,
-	svm_num_cells = 2000)
+all_ks = c(5,10,15)
+# all_ks = 10
+sce_hvg = sc3(sce_hvg,ks = all_ks,biology = TRUE,
+	n_cores = 1,rand_seed = 100,svm_num_cells = 2000)
 warnings()
 date()
 
 # Run SVM and predict labels of all other cells
 date()
-sce = sc3_run_svm(sce, ks = all_ks)
+sce_hvg = sc3_run_svm(sce_hvg, ks = all_ks)
 date()
 
-# Save temp image
-post_sc3_fn = file.path(data_dir,"post_sc3.rds")
-saveRDS(list(sce=sce,all_ks=all_ks),post_sc3_fn)
+saveRDS(list(sce_hvg=sce_hvg,all_ks=all_ks),"post_HVG_sc3.rds")
 
 # Plotting
 for(one_ks in all_ks){
-  # one_ks = 2
-  print(one_ks)
-  plotPCA(sce,
-      colour_by = paste0("sc3_",one_ks,"_clusters"), 
-      size_by = paste0("sc3_",one_ks,"_log2_outlier_score"))
-  
-  sc3_plot_consensus(sce,k = one_ks,
-      show_pdata = c("log10_total_features",
-        paste0("sc3_",one_ks,"_clusters"), 
-        paste0("sc3_",one_ks,"_log2_outlier_score")))
-  
-  sc3_plot_silhouette(sce, k = one_ks)
-  
-  sc3_plot_expression(sce, k = one_ks,
-      show_pdata = c("log10_total_features",
-        paste0("sc3_",one_ks,"_clusters"), 
-        paste0("sc3_",one_ks,"_log2_outlier_score")))
-  
-  sc3_plot_cluster_stability(sce, k = one_ks)
-  
-  sc3_plot_de_genes(sce, k = one_ks, 
-    show_pdata = c("log10_total_features",
-        paste0("sc3_",one_ks,"_clusters"), 
-        paste0("sc3_",one_ks,"_log2_outlier_score")))
-  
-  sc3_plot_markers(sce, k = one_ks, 
-    show_pdata = c("log10_total_features",
-        paste0("sc3_",one_ks,"_clusters"), 
-        paste0("sc3_",one_ks,"_log2_outlier_score")))
+	# one_ks = 2
+	cat(paste0("Num Clusters = ",one_ks,"\n"))
+	plotPCA(sce_hvg,
+		colour_by = paste0("sc3_",one_ks,"_clusters"), 
+		size_by = paste0("sc3_",one_ks,"_log2_outlier_score"))
+
+	sc3_plot_consensus(sce_hvg,k = one_ks,
+		show_pdata = c("log10_total_features",
+		paste0("sc3_",one_ks,"_clusters"), 
+		paste0("sc3_",one_ks,"_log2_outlier_score")))
+
+	sc3_plot_silhouette(sce_hvg, k = one_ks)
+
+	sc3_plot_expression(sce_hvg, k = one_ks,
+		show_pdata = c("log10_total_features",
+		paste0("sc3_",one_ks,"_clusters"), 
+		paste0("sc3_",one_ks,"_log2_outlier_score")))
+
+	sc3_plot_cluster_stability(sce_hvg, k = one_ks)
+
+	sc3_plot_de_genes(sce_hvg, k = one_ks, 
+		show_pdata = c("log10_total_features",
+		paste0("sc3_",one_ks,"_clusters"), 
+		paste0("sc3_",one_ks,"_log2_outlier_score")))
+
+	sc3_plot_markers(sce_hvg, k = one_ks, 
+		show_pdata = c("log10_total_features",
+		paste0("sc3_",one_ks,"_clusters"), 
+		paste0("sc3_",one_ks,"_log2_outlier_score")))
   
 }
 
