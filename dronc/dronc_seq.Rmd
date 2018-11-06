@@ -38,7 +38,7 @@ I have requested 5 cores to improve SC3 runtime.
 # Specifying working directories
 repo_dir = "/pine/scr/p/l/pllittle/CS_eQTL/s3_Real/scRNAseq_pipelines"
 data_dir = file.path(repo_dir,"dronc")
-num_cores = 5
+num_cores = 1
 setwd(data_dir)
 
 # Source/Libraries

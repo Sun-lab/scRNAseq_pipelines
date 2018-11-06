@@ -44,7 +44,7 @@ setwd(data_dir)
 
 # Analysis Plans
 exon_only = TRUE
-num_cores = 5
+num_cores = 1
 
 # Source/Libraries
 source(file.path(repo_dir,"SOURCE.R"))
