@@ -181,7 +181,7 @@ hr {
 
 <p>The dataset is available <a href="http://celltypes.brain-map.org/api/v2/well_known_file_download/694416044">here</a>. This markdown is designed to download all necessary packages and input data objects for analysis.</p>
 
-<p>Before running this R markdown, change the following <code>repo_dir</code> and <code>data_dir</code> variables to your own respective local working directory. Also, determine if the analysis will be conducted with exon counts only(<code>exon_only = TRUE</code>) or with both exon and intron counts summed together (<code>exon_only = FALSE</code>).</p>
+<p>Before running this R markdown, change the following <code>repo_dir</code> and <code>data_dir</code> variables to your own respective local working directory. Also, determine if the analysis will be conducted with exon counts only(<code>exon_only = TRUE</code>) or with both exon and intron counts summed together (<code>exon_only = FALSE</code>). I have requested 5 cores to improve SC3 runtime.</p>
 
 <pre><code class="r"># Specifying working directories
 repo_dir = &quot;/pine/scr/p/l/pllittle/CS_eQTL/s3_Real/scRNAseq_pipelines&quot;
@@ -190,6 +190,7 @@ setwd(data_dir)
 
 # Analysis Plans
 exon_only = TRUE
+num_cores = 5
 
 # Source/Libraries
 source(file.path(repo_dir,&quot;SOURCE.R&quot;))
@@ -826,7 +827,7 @@ saveRDS(sce,&quot;post_gene_filter.rds&quot;)
 date()
 </code></pre>
 
-<pre><code>## [1] &quot;Mon Nov  5 15:31:04 2018&quot;
+<pre><code>## [1] &quot;Tue Nov  6 02:44:03 2018&quot;
 </code></pre>
 
 <pre><code class="r">clusters = quickCluster(sce, min.mean=min_mean, method=&quot;igraph&quot;)
@@ -841,14 +842,14 @@ table(clusters)
 <pre><code class="r">date()
 </code></pre>
 
-<pre><code>## [1] &quot;Mon Nov  5 15:34:54 2018&quot;
+<pre><code>## [1] &quot;Tue Nov  6 02:47:37 2018&quot;
 </code></pre>
 
 <pre><code class="r">sce = computeSumFactors(sce, cluster=clusters, min.mean=min_mean)
 date()
 </code></pre>
 
-<pre><code>## [1] &quot;Mon Nov  5 15:40:12 2018&quot;
+<pre><code>## [1] &quot;Tue Nov  6 02:52:10 2018&quot;
 </code></pre>
 
 <pre><code class="r">summary(sizeFactors(sce))
@@ -899,14 +900,14 @@ saveRDS(sce,&quot;post_norm.rds&quot;)
 <pre><code class="r">date()
 </code></pre>
 
-<pre><code>## [1] &quot;Mon Nov  5 15:43:17 2018&quot;
+<pre><code>## [1] &quot;Tue Nov  6 02:54:19 2018&quot;
 </code></pre>
 
 <pre><code class="r">new_trend = makeTechTrend(x=sce)
 date()
 </code></pre>
 
-<pre><code>## [1] &quot;Mon Nov  5 15:48:56 2018&quot;
+<pre><code>## [1] &quot;Tue Nov  6 02:58:25 2018&quot;
 </code></pre>
 
 <pre><code class="r">fit = trendVar(sce, use.spikes=FALSE, loess.args=list(span=0.05))
@@ -976,14 +977,14 @@ par(mfrow=c(1,1))
 <pre><code class="r">date()
 </code></pre>
 
-<pre><code>## [1] &quot;Mon Nov  5 15:49:41 2018&quot;
+<pre><code>## [1] &quot;Tue Nov  6 02:59:19 2018&quot;
 </code></pre>
 
 <pre><code class="r">sce = denoisePCA(sce,technical=fit$trend,approx=TRUE)
 date()
 </code></pre>
 
-<pre><code>## [1] &quot;Mon Nov  5 16:00:16 2018&quot;
+<pre><code>## [1] &quot;Tue Nov  6 03:07:41 2018&quot;
 </code></pre>
 
 <pre><code class="r">dim(reducedDim(sce,&quot;PCA&quot;))
@@ -1026,14 +1027,14 @@ for(one_var in all_vars){
 <pre><code class="r">date()
 </code></pre>
 
-<pre><code>## [1] &quot;Mon Nov  5 16:00:25 2018&quot;
+<pre><code>## [1] &quot;Tue Nov  6 03:07:47 2018&quot;
 </code></pre>
 
 <pre><code class="r">sce = runTSNE(sce,use_dimred=&quot;PCA&quot;,perplexity=30,rand_seed=100)
 date()
 </code></pre>
 
-<pre><code>## [1] &quot;Mon Nov  5 16:06:35 2018&quot;
+<pre><code>## [1] &quot;Tue Nov  6 03:13:35 2018&quot;
 </code></pre>
 
 <pre><code class="r">df_redDim = smart_df(df_redDim,reducedDim(sce,&quot;TSNE&quot;))
@@ -1142,14 +1143,14 @@ dim(edat)
 <pre><code class="r">date()
 </code></pre>
 
-<pre><code>## [1] &quot;Mon Nov  5 16:09:58 2018&quot;
+<pre><code>## [1] &quot;Tue Nov  6 03:15:45 2018&quot;
 </code></pre>
 
 <pre><code class="r">ppk = propack.svd(edat,neig=50)
 date()
 </code></pre>
 
-<pre><code>## [1] &quot;Mon Nov  5 16:10:10 2018&quot;
+<pre><code>## [1] &quot;Tue Nov  6 03:15:53 2018&quot;
 </code></pre>
 
 <pre><code class="r">pca = t(ppk$d*t(ppk$u))
@@ -1172,38 +1173,29 @@ df_hvg$class = colData(sce_hvg)$class
 df_hvg$cluster = colData(sce_hvg)$cluster
 df_hvg$cluster0 = colData(sce_hvg)$cluster0
 
-all_vars = c(&quot;log10_total_features&quot;,&quot;sex&quot;,&quot;brain_hemisphere&quot;,
-    &quot;brain_subregion&quot;,&quot;facs_sort_criteria&quot;,&quot;class&quot;,&quot;cluster&quot;,
-    &quot;cluster0&quot;)
-for(one_var in all_vars){
-    print(ggplot_custom(DATA = df_hvg,
-        X = &quot;PC1&quot;,Y = &quot;PC2&quot;,COL = one_var))
-}
-
 set.seed(100)
 date()
 </code></pre>
 
-<pre><code>## [1] &quot;Mon Nov  5 16:10:19 2018&quot;
+<pre><code>## [1] &quot;Tue Nov  6 03:15:53 2018&quot;
 </code></pre>
 
 <pre><code class="r">tsne = Rtsne(pca, pca = FALSE)
 date()
 </code></pre>
 
-<pre><code>## [1] &quot;Mon Nov  5 16:16:39 2018&quot;
+<pre><code>## [1] &quot;Tue Nov  6 03:21:36 2018&quot;
 </code></pre>
 
 <pre><code class="r">df_tsne = smart_df(tsne$Y)
-names(df_tsne) = paste0(&quot;TSNE&quot;,seq(ncol(tsne$Y)))
+names(df_tsne) = paste0(&quot;HVG_TSNE&quot;,seq(ncol(tsne$Y)))
 dim(df_tsne)
 </code></pre>
 
 <pre><code>## [1] 13330     2
 </code></pre>
 
-<pre><code class="r"># df_tsne[1:2,]
-df_hvg = smart_df(df_hvg,df_tsne)
+<pre><code class="r">df_hvg = smart_df(df_hvg,df_tsne)
 df_hvg[1:2,]
 </code></pre>
 
@@ -1237,14 +1229,19 @@ df_hvg[1:2,]
 ##   facs_sort_criteria         class                 cluster cluster0
 ## 1      NeuN-positive Glutamatergic     Exc L5-6 RORB TTC12      Exc
 ## 2      NeuN-positive Glutamatergic Exc L5-6 FEZF2 EFTUD1P1      Exc
-##       TSNE1     TSNE2
+##   HVG_TSNE1 HVG_TSNE2
 ## 1 -2.004835 -34.56419
 ## 2 -4.155737  48.00538
 </code></pre>
 
-<pre><code class="r">for(one_var in all_vars){
+<pre><code class="r">all_vars = c(&quot;log10_total_features&quot;,&quot;sex&quot;,&quot;brain_hemisphere&quot;,
+    &quot;brain_subregion&quot;,&quot;facs_sort_criteria&quot;,&quot;class&quot;,&quot;cluster&quot;,
+    &quot;cluster0&quot;)
+for(one_var in all_vars){
     print(ggplot_custom(DATA = df_hvg,
-        X = &quot;TSNE1&quot;,Y = &quot;TSNE2&quot;,COL = one_var))
+        X = &quot;PC1&quot;,Y = &quot;PC2&quot;,COL = one_var))
+    print(ggplot_custom(DATA = df_hvg,
+        X = &quot;HVG_TSNE1&quot;,Y = &quot;HVG_TSNE2&quot;,COL = one_var))
 }
 
 reducedDims(sce_hvg) = SimpleList(PCA=pca, TSNE=tsne$Y)
@@ -1275,7 +1272,7 @@ sce_hvg
 
 <h3>Kmeans</h3>
 
-<p>There are many methods for clustering of single cell RNA-seq data. The performance of each method may also depend on pre-processing steps, such as performing imputation or not. We wil compare these methods in a seperate document. Here we just illustrate the clustering reuslts using a simple kmeans method on the top 50 PCs. </p>
+<p>There are many methods for clustering of single cell RNA-seq data. The performance of each method may also depend on pre-processing steps, such as performing imputation or not. We will compare these methods in a seperate document. Here we just illustrate the clustering results using a simple kmeans method on the top 50 PCs. </p>
 
 <pre><code class="r">all_num_clust = c(5:10,15:20,25:30)
 df_hvg = df_hvg[,!grepl(&quot;^KM_&quot;,names(df_hvg))]
@@ -1285,8 +1282,8 @@ for(num_clust in all_num_clust){
         iter.max = 5e2,algorithm = &quot;MacQueen&quot;)
     df_hvg = smart_df(df_hvg,VV = as.factor(kmeans_out$cluster))
     names(df_hvg)[ncol(df_hvg)] = paste0(&quot;KM_&quot;,num_clust)
-    print(ggplot_custom(DATA = df_hvg,X = &quot;TSNE1&quot;,
-        Y = &quot;TSNE2&quot;,COL = paste0(&quot;KM_&quot;,num_clust)))
+    print(ggplot_custom(DATA = df_hvg,X = &quot;HVG_TSNE1&quot;,
+        Y = &quot;HVG_TSNE2&quot;,COL = paste0(&quot;KM_&quot;,num_clust)))
 }
 </code></pre>
 
@@ -1393,13 +1390,13 @@ rowData(sce_hvg)$feature_symbol = rowData(sce_hvg)$gene
 date()
 </code></pre>
 
-<pre><code>## [1] &quot;Mon Nov  5 16:18:08 2018&quot;
+<pre><code>## [1] &quot;Tue Nov  6 03:22:35 2018&quot;
 </code></pre>
 
-<pre><code class="r">all_ks = c(5,10,12,15)
+<pre><code class="r">all_ks = c(5,10,15)
 # all_ks = 10
 sce_hvg = sc3(sce_hvg,ks = all_ks,biology = TRUE,
-    n_cores = 1,rand_seed = 100,svm_num_cells = 2000)
+    n_cores = num_cores,rand_seed = 100,svm_num_cells = 2000)
 </code></pre>
 
 <pre><code>## Setting SC3 parameters...
@@ -1430,54 +1427,40 @@ sce_hvg = sc3(sce_hvg,ks = all_ks,biology = TRUE,
 date()
 </code></pre>
 
-<pre><code>## [1] &quot;Tue Nov  6 00:24:27 2018&quot;
+<pre><code>## [1] &quot;Tue Nov  6 05:03:00 2018&quot;
 </code></pre>
 
 <pre><code class="r"># Run SVM and predict labels of all other cells
 date()
 </code></pre>
 
-<pre><code>## [1] &quot;Tue Nov  6 00:24:27 2018&quot;
+<pre><code>## [1] &quot;Tue Nov  6 05:03:00 2018&quot;
 </code></pre>
 
-<pre><code class="r">sce_hvg = sc3_run_svm(sce_hvg, ks = all_ks)
+<pre><code class="r">sce_hvg = sc3_run_svm(sce_hvg,ks = all_ks)
 date()
 </code></pre>
 
-<pre><code>## [1] &quot;Tue Nov  6 00:26:56 2018&quot;
+<pre><code>## [1] &quot;Tue Nov  6 05:04:02 2018&quot;
 </code></pre>
 
 <pre><code class="r">saveRDS(list(sce_hvg=sce_hvg,all_ks=all_ks),&quot;post_HVG_sc3.rds&quot;)
 # rds = readRDS(&quot;post_HVG_sc3.rds&quot;); sce_hvg = rds$sce_hvg; all_ks = rds$all_ks; rm(rds)
 
-df_sc3 = smart_df(reducedDim(sce_hvg,&quot;TSNE&quot;))
-rownames(df_sc3) = NULL
-names(df_sc3) = paste0(&quot;TSNE&quot;,seq(ncol(df_sc3)))
-df_sc3 = smart_df(sample_name = colnames(sce_hvg),df_sc3)
-df_sc3$log10_total_features = colData(sce_hvg)$log10_total_features
-df_sc3$sex = colData(sce_hvg)$sex
-df_sc3$brain_hemisphere = colData(sce_hvg)$brain_hemisphere
-df_sc3$brain_subregion = colData(sce_hvg)$brain_subregion
-df_sc3$facs_sort_criteria = colData(sce_hvg)$facs_sort_criteria
-df_sc3$class = colData(sce_hvg)$class
-df_sc3$cluster = colData(sce_hvg)$cluster
-df_sc3$cluster0 = colData(sce_hvg)$cluster0
-
-all_vars = c(&quot;log10_total_features&quot;,&quot;sex&quot;,&quot;brain_hemisphere&quot;,
-    &quot;brain_subregion&quot;,&quot;facs_sort_criteria&quot;,&quot;class&quot;,&quot;cluster0&quot;)
-
-# TSNE plotting by cluster
+# Combine older results with SC3 results and plot HVG_TSNE vs. SC3 results
 for(one_ks in all_ks){
-    df_sc3$VV = as.factor(colData(sce_hvg)[,paste0(&quot;sc3_&quot;,one_ks,&quot;_clusters&quot;)])
-    names(df_sc3)[names(df_sc3) == &quot;VV&quot;] = paste0(&quot;SC3_&quot;,one_ks)
-    print(ggplot_custom(DATA = df_sc3,X = &quot;TSNE1&quot;,
-        Y = &quot;TSNE2&quot;,COL = paste0(&quot;SC3_&quot;,one_ks)))
+    df_hvg$VV = as.factor(colData(sce_hvg)[,paste0(&quot;sc3_&quot;,one_ks,&quot;_clusters&quot;)])
+    names(df_hvg)[names(df_hvg) == &quot;VV&quot;] = paste0(&quot;SC3_&quot;,one_ks)
+    print(ggplot_custom(DATA = df_hvg,X = &quot;HVG_TSNE1&quot;,
+        Y = &quot;HVG_TSNE2&quot;,COL = paste0(&quot;SC3_&quot;,one_ks)))
 }
 </code></pre>
 
-<p><img src="figure/unnamed-chunk-12-1.png" alt="plot of chunk unnamed-chunk-12"><img src="figure/unnamed-chunk-12-2.png" alt="plot of chunk unnamed-chunk-12"><img src="figure/unnamed-chunk-12-3.png" alt="plot of chunk unnamed-chunk-12"><img src="figure/unnamed-chunk-12-4.png" alt="plot of chunk unnamed-chunk-12"></p>
+<p><img src="figure/unnamed-chunk-12-1.png" alt="plot of chunk unnamed-chunk-12"><img src="figure/unnamed-chunk-12-2.png" alt="plot of chunk unnamed-chunk-12"><img src="figure/unnamed-chunk-12-3.png" alt="plot of chunk unnamed-chunk-12"></p>
 
 <pre><code class="r"># SC3 Plotting
+all_vars = c(&quot;log10_total_features&quot;,&quot;sex&quot;,&quot;brain_hemisphere&quot;,
+    &quot;brain_subregion&quot;,&quot;facs_sort_criteria&quot;,&quot;class&quot;,&quot;cluster0&quot;)
 for(one_ks in all_ks){
     # one_ks = all_ks[1]
     cat(paste0(&quot;Num Clusters = &quot;,one_ks,&quot;\n&quot;))
@@ -1515,22 +1498,24 @@ for(one_ks in all_ks){
 <pre><code>## Num Clusters = 5
 </code></pre>
 
-<p><img src="figure/unnamed-chunk-12-5.png" alt="plot of chunk unnamed-chunk-12"><img src="figure/unnamed-chunk-12-6.png" alt="plot of chunk unnamed-chunk-12"><img src="figure/unnamed-chunk-12-7.png" alt="plot of chunk unnamed-chunk-12"></p>
+<p><img src="figure/unnamed-chunk-12-4.png" alt="plot of chunk unnamed-chunk-12"><img src="figure/unnamed-chunk-12-5.png" alt="plot of chunk unnamed-chunk-12"><img src="figure/unnamed-chunk-12-6.png" alt="plot of chunk unnamed-chunk-12"></p>
 
 <pre><code>## Num Clusters = 10
 </code></pre>
 
-<p><img src="figure/unnamed-chunk-12-8.png" alt="plot of chunk unnamed-chunk-12"><img src="figure/unnamed-chunk-12-9.png" alt="plot of chunk unnamed-chunk-12"><img src="figure/unnamed-chunk-12-10.png" alt="plot of chunk unnamed-chunk-12"></p>
-
-<pre><code>## Num Clusters = 12
-</code></pre>
-
-<p><img src="figure/unnamed-chunk-12-11.png" alt="plot of chunk unnamed-chunk-12"><img src="figure/unnamed-chunk-12-12.png" alt="plot of chunk unnamed-chunk-12"><img src="figure/unnamed-chunk-12-13.png" alt="plot of chunk unnamed-chunk-12"></p>
+<p><img src="figure/unnamed-chunk-12-7.png" alt="plot of chunk unnamed-chunk-12"><img src="figure/unnamed-chunk-12-8.png" alt="plot of chunk unnamed-chunk-12"><img src="figure/unnamed-chunk-12-9.png" alt="plot of chunk unnamed-chunk-12"></p>
 
 <pre><code>## Num Clusters = 15
 </code></pre>
 
-<p><img src="figure/unnamed-chunk-12-14.png" alt="plot of chunk unnamed-chunk-12"><img src="figure/unnamed-chunk-12-15.png" alt="plot of chunk unnamed-chunk-12"><img src="figure/unnamed-chunk-12-16.png" alt="plot of chunk unnamed-chunk-12"></p>
+<p><img src="figure/unnamed-chunk-12-10.png" alt="plot of chunk unnamed-chunk-12"><img src="figure/unnamed-chunk-12-11.png" alt="plot of chunk unnamed-chunk-12"><img src="figure/unnamed-chunk-12-12.png" alt="plot of chunk unnamed-chunk-12"></p>
+
+<p>Finally we save the sce object, sce_hvg object, and the clustering results.</p>
+
+<pre><code class="r">saveRDS(sce,&quot;final_sce.rds&quot;)
+saveRDS(sce_hvg,&quot;final_sce_hvg.rds&quot;)
+saveRDS(df_hvg,&quot;final_hvg_clust.rds&quot;)
+</code></pre>
 
 <h1>Session information</h1>
 
