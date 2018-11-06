@@ -442,29 +442,25 @@ df_hvg$class = colData(sce_hvg)$class
 df_hvg$cluster = colData(sce_hvg)$cluster
 df_hvg$cluster0 = colData(sce_hvg)$cluster0
 
-all_vars = c("log10_total_features","sex","brain_hemisphere",
-	"brain_subregion","facs_sort_criteria","class","cluster",
-	"cluster0")
-for(one_var in all_vars){
-	print(ggplot_custom(DATA = df_hvg,
-		X = "PC1",Y = "PC2",COL = one_var))
-}
-
 set.seed(100)
 date()
 tsne = Rtsne(pca, pca = FALSE)
 date()
 
 df_tsne = smart_df(tsne$Y)
-names(df_tsne) = paste0("TSNE",seq(ncol(tsne$Y)))
+names(df_tsne) = paste0("HVG_TSNE",seq(ncol(tsne$Y)))
 dim(df_tsne)
-# df_tsne[1:2,]
 df_hvg = smart_df(df_hvg,df_tsne)
 df_hvg[1:2,]
 
+all_vars = c("log10_total_features","sex","brain_hemisphere",
+	"brain_subregion","facs_sort_criteria","class","cluster",
+	"cluster0")
 for(one_var in all_vars){
 	print(ggplot_custom(DATA = df_hvg,
-		X = "TSNE1",Y = "TSNE2",COL = one_var))
+		X = "PC1",Y = "PC2",COL = one_var))
+	print(ggplot_custom(DATA = df_hvg,
+		X = "HVG_TSNE1",Y = "HVG_TSNE2",COL = one_var))
 }
 
 reducedDims(sce_hvg) = SimpleList(PCA=pca, TSNE=tsne$Y)
@@ -487,8 +483,8 @@ for(num_clust in all_num_clust){
 		iter.max = 5e2,algorithm = "MacQueen")
 	df_hvg = smart_df(df_hvg,VV = as.factor(kmeans_out$cluster))
 	names(df_hvg)[ncol(df_hvg)] = paste0("KM_",num_clust)
-	print(ggplot_custom(DATA = df_hvg,X = "TSNE1",
-		Y = "TSNE2",COL = paste0("KM_",num_clust)))
+	print(ggplot_custom(DATA = df_hvg,X = "HVG_TSNE1",
+		Y = "HVG_TSNE2",COL = paste0("KM_",num_clust)))
 }
 
 # Save temp image
@@ -512,31 +508,18 @@ date()
 
 # Run SVM and predict labels of all other cells
 date()
-sce_hvg = sc3_run_svm(sce_hvg, ks = all_ks)
+sce_hvg = sc3_run_svm(sce_hvg,ks = all_ks)
 date()
 
 saveRDS(list(sce_hvg=sce_hvg,all_ks=all_ks),"post_HVG_sc3.rds")
 # rds = readRDS("post_HVG_sc3.rds"); sce_hvg = rds$sce_hvg; all_ks = rds$all_ks; rm(rds)
 
-df_sc3 = smart_df(reducedDim(sce_hvg,"TSNE"))
-rownames(df_sc3) = NULL
-names(df_sc3) = paste0("TSNE",seq(ncol(df_sc3)))
-df_sc3 = smart_df(sample_name = colnames(sce_hvg),df_sc3)
-df_sc3$log10_total_features = colData(sce_hvg)$log10_total_features
-df_sc3$sex = colData(sce_hvg)$sex
-df_sc3$brain_hemisphere = colData(sce_hvg)$brain_hemisphere
-df_sc3$brain_subregion = colData(sce_hvg)$brain_subregion
-df_sc3$facs_sort_criteria = colData(sce_hvg)$facs_sort_criteria
-df_sc3$class = colData(sce_hvg)$class
-df_sc3$cluster = colData(sce_hvg)$cluster
-df_sc3$cluster0 = colData(sce_hvg)$cluster0
-
-# TSNE plotting by cluster
+# Combine older results with SC3 results and plot HVG_TSNE vs. SC3 results
 for(one_ks in all_ks){
-	df_sc3$VV = as.factor(colData(sce_hvg)[,paste0("sc3_",one_ks,"_clusters")])
-	names(df_sc3)[names(df_sc3) == "VV"] = paste0("SC3_",one_ks)
-	print(ggplot_custom(DATA = df_sc3,X = "TSNE1",
-		Y = "TSNE2",COL = paste0("SC3_",one_ks)))
+	df_hvg$VV = as.factor(colData(sce_hvg)[,paste0("sc3_",one_ks,"_clusters")])
+	names(df_hvg)[names(df_hvg) == "VV"] = paste0("SC3_",one_ks)
+	print(ggplot_custom(DATA = df_hvg,X = "HVG_TSNE1",
+		Y = "HVG_TSNE2",COL = paste0("SC3_",one_ks)))
 }
 
 # SC3 Plotting
@@ -575,10 +558,14 @@ for(one_ks in all_ks){
   
 }
 
-
-
 ```
 
+Finally we save the sce object, sce_hvg object, and the clustering results.
+```{r}
+saveRDS(sce,"final_sce.rds")
+saveRDS(sce_hvg,"final_sce_hvg.rds")
+saveRDS(df_hvg,"final_hvg_clust.rds")
+```
 
 # Session information
 ```{r}

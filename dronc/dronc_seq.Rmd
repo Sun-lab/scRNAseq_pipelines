@@ -618,7 +618,7 @@ date()
 
 # Run SVM and predict labels of all other cells
 date()
-sce_hvg = sc3_run_svm(sce_hvg, ks = all_ks)
+sce_hvg = sc3_run_svm(sce_hvg,ks = all_ks)
 date()
 
 saveRDS(list(sce_hvg=sce_hvg,all_ks=all_ks),"post_HVG_sc3.rds")
