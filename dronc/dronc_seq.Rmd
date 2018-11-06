@@ -323,7 +323,7 @@ min(rowData(sce)$mean_counts)
 min(rowData(sce)$mean_counts[rowData(sce)$mean_counts>0])
 min(rowData(sce)$n_cells_counts)
 
-par(mfrow=c(1,3), mar=c(5,4,1,1))
+par(mfrow=c(2,2), mar=c(5,4,1,1))
 smart_hist(log10(rowData(sce)$mean_counts+1e-6),main="", 
 	breaks=40, xlab="log10(ave # of UMI + 1e-6)")
 smart_hist(log10(rowData(sce)$n_cells_counts+1),main="", 
@@ -377,7 +377,7 @@ dim(sce)
 ```
 
 Next we check those highly expressed genes 
-```{r fig.width = 14,fig.height = 9}
+```{r fig.width = 14,fig.height = 7}
 par(mfrow=c(1,2),mar=c(5,8,1,1))
 od1 = order(rowData(sce)$mean_counts, decreasing = TRUE)
 barplot(rowData(sce)$mean_counts[od1[20:1]], las=1, 

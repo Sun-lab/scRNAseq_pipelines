@@ -29,6 +29,110 @@ smart_df = function(...){
 	data.frame(...,stringsAsFactors=FALSE)
 }
 
+
+# ----------
+# scRNA Functions
+# ----------
+run_barcodeRanks_emptyDrops = function(sce){
+	# ref = "https://bioconductor.org/packages/release/workflows/vignettes/simpleSingleCell/inst/doc/work-3-tenx.html#calling-cells-from-empty-droplets"
+	# cat(paste0(ref,"\n"))
+
+	# Calling cells from empty droplets
+	bcrank = DropletUtils::barcodeRanks(counts(sce))
+
+	# Only show unique points for plotting speed.
+	uniq = !duplicated(bcrank$rank)
+
+	par(mfrow=c(1,1),mar=c(5,4,2,1),bty="n")
+	plot(bcrank$rank[uniq], bcrank$total[uniq], log="xy", 
+		xlab="Rank", ylab="Total UMI count", cex=0.5, cex.lab=1.2)
+	abline(h=bcrank$inflection, col="darkgreen", lty=2,lwd=2)
+	abline(h=bcrank$knee, col="dodgerblue", lty=2,lwd=2)
+	legend("left",legend=c("Inflection","Knee"), bty="n", 
+		col=c("darkgreen", "dodgerblue"), lty=2, cex=1.2,lwd=2)
+	par(mfrow=c(1,1),mar=c(5,4,4,2)+0.1)
+	
+	cat(paste0("Inflection = ",bcrank$inflection,"\n"))
+	cat(paste0("Knee = ",bcrank$knee,"\n"))
+
+	# summary(bcrank$total)
+	# table(bcrank$total >= bcrank$knee)
+	# table(bcrank$total >= bcrank$inflection)
+
+	set.seed(100)
+	print(date())
+	e_out = DropletUtils::emptyDrops(counts(sce))
+	print(date())
+	# length(unique(e_out$FDR))
+	# table(e_out$FDR)
+
+	# tapply(e_out$Total, e_out$FDR, summary)
+	list(bcrank = bcrank,e_out = e_out)
+}
+run_QC_filter = function(work_dir,sce){
+	# Checks
+	check_chr_name = "chromosome_name" %in% names(rowData(sce))
+	if( !check_chr_name ) stop("'chromosome_name' is missing from rowData(sce)")
+	check_mito = length(which(rowData(sce)$chromosome_name) == "MT") > 0
+	if( !check_mito ) stop("Recode mitochondria contig as 'MT'")
+	
+	file_link = "https://www.genenames.org/cgi-bin/genefamilies/set/1054/download/branch"
+	file_name = strsplit(file_link,"/")[[1]]
+	file_name = file_name[length(file_name)]
+	ribo_fn = file.path(work_dir,file_name)
+	if( !file.exists(ribo_fn) ){
+		system(sprintf("cd %s; wget %s",work_dir,file_link))
+	}
+
+	ribo = smart_RT(ribo_fn,sep='\t',header=TRUE)
+	# ribo[1:2,]
+	
+	is_mito = which(rowData(sce)$chromosome_name == "MT")
+	is_ribo = which(rowData(sce)$gene %in% ribo$Approved.Symbol)
+	# length(is_mito)
+	# length(is_ribo)
+	
+	sce = calculateQCMetrics(sce,feature_controls=list(Mt=is_mito, Ri=is_ribo))
+	
+	par(mfrow=c(2,2), mar=c(5, 4, 1, 1), bty="n")
+	smart_hist(log10(sce$total_counts),xlab="log10(Library sizes)",main="", 
+		breaks=20,ylab="Number of cells")
+	smart_hist(log10(sce$total_features),xlab="log10(# of expressed genes)", 
+		main="",breaks=20,ylab="Number of cells")
+	smart_hist(sce$pct_counts_Ri,xlab="Ribosome prop. (%)",
+		ylab="Number of cells",breaks=40,main="")
+	smart_hist(sce$pct_counts_Mt,xlab="Mitochondrial prop. (%)", 
+		ylab="Number of cells",breaks=80,main="")
+	smoothScatter(log10(sce$total_counts),log10(sce$total_features), 
+		xlab="log10(Library sizes)",ylab="log10(# of expressed genes)", 
+		nrpoints=500,cex=0.5)
+	smoothScatter(log10(sce$total_counts),sce$pct_counts_Ri,
+		xlab="log10(Library sizes)", ylab="Ribosome prop. (%)",
+		nrpoints=500,cex=0.5)
+	smoothScatter(log10(sce$total_counts),sce$pct_counts_Mt,
+		xlab="log10(Library sizes)", ylab="Mitochondrial prop. (%)",
+		nrpoints=500,cex=0.5)
+	smoothScatter(x=sce$pct_counts_Ri,y=sce$pct_counts_Mt,
+		xlab="Ribosome prop. (%)", ylab="Mitochondrial prop. (%)",
+		nrpoints=500,cex=0.5)
+	par(mfrow=c(1,1),mar=c(5,4,4,2)+0.1)
+	libsize_drop = isOutlier(sce$total_counts,nmads=3,type="lower",log=TRUE)
+	feature_drop = isOutlier(sce$total_features_by_counts,nmads=3,type="lower",log=TRUE)
+	mito_drop = isOutlier(sce$pct_counts_Mt,nmads=3,type="higher")
+	ribo_drop = isOutlier(sce$pct_counts_Ri,nmads=3,type="higher")
+
+	keep = !(libsize_drop | feature_drop | mito_drop | ribo_drop)
+	filter_summary = smart_df(ByLibSize=sum(libsize_drop),
+		ByFeature=sum(feature_drop),ByMito=sum(mito_drop),
+		ByRibo=sum(ribo_drop),Remaining=sum(keep))
+	
+	list(sce=sce,keep=keep,filter_summary=filter_summary)
+}
+
+
+# ----------
+# ggplot Functions
+# ----------
 gg.heatmap <- function(t2, ylab){
   #create a new variable from incidence
   if(max(t2$value) > 1000){
