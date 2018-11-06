@@ -32,10 +32,13 @@ We will first load a few libraries. Among them,
 
 Next we read in the count data. The dataset is available [here](https://storage.googleapis.com/gtex_additional_datasets/single_cell_data/GTEx_droncseq_hip_pcf.tar). In addition to the raw counts, we will integrate their clustering results, tSNE vectors, cluster labels, and cell types contained in their supplemental materials into `colData(sce)`.
 
+I have requested 5 cores to improve SC3 runtime.
+
 ```{r}
 # Specifying working directories
 repo_dir = "/pine/scr/p/l/pllittle/CS_eQTL/s3_Real/scRNAseq_pipelines"
 data_dir = file.path(repo_dir,"dronc")
+num_cores = 5
 setwd(data_dir)
 
 # Source/Libraries
@@ -611,7 +614,7 @@ rowData(sce_hvg)$feature_symbol = rowData(sce_hvg)$gene
 date()
 all_ks = c(5,10,15)
 sce_hvg = sc3(sce_hvg,gene_filter=FALSE,ks = all_ks,
-	biology = TRUE,n_cores = 5,rand_seed = 100,
+	biology = TRUE,n_cores = num_cores,rand_seed = 100,
 	svm_num_cells = 2000)
 warnings()
 date()

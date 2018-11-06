@@ -34,7 +34,7 @@ The packages required for the analysis are as follows:
 
 The dataset is available [here](http://celltypes.brain-map.org/api/v2/well_known_file_download/694416044). This markdown is designed to download all necessary packages and input data objects for analysis.
 
-Before running this R markdown, change the following `repo_dir` and `data_dir` variables to your own respective local working directory. Also, determine if the analysis will be conducted with exon counts only(`exon_only = TRUE`) or with both exon and intron counts summed together (`exon_only = FALSE`).
+Before running this R markdown, change the following `repo_dir` and `data_dir` variables to your own respective local working directory. Also, determine if the analysis will be conducted with exon counts only(`exon_only = TRUE`) or with both exon and intron counts summed together (`exon_only = FALSE`). I have requested 5 cores to improve SC3 runtime.
 
 ```{r}
 # Specifying working directories
@@ -44,6 +44,7 @@ setwd(data_dir)
 
 # Analysis Plans
 exon_only = TRUE
+num_cores = 5
 
 # Source/Libraries
 source(file.path(repo_dir,"SOURCE.R"))
@@ -502,7 +503,7 @@ date()
 all_ks = c(5,10,15)
 # all_ks = 10
 sce_hvg = sc3(sce_hvg,ks = all_ks,biology = TRUE,
-	n_cores = 5,rand_seed = 100,svm_num_cells = 2000)
+	n_cores = num_cores,rand_seed = 100,svm_num_cells = 2000)
 warnings()
 date()
 
