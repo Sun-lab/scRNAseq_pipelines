@@ -2,4 +2,5 @@
 *.tar
 *.txt
 *.rds
+*.csv
 .DS_Store
