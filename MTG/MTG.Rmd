@@ -476,7 +476,7 @@ saveRDS(list(sce_hvg=sce_hvg,df_hvg=df_hvg),"post_redDim_HVG.rds")
 ## Clustering
 
 ### Kmeans
-There are many methods for clustering of single cell RNA-seq data. The performance of each method may also depend on pre-processing steps, such as performing imputation or not. We wil compare these methods in a seperate document. Here we just illustrate the clustering reuslts using a simple kmeans method on the top 50 PCs. 
+There are many methods for clustering of single cell RNA-seq data. The performance of each method may also depend on pre-processing steps, such as performing imputation or not. We will compare these methods in a seperate document. Here we just illustrate the clustering results using a simple kmeans method on the top 50 PCs. 
 
 ```{r fig.height = 12,fig.width = 12}
 all_num_clust = c(5:10,15:20,25:30)
@@ -503,10 +503,10 @@ Code used here is based on [this link](https://bioconductor.org/packages/devel/b
 library(SC3)
 rowData(sce_hvg)$feature_symbol = rowData(sce_hvg)$gene
 date()
-all_ks = c(5,10,12,15)
+all_ks = c(5,10,15)
 # all_ks = 10
 sce_hvg = sc3(sce_hvg,ks = all_ks,biology = TRUE,
-	n_cores = 1,rand_seed = 100,svm_num_cells = 2000)
+	n_cores = 5,rand_seed = 100,svm_num_cells = 2000)
 warnings()
 date()
 
@@ -531,9 +531,6 @@ df_sc3$class = colData(sce_hvg)$class
 df_sc3$cluster = colData(sce_hvg)$cluster
 df_sc3$cluster0 = colData(sce_hvg)$cluster0
 
-all_vars = c("log10_total_features","sex","brain_hemisphere",
-	"brain_subregion","facs_sort_criteria","class","cluster0")
-
 # TSNE plotting by cluster
 for(one_ks in all_ks){
 	df_sc3$VV = as.factor(colData(sce_hvg)[,paste0("sc3_",one_ks,"_clusters")])
@@ -543,6 +540,8 @@ for(one_ks in all_ks){
 }
 
 # SC3 Plotting
+all_vars = c("log10_total_features","sex","brain_hemisphere",
+	"brain_subregion","facs_sort_criteria","class","cluster0")
 for(one_ks in all_ks){
 	# one_ks = all_ks[1]
 	cat(paste0("Num Clusters = ",one_ks,"\n"))
