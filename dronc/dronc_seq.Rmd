@@ -31,22 +31,20 @@ We will first load a few libraries. Among them,
 * ```scran``` provide functions for normalization of cell-specific libary sizes, correcting batch effects, and identification marker genes
 
 
-```{r, , warning = FALSE, message = FALSE}
+```{r warning = FALSE, message = FALSE}
 
 bio_packs = c("SingleCellExperiment","DropletUtils","biomaRt",
-              "scater","scran","limma","org.Hs.eg.db","SC3")
+			"scater","scran","limma","org.Hs.eg.db","SC3")
 bio_packs = bio_packs[! bio_packs %in% installed.packages()[,"Package"]]
-
 if( length(bio_packs) > 0 ){
-  source("https://bioconductor.org/biocLite.R")
-  biocLite(bio_packs, suppressUpdates = TRUE)
+	source("https://bioconductor.org/biocLite.R")
+	biocLite(bio_packs, suppressUpdates = TRUE)
 }
 
 cran_packs = c("stringi","irlba")
 cran_packs = cran_packs[! cran_packs %in% installed.packages()[,"Package"]]
-
 if( length(cran_packs) > 0 ){
-  install.packages(cran_packs)
+	install.packages(cran_packs)
 }
 
 library(data.table)
@@ -58,9 +56,12 @@ library(scran)
 library(limma)
 library(ggplot2)
 
-src_dir   = "~/research/GitHub/scRNAseq_pipelines/dronc"
-data_dir  = "~/research/scRNAseq/workflow/data"
-dronc_dir = "~/research/scRNAseq/data/GTEx_droncseq_hip_pcf"
+# src_dir   = "~/research/GitHub/scRNAseq_pipelines/dronc"
+# data_dir  = "~/research/scRNAseq/workflow/data"
+# dronc_dir = "~/research/scRNAseq/data/GTEx_droncseq_hip_pcf"
+src_dir = "/pine/scr/p/l/pllittle/CS_eQTL/s3_Real/scRNAseq_pipelines/dronc"
+data_dir = src_dir
+dronc_dir = file.path(src_dir,"GTEx_droncseq_hip_pcf")
 ```
 
 # Obtaining/Loading Counts
@@ -68,14 +69,14 @@ dronc_dir = "~/research/scRNAseq/data/GTEx_droncseq_hip_pcf"
 Next we read in the count data. The dataset is available [here](https://storage.googleapis.com/gtex_additional_datasets/single_cell_data/GTEx_droncseq_hip_pcf.tar).
 
 ```{r}
-fname  = file.path(dronc_dir, "GTEx_droncseq_hip_pcf.umi_counts.txt.gz")
-counts = fread(paste('zcat <', fname))
+fname  = file.path(dronc_dir,"GTEx_droncseq_hip_pcf.umi_counts.txt.gz")
+counts = fread(paste('zcat <',fname))
 dim(counts)
 counts[1:3,1:2]
 
-counts.mx = as.matrix(counts[,-1])
-rownames(counts.mx) = counts$V1
-sce = SingleCellExperiment(assays = list(counts = counts.mx))
+counts_mx = as.matrix(counts[,-1])
+rownames(counts_mx) = counts$V1
+sce = SingleCellExperiment(assays = list(counts = counts_mx))
 sce
 ```
 
@@ -84,26 +85,26 @@ sce
 
 ## Gene Annotation
 
-We will extract annotation information based on gene names
+We will extract annotation information based on gene names.
 
 ```{r}
-anno.file = file.path(data_dir, "gene.annoation_dronc.rds")
-if(file.exists(anno.file)){
-  gene_anno = readRDS(anno.file)
-}else{
+anno_file = file.path(data_dir,"gene.annotation_dronc.rds")
+if( file.exists(anno_file) ){
+	gene_anno = readRDS(anno_file)
+} else{
 
-  ensembl = useEnsembl(biomart="ensembl",GRCh=37,
-                       dataset="hsapiens_gene_ensembl")
-  
-  attr_string = c("hgnc_symbol","external_gene_name","chromosome_name",
-                  "start_position","end_position","strand","description",
-                  "percentage_gene_gc_content","gene_biotype")
-  
-  gene_anno = getBM(attributes = attr_string,
-                    filters = "external_gene_name",
-                    values = rownames(sce),
-                    mart = ensembl)
-  saveRDS(gene_anno, file=anno.file)
+	ensembl = useEnsembl(biomart="ensembl",GRCh=37,
+		dataset="hsapiens_gene_ensembl")
+
+	attr_string = c("hgnc_symbol","external_gene_name","chromosome_name",
+		"start_position","end_position","strand","description",
+		"percentage_gene_gc_content","gene_biotype")
+
+	gene_anno = getBM(attributes = attr_string,
+		filters = "external_gene_name",
+		values = rownames(sce),
+		mart = ensembl)
+	saveRDS(gene_anno, file=anno_file)
 }
 
 dim(sce); dim(gene_anno)
@@ -121,8 +122,8 @@ Many genes have multiple entries in annotation, often because they are annotatd 
 ```{r}
 table(gene_anno$chromosome_name)[1:30]
 
-chr.nms = c(1:22,"X","Y","MT")
-gene_anno = gene_anno[which(gene_anno$chromosome_name %in% chr.nms),]
+chr_nms = c(1:22,"X","Y","MT")
+gene_anno = gene_anno[which(gene_anno$chromosome_name %in% chr_nms),]
 dim(sce); dim(gene_anno)
 
 t1 = table(gene_anno$external_gene_name)
@@ -131,8 +132,8 @@ length(t2)
 t2[1:10]
 
 gene_anno[which(gene_anno$external_gene_name %in% names(t2)[1:4]), 1:4]
-w.duplicate = which(gene_anno$external_gene_name %in%  names(t2))
-ganno2 = gene_anno[w.duplicate,]
+w_duplicate = which(gene_anno$external_gene_name %in%  names(t2))
+ganno2 = gene_anno[w_duplicate,]
 dim(ganno2)
 
 table(ganno2$hgnc_symbol == ganno2$external_gene_name)
@@ -142,7 +143,7 @@ dim(ganno2)
 ganno2 = dplyr::distinct(ganno2,external_gene_name,.keep_all = TRUE)
 dim(ganno2)
 
-gene_anno = rbind(gene_anno[-w.duplicate,], ganno2)
+gene_anno = rbind(gene_anno[-w_duplicate,], ganno2)
 dim(gene_anno)
 table(gene_anno$gene_biotype)
 
@@ -188,15 +189,15 @@ table(bcrank$total >= bcrank$knee)
 table(bcrank$total >= bcrank$inflection)
 
 set.seed(100)
-e.out = emptyDrops(counts(sce))
-e.out
-length(unique(e.out$FDR))
-table(e.out$FDR)
+e_out = emptyDrops(counts(sce))
+e_out
+length(unique(e_out$FDR))
+table(e_out$FDR)
 
-tapply(e.out$Total, e.out$FDR, summary)
+tapply(e_out$Total, e_out$FDR, summary)
 ```
 
-From the above analysis, some cells with very small number of UMI's. Here we chose do not remove any cells because it appears all these 14,963 cells were used in the main anlaysis. Based on Figure 2 of their paper, there are 
+From the above analysis, some cells with very small number of UMIs. Here we chose do not remove any cells because it appears all these 14,963 cells were used in the main anlaysis. Based on Figure 2 of their paper, there are 
 
 > 14,963 DroNc-seq nuclei profiles (each with >10,000 reads and >200 genes)
 
@@ -206,13 +207,11 @@ We will generate a set of QC features per cell, including the expression of mito
 
 ```{r fig.asp = 1, warning = FALSE, message = FALSE}
 file_link = "https://www.genenames.org/cgi-bin/genefamilies/set/1054/download/branch"
-file_name = "ribosome_genes.txt"
-ribo_fn   = file.path(data_dir, file_name)
-
+ribo_fn   = file.path(data_dir,"branch")
 if( !file.exists(ribo_fn) ){
-  cmd = sprintf("cd %s; wget %s",data_dir, file_link)
-  print(cmd)
-  system(cmd)
+	cmd = sprintf("cd %s; wget %s",data_dir, file_link)
+	print(cmd)
+	system(cmd)
 }
 
 ribo = read.table(ribo_fn, sep='\t', header=TRUE, stringsAsFactors = FALSE)
@@ -274,7 +273,7 @@ tb1 = table(rowData(sce)$n_cells_counts)
 tb1[1:11]
 ```
 
-We remove those genes that are lowly expressed. [@habib2017massively] mentioned in section "Gene detection and quality controls"" of *Online Methods*
+We remove those genes that are lowly expressed. [@habib2017massively] mentioned in section "Gene detection and quality controls" of *Online Methods*
 
 > Nuclei with less than 200 detected genes and less than 10,000 usable reads were filtered out.
 
@@ -284,26 +283,26 @@ and
 
 Therefore it seems we should remove all the cells having less than 200 genes with two or more UMI counts. However, this would remove majorify of the cells. Therefore, we conlcude that they meant to remove the cells having less than 200 genes with one or more UMI counts. To filter genes, we follow their threshold to remove genes with two or more UMIs in less than 10 nuclei.
 
-Note taht the variable _strand_ need to be renamed, otherwise there is an error message that such a variabel name cannot be used. 
+Note that the variable _strand_ need to be renamed, otherwise there is an error message that such a variabel name cannot be used. 
 
 ```{r}
-names(rowData(sce))[6] = "strand_n"
+names(rowData(sce))[names(rowData(sce)) == "strand"] = "strand_n"
 
-n.genes = colSums(counts(sce) >= 2)
-summary(n.genes)
-table(n.genes >= 100)
-table(n.genes >= 200)
+n_genes = colSums(counts(sce) >= 2)
+summary(n_genes)
+table(n_genes >= 100)
+table(n_genes >= 200)
 
-n.genes = colSums(counts(sce) >= 1)
-summary(n.genes)
-table(n.genes >= 100)
-table(n.genes >= 200)
+n_genes = colSums(counts(sce) >= 1)
+summary(n_genes)
+table(n_genes >= 100)
+table(n_genes >= 200)
 
-n.cells = rowSums(counts(sce) >= 2)
-summary(n.cells)
-table(n.cells >= 10)
+n_cells = rowSums(counts(sce) >= 2)
+summary(n_cells)
+table(n_cells >= 10)
 
-sce = sce[which(n.cells >= 10),]
+sce = sce[which(n_cells >= 10),]
 dim(sce)
 ```
 
@@ -312,12 +311,10 @@ Next we check those highly expressed genes
 par(mar=c(5,4,1,1))
 od1 = order(rowData(sce)$mean_counts, decreasing = TRUE)
 barplot(rowData(sce)$mean_counts[od1[20:1]], las=1, 
-        names.arg=rowData(sce)$hgnc_symbol[od1[20:1]], 
-        horiz=TRUE, cex.names=0.8, cex.axis=0.8, 
-        xlab="ave # of UMI")
+		names.arg=rowData(sce)$hgnc_symbol[od1[20:1]], 
+		horiz=TRUE, cex.names=0.8, cex.axis=0.8, 
+		xlab="ave # of UMI")
 ```
-
-
 
 ## Normalization
 A simple solution for normalization and stablizing expression varaince across genes is to tranform the count data by log(count/size.factor + 1). One may calcualte size.factor per cell as the total number of UMIs, and this assumes the total expression are the same across all the cells. However, the total expression of each cell may vary with respect to cell type and/or cell size, and the ```computeSumFactors``` function in R package scran provides a more sophisicated way to calcualte size.factor to allow such variaation across cells [@lun2016pooling]. ```computeSumFactors``` can use initial clustering of cells to normalize expression within and beetween clusters.  Within a cluster, it estimates the size factor for many groups of cells so that there are more groups than cells, and then it can calcualte the size factor per cell using a lienar deconvolution system. 
@@ -344,10 +341,10 @@ dim(sce)
 
 par(mfrow=c(1,2), mar=c(5,4,2,1), bty="n")
 smoothScatter(sce$total_counts, sizeFactors(sce), log="xy", 
-              xlab="total counts", ylab="size factors")
+				xlab="total counts", ylab="size factors")
 plot(sce$total_counts, sizeFactors(sce), log="xy", 
-     xlab="total counts", ylab="size factors", 
-     cex=0.3, pch=20, col=rgb(0.1,0.2,0.7,0.3))
+	xlab="total counts", ylab="size factors", 
+	cex=0.3, pch=20, col=rgb(0.1,0.2,0.7,0.3))
 abline(h=0.05)
 
 dim(sce)
@@ -362,57 +359,22 @@ For dimension reduction, such as calculating PCA or performing TSNE, we should s
 
 ```{r warning = FALSE, message = FALSE, fig.height=5, fig.width=5}
 
-new.trend = makeTechTrend(x=sce)
+new_trend = makeTechTrend(x=sce)
 fit = trendVar(sce, use.spikes=FALSE, loess.args=list(span=0.05))
 
 par(mfrow=c(1,1), mar=c(5,4,2,1), bty="n")
 plot(fit$mean, fit$var, pch=20, col=rgb(0.1,0.2,0.7,0.6), 
-     xlab="log(mean)", ylab="var")
+	xlab="log(mean)", ylab="var")
 curve(fit$trend(x), col="orange", lwd=2, add=TRUE)
-curve(new.trend(x), col="red", lwd=2, add=TRUE)
+curve(new_trend(x), col="red", lwd=2, add=TRUE)
 legend("top", legend=c("Poisson noise", "observed trend"), 
-       lty=1, lwd=2, col=c("red", "orange"), bty="n")
+		lty=1, lwd=2, col=c("red", "orange"), bty="n")
 
-fit$trend = new.trend
+# fit$trend = new_trend
 # obtain bio, FDR, pvalues for testing for HVGs (highly variable genes)
 dec = decomposeVar(fit=fit) 
-top.dec = dec[order(dec$bio, decreasing=TRUE),]
-plotExpression(sce, features=rownames(top.dec)[1:10])
-```
-
-```{r echo=FALSE,eval=FALSE}
-# Simulate example to understand variance decomposition
-
-set.seed(100)
-
-nspikes <- ncells <- 100
-spike.means <- 2^runif(nspikes, 3, 8)
-spike.disp <- 100/spike.means + 0.5
-spike.data <- matrix(rnbinom(nspikes*ncells, mu=spike.means, size=1/spike.disp), ncol=ncells)
-
-ngenes <- 10000
-cell.means <- 2^runif(ngenes, 2, 10)
-cell.disp <- 100/cell.means + 0.5
-cell.data <- matrix(rnbinom(ngenes*ncells, mu=cell.means, size=1/cell.disp), ncol=ncells)
-
-combined <- rbind(cell.data, spike.data)
-colnames(combined) <- seq_len(ncells)
-rownames(combined) <- seq_len(nrow(combined))
-y <- SingleCellExperiment(assays = list(counts=combined))
-isSpike(y) <- rep(c(FALSE, TRUE), c(ngenes, nspikes))
-
-# Normalizing.
-y <- computeSpikeFactors(y) # or computeSumFactors
-y <- normalize(y)
-
-# Decomposing technical and biological noise.
-fit <- trendVar(y)
-results <- decomposeVar(y, fit)
-plot(results$mean, results$total, pch=16, cex=0.4, col=rgb(0,0,0,0.4))
-o <- order(results$mean)
-lines(results$mean[o], results$tech[o], col="red", lwd=2)
-
-plot(results$mean, results$bio, pch=16, cex=0.4, col=rgb(0,0,0,0.4))
+top_dec = dec[order(dec$bio, decreasing=TRUE),]
+plotExpression(sce, features=rownames(top_dec)[1:10])
 ```
 
 When performing PCA, we can use all the genes or just those genes with high signal-to-noise ratio. TSNE analysis is usually based on the top PCs rather than the original gene expression data. We select around top 1000 genes for the PCA and use the top 50 PCs for TSNE projection. 
@@ -434,9 +396,10 @@ hist(log10(dec1$FDR), breaks=100, main="")
 summary(dec$FDR[dec$bio > 0.01])
 summary(dec$FDR[dec$bio > 0.03])
 table(dec$FDR < 1e-10, dec$bio > 0.03)
+table(dec$FDR < 1e-10, dec$bio > 0.01)
 
 # Subsetting genes based on FDR and biological residual thresholds
-w2kp = which(dec$FDR < 1e-10 & dec$bio > 0.03) # original gene filter
+w2kp = which(dec$FDR < 1e-10 & dec$bio > 0.01)
 sce_sub = sce[w2kp,]
 sce_sub
 
@@ -455,18 +418,18 @@ pca = t(ppk$d*t(ppk$u)) # calculates pc scores aka principal components
 df_pcs = data.frame(pca)
 df_pcs$log10_total_features = colData(sce_sub)$log10_total_features
 df_pcs$part_cell_id = sapply(colnames(sce_sub),function(xx) 
-  strsplit(xx,"_")[[1]][1],USE.NAMES=FALSE)
+	strsplit(xx,"_")[[1]][1],USE.NAMES=FALSE)
 df_pcs[1:2,1:10]
 
 gp1 = ggplot(df_pcs, aes(X1,X2,col=log10_total_features)) + 
-  geom_point(size=0.5,alpha=0.6) + theme_classic() + 
-  scale_colour_gradient(low="lightblue",high="red") +
-  guides(color = guide_legend(override.aes = list(size=3)))
+	geom_point(size=0.5,alpha=0.6) + theme_classic() + 
+	scale_colour_gradient(low="lightblue",high="red") +
+	guides(color = guide_legend(override.aes = list(size=3)))
 gp1
 
 gp2 = ggplot(df_pcs, aes(X1,X2,col=part_cell_id)) + 
-  geom_point(size=0.5,alpha=0.6) + theme_classic() + 
-  guides(color = guide_legend(override.aes = list(size=3)))
+	geom_point(size=0.5,alpha=0.6) + theme_classic() + 
+	guides(color = guide_legend(override.aes = list(size=3)))
 gp2
 
 set.seed(100)
@@ -477,19 +440,19 @@ date()
 df_tsne = data.frame(tsne$Y)
 df_tsne$log10_total_features = colData(sce_sub)$log10_total_features
 df_tsne$part_cell_id = sapply(colnames(sce_sub),function(xx) 
-  strsplit(xx,"_")[[1]][1],USE.NAMES=FALSE)
+	strsplit(xx,"_")[[1]][1],USE.NAMES=FALSE)
 dim(df_tsne)
 df_tsne[1:2,]
 
 gp1 = ggplot(df_tsne, aes(X1,X2,col=log10_total_features)) + 
-  geom_point(size=0.3,alpha=0.6) + theme_classic() + 
-  scale_colour_gradient(low="lightblue",high="red") +
-  guides(color = guide_legend(override.aes = list(size=3)))
+	geom_point(size=0.3,alpha=0.6) + theme_classic() + 
+	scale_colour_gradient(low="lightblue",high="red") +
+	guides(color = guide_legend(override.aes = list(size=3)))
 gp1
 
 gp2 = ggplot(df_tsne, aes(X1,X2,col=part_cell_id)) + 
-  geom_point(size=0.3,alpha=0.6) + theme_classic() + 
-  guides(color = guide_legend(override.aes = list(size=3)))
+	geom_point(size=0.3,alpha=0.6) + theme_classic() + 
+	guides(color = guide_legend(override.aes = list(size=3)))
 gp2
 
 reducedDims(sce_sub) = SimpleList(PCA=pca, TSNE=tsne$Y)
@@ -503,15 +466,16 @@ Next we cluster the cells using a simple kmeans method on the top 50 PCs. We set
 ```{r warning = FALSE, message = FALSE, fig.asp = 1}
 
 k10_50_pcs = kmeans(reducedDim(sce_sub, "PCA"), 
-                    centers = 12, iter.max=150, algorithm="MacQueen")
+					centers = 12, iter.max=1e3,nstart = 30,
+					algorithm="MacQueen")
 names(k10_50_pcs)
 dim(k10_50_pcs$centers)
 
 df_tsne$cluster_kmean = as.factor(k10_50_pcs$cluster)
 
 gp1 = ggplot(df_tsne, aes(X1,X2,col=cluster_kmean)) + 
-  geom_point(size=0.3,alpha=0.6) + theme_classic() + 
-  guides(color = guide_legend(override.aes = list(size=3)))
+	geom_point(size=0.3,alpha=0.6) + theme_classic() + 
+	guides(color = guide_legend(override.aes = list(size=3)))
 gp1
 
 ```
@@ -523,7 +487,7 @@ Next seek to cluster cells using another method SC3. The code used here is based
 
 By default, SC3 filter genes to select those with dropout percentage between 10 and 90%. 
 
-```{r cache=TRUE, warning = FALSE, message = FALSE, fig.height=14, fig.width=14}
+```{r}
 summary(rowData(sce)$pct_dropout_counts)
 table(rowData(sce)$pct_dropout_counts < 90)
 ```
@@ -535,8 +499,12 @@ library(SC3)
 rowData(sce_sub)$feature_symbol = rowData(sce_sub)$external_gene_name
 date()
 all_ks = c(10,12)
-sce_sub = sc3(sce_sub, gene_filter=FALSE, ks = all_ks, biology = TRUE, 
-              rand_seed = 100)
+# all_ks = 10
+sce_sub = sc3(sce_sub, gene_filter=FALSE,
+			n_cores = 1,kmeans_nstart = 50,
+			kmeans_iter_max = 3e3,
+			ks = all_ks, biology = TRUE, 
+			rand_seed = 100)
 date()
 
 dim(colData(sce_sub))
