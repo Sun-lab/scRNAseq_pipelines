@@ -31,7 +31,7 @@ smart_df = function(...){
 
 
 # ----------
-# scRNA Functions
+# scRNA Template Functions
 # ----------
 run_barcodeRanks_emptyDrops = function(sce){
 	# ref = "https://bioconductor.org/packages/release/workflows/vignettes/simpleSingleCell/inst/doc/work-3-tenx.html#calling-cells-from-empty-droplets"
@@ -127,6 +127,70 @@ run_QC_filter = function(work_dir,sce){
 		ByRibo=sum(ribo_drop),Remaining=sum(keep))
 	
 	list(sce=sce,keep=keep,filter_summary=filter_summary)
+}
+run_normalization = function(sce,min_mean){
+	print(date())
+	clusters = quickCluster(sce,min.mean=min_mean,method="igraph")
+	print(table(clusters))
+	print(date())
+	sce = computeSumFactors(sce,cluster=clusters,min.mean=min_mean)
+	print(date())
+	print(summary(sizeFactors(sce)))
+
+	# Remove cells with negative or very small size factors
+	sce = sce[,which(sizeFactors(sce) > 0)]
+
+	par(mfrow=c(1,2),mar=c(5,4,2,1),bty="n")
+	smoothScatter(sce$total_counts, sizeFactors(sce), log="xy", 
+		xlab="total counts", ylab="size factors")
+	plot(sce$total_counts, sizeFactors(sce), log="xy", 
+		xlab="total counts", ylab="size factors", 
+		cex=0.3, pch=20, col=rgb(0.1,0.2,0.7,0.3))
+	par(mfrow=c(1,1))
+
+	sce = normalize(sce)
+	
+	sce
+}
+run_dimension_reduction = function(sce,span=0.05){
+	print(date())
+	new_trend = makeTechTrend(x=sce)
+	print(date())
+	fit = trendVar(sce,use.spikes=FALSE,loess.args=list(span=span))
+
+	par(mfrow=c(1,1), mar=c(5,4,2,1), bty="n")
+	plot(fit$mean, fit$vars, pch=20, col=rgb(0.1,0.2,0.7,0.6), 
+		xlab="log(mean)", ylab="var")
+	curve(new_trend(x), col="red", lwd=2, add=TRUE)
+	curve(fit$trend(x), col="orange", lwd=2, add=TRUE)
+	legend("topright", legend=c("Poisson noise", "observed trend"), 
+		lty=1, lwd=2, col=c("red", "orange"), bty="n")
+	
+	# For Poisson trend
+	fit_pois = fit
+	fit_pois$trend = new_trend
+	dec_pois = decomposeVar(fit=fit_pois)
+	top_dec_pois = dec_pois[order(dec_pois$bio,decreasing=TRUE),]
+	par(mfrow=c(2,2),oma=c(0,0,2,0))
+	smart_hist(dec_pois$bio,breaks=30,xlab="Biological Variance")
+	smart_hist(dec_pois$FDR,breaks=30,xlab="FDR")
+	smart_hist(log10(dec_pois$FDR + 1e-6),breaks=30,xlab="log10(FDR + 1e-6)")
+	mtext("Poisson Trend",outer=TRUE,cex=1.2)
+	par(mfrow=c(1,1),oma=rep(0,4))
+	plotExpression(sce, features=rownames(top_dec_pois)[1:10])
+	
+	# For Observed trend
+	dec_obs = decomposeVar(fit=fit)
+	top_dec_obs = dec_obs[order(dec_obs$bio,decreasing=TRUE),]
+	par(mfrow=c(2,2),oma=c(0,0,2,0))
+	smart_hist(dec_obs$bio,breaks=30,xlab="Biological Variance")
+	smart_hist(dec_obs$FDR,breaks=30,xlab="FDR")
+	smart_hist(log10(dec_obs$FDR + 1e-6),breaks=30,xlab="log10(FDR + 1e-6)")
+	mtext("Observed Trend",outer=TRUE,cex=1.2)
+	par(mfrow=c(1,1),oma=rep(0,4))
+	plotExpression(sce, features=rownames(top_dec_obs)[1:10])
+	
+	list(fit=fit,new_trend=new_trend,dec_pois=dec_pois,dec_obs=dec_obs)
 }
 
 
