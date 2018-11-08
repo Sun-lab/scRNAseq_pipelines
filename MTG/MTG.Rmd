@@ -2,6 +2,7 @@
 title: "A workflow for single cell RNA-seq data analysis: MTG dataset"
 author: "Paul Little"
 date: "`r Sys.Date()`"
+bibliography: [MTG.bib]
 output: 
   html_document:
     theme: journal
@@ -22,335 +23,188 @@ knitr::opts_chunk$set(echo = TRUE)
 
 This markdown is for analyzing the [Allen Brain Atlas MTG dataset](http://celltypes.brain-map.org/rnaseq).
 
-# Obtaining/Loading Counts
+# Libraries
+* DropletUtils: provides functions for data from droplet technologies such as 10X Genomics
+* biomaRt: provides easy access to databases, such as Ensembl, COSMIC, Uniprot, HGNC, etc.
+* scater: collection of tools for doing quality control analyses of scRNA-seq
+* scran: methods provide normalization of cell-specific biases, correcting batch effects, identify marker genes
+* SC3: algorithm for single cell consensus clustering
 
-The dataset is available [here](http://celltypes.brain-map.org/api/v2/well_known_file_download/694416044).
+```{r warning = FALSE,message = FALSE}
 
-```{r}
-
-where_file = c("mycomp","longleaf")[2]
-if(where_file == "mycomp"){
-	drive = strsplit(getwd(),"/")[[1]][1]
-	src_dir = file.path(drive,"Files to KEEP/SOURCE_files")
-	data_dir = file.path(drive,"Files to KEEP/BIOS_eQTL/documents/MTG")
-} else if(where_file == "longleaf"){
-	data_dir = "/pine/scr/p/l/pllittle/CS_eQTL/s3_Real/original/MTG"
-	src_dir = system("echo $HOME",intern = TRUE)
-	source(file.path(src_dir,"SOURCE.R"))
-	# source(file.path(src_dir,"scRNAseq.R"))
-}
-
-# Source/Libraries
 source("https://bioconductor.org/biocLite.R")
-# biocLite("BiocUpgrade")
 bio_packs = c("SingleCellExperiment","DropletUtils","biomaRt","scater","scran","SC3")
 if( !all(bio_packs %in% installed.packages()[,"Package"]) ){
 	biocLite(bio_packs,suppressUpdates = TRUE)
-	# biocLite("SC3",suppressUpdates = TRUE)
 }
+
 cran_packs = c("stringi","irlba")
 if( !all(cran_packs %in% installed.packages()[,"Package"]) ){
 	install.packages(cran_packs)
 }
-# DropletUtils: provides functions for data from droplet technologies such as 10X Genomics
-# biomaRt: provides easy access to databases, such as Ensembl, COSMIC, Uniprot, HGNC, etc.
-# scater: collection of tools for doing quality control analyses of scRNA-seq
-# scran: methods provide normalization of cell-specific biases, correcting batch effects, identify marker genes
-suppressPackageStartupMessages(library(SingleCellExperiment))
-suppressPackageStartupMessages(library(DropletUtils))
-suppressPackageStartupMessages(library(biomaRt))
-suppressPackageStartupMessages(library(scater))
-suppressPackageStartupMessages(library(scran))
-suppressPackageStartupMessages(library(limma))
 
-# Import counts
-counts_fn = file.path(data_dir,"image.rds")
-if( !file.exists(counts_fn) ){
-	file_link = "http://celltypes.brain-map.org/api/v2/well_known_file_download/694416044"
-	file_name = strsplit(file_link,"/")[[1]]
-	file_name = file_name[length(file_name)]
-	file_name = file.path(data_dir,file_name)
-	if( !file.exists(file_name) ){
-		cmd = sprintf("cd %s; wget %s",data_dir,file_link)
-		print(cmd)
-		system(cmd)
-	}
-	cmd = sprintf("cd %s; unzip -o %s",data_dir,file_name)
-	cmd
-	system(cmd)
-	matrix_fn = file.path(data_dir,"human_MTG_2018-06-14_exon-matrix.csv")
-	# Preview
-	system(sprintf("head %s | cut -d ',' -f1-10",matrix_fn))
-	num_lines = as.numeric(system(sprintf("wc -l %s | cut -d ' ' -f1",matrix_fn),intern = TRUE))
-	counts = read.delim(matrix_fn,sep = ',',header = TRUE,row.names = 1,check.names = FALSE,nrows = num_lines - 1)
+library(SingleCellExperiment)
+library(DropletUtils)
+library(biomaRt)
+library(scater)
+library(scran)
+library(limma)
 
-	print(dim(counts))
-	saveRDS(counts,counts_fn)
-}
+```
 
-counts = readRDS(counts_fn)
-cell_data = read.table("human_MTG_2018-06-14_samples-columns.csv",sep=',',header=TRUE,stringsAsFactors=FALSE)
+# Obtaining/Loading Counts
+
+The dataset is available for download [here](http://celltypes.brain-map.org/api/v2/well_known_file_download/694416044). The file **694416044 requires unzipping. Set the variable `data_dir` to your own local working directory where all MTG-related files will be created and stored by this document. The file **SOURCE.R** contains a handful of functions to alter default arguments in base functions. The code below will specify and set the working directory, load our custom source functions, and load the read counts will additional gene and sample information.
+
+While the existing clustering results were generated using the combined intron/exon counts, we will proceed with only exon counts.
+
+```{r cache = TRUE}
+
+data_dir = "/pine/scr/p/l/pllittle/CS_eQTL/s3_Real/scRNAseq_pipelines/MTG"
+setwd(data_dir)
+source("SOURCE.R")
+
+# Import exon counts
+counts = read.delim("human_MTG_2018-06-14_exon-matrix.csv",
+					sep = ',',header = TRUE,row.names = 1,
+					check.names = FALSE)
+dim(counts)
+counts[1:4,1:5]
+
+cell_data = smart_RT("human_MTG_2018-06-14_samples-columns.csv",
+					sep = ',',header = TRUE)
+dim(cell_data)
+cell_data[1:4,]
+smart_table(cell_data$class)
+smart_table(cell_data$cluster)
+cell_data$cluster0 = sapply(cell_data$cluster,
+	function(xx) ifelse(xx=="no class",xx,
+		strsplit(xx," ")[[1]][1]),USE.NAMES = FALSE)
+smart_table(cell_data$cluster0,cell_data$class)
+cell_data[1:4,]
+
+all(colnames(counts) == cell_data$sample_name)
 sce = SingleCellExperiment(assays = list(counts = as.matrix(counts)),colData = cell_data)
 rm(counts,cell_data)
 
 # Import gene info
-rowData(sce) = read.table("human_MTG_2018-06-14_genes-rows.csv",sep=',',header=TRUE,stringsAsFactors=FALSE)
+gene_data = smart_RT("human_MTG_2018-06-14_genes-rows.csv",
+					sep = ',',header = TRUE)
+dim(gene_data)
+gene_data[1:5,]
+all(rownames(sce) == gene_data$entrez_id)
+rowData(sce) = gene_data
+rm(gene_data)
 sce
 
-# Define spikes
-rowData(sce)$gene[grep("^ERCC",rowData(sce)$gene)]
-# isSpike(sce,"ERCC") = grepl("^ERCC",rowData(sce)$gene)
+# Change row labels from entrez_id to gene
+rownames(sce) = rowData(sce)$gene
+
+# Inspect possible spikes
+rowData(sce)[grep("^ERCC",rowData(sce)$gene),]
+
 ```
 
 # Pre-processing: Quality Control, Gene Detection, Normalization
 
-## Gene Annotation
-```{r eval=FALSE,echo=FALSE}
-
-listMarts()
-ensembl = useMart("ENSEMBL_MART_ENSEMBL",dataset="hsapiens_gene_ensembl")
-
-attr_string = c('ensembl_gene_id', 'hgnc_symbol', 'chromosome_name')
-attr_string = c(attr_string, 'start_position', 'end_position', 'strand')
-attr_string = c(attr_string, 'description', 'percentage_gene_gc_content')
-attr_string = c(attr_string, 'gene_biotype')
-
-rowData(sce)[1:2,]
-# bb = listFilters(ensembl); bb[1:5,]
-gene_anno = getBM(attributes=attr_string, 
-	filters = 'hgnc_symbol', 
-	values = rowData(sce)$gene, 
-	mart = ensembl)
-
-dim(gene_anno)
-dim(sce)
-gene_anno[1:2,]
-
-t1 = table(gene_anno$ensembl_gene_id)
-t2 = t1[t1 > 1]
-t2 
-
-gene_anno[which(gene_anno$ensembl_gene_id %in% names(t2)),]
-gene_anno = distinct(gene_anno, ensembl_gene_id,.keep_all = TRUE)
-
-dim(gene_anno)
-gene_anno[1:2,]
-
-table(gene_anno$chromosome_name)
-table(gene_anno$gene_biotype)
-
-# some genes do not have annotation because their ids are retired
-gene.missing = setdiff(rowData(sce)$ID, gene_anno$ensembl_gene_id)
-length(gene.missing)
-gene.missing[1:6]
-
-w2kp = match(gene_anno$hgnc_symbol, rowData(sce)$gene)
-sce  = sce[w2kp,]
-dim(sce)
-table(gene_anno$hgnc_symbol == rowData(sce)$gene)
-rowData(sce) = cbind(rowData(sce),gene_anno)
-```
-
 ## Identify low quallity cells
-
-### barcodeRanks filtering
-Look [here](https://bioconductor.org/packages/release/workflows/vignettes/simpleSingleCell/inst/doc/work-3-tenx.html#calling-cells-from-empty-droplets) for reference.
-```{r warning = FALSE, message = FALSE, fig.height = 10,fig.width = 15}
-bcrank = barcodeRanks(counts(sce))
-
-# Only showing unique points for plotting speed.
-uniq = !duplicated(bcrank$rank)
-
-par(mar=c(5,4,2,1), bty="n")
-plot(bcrank$rank[uniq], bcrank$total[uniq], log="xy", 
-     xlab="Rank", ylab="Total UMI count", cex=0.5, cex.lab=1.2)
-
-abline(h=bcrank$inflection, col="darkgreen", lty=2)
-abline(h=bcrank$knee, col="dodgerblue", lty=2)
-
-legend("left", legend=c("Inflection", "Knee"), bty="n", 
-       col=c("darkgreen", "dodgerblue"), lty=2, cex=1.2)
-
-bcrank$inflection
-bcrank$knee
-
-summary(bcrank$total)
-table(bcrank$total >= bcrank$knee)
-table(bcrank$total >= bcrank$inflection)
-
-set.seed(100)
-date()
-e.out = emptyDrops(counts(sce))
-date()
-e.out
-is.cell = (e.out$FDR <= 0.01)
-
-# Temp save image
-post_eDrops_fn = file.path(data_dir,"post_eDrops.rds")
-if(where_file == "longleaf"){
-  saveRDS(list(sce=sce,e.out=e.out,is.cell=is.cell),post_eDrops_fn)
-} else if(FALSE){
-  rds = readRDS(post_eDrops_fn)
-  sce = rds$sce
-  e.out = rds$e.out
-  is.cell = rds$is.cell
-  rm(rds)
-}
-
-```
-
-```{r fig.height = 10,fig.width = 10}
-par(mar=c(5,4,1,1), mfrow=c(1,2), bty="n")
-plot(e.out$Total, -e.out$LogProb, col=ifelse(is.cell, "red", "black"),
-    xlab="Total UMI count", ylab="-Log Probability", cex=0.2)
-abline(v = bcrank$inflection, col="darkgreen")
-abline(v = bcrank$knee, col="dodgerblue")
-legend("bottomright", legend=c("Inflection", "Knee"), bty="n", 
-       col=c("darkgreen", "dodgerblue"), lty=1, cex=1.2)
-
-plot(e.out$Total, -e.out$LogProb, col=ifelse(is.cell, "red", "black"),
-    xlab="Total UMI count", ylab="-Log Probability", cex=0.2, xlim=c(0,2000), ylim=c(0,2000))
-abline(v = bcrank$inflection, col="darkgreen")
-abline(v = bcrank$knee, col="dodgerblue")
-```
-
-From the above analysis, some cells with very small number of UMIs may also have small FDR suggesting the distribution of UMI counts are different from what is expected from ambient profile. We choose a more conservative strategy, to keep the cells with total number of UMI larger than the inflection point estimate (bcrank\$inflection=```bcrank$inflection```) and FDR < 0.01. 
-```{r}
-table(colnames(sce) == rownames(e.out))
-table(e.out$FDR <= 0.01, useNA="ifany")
-table(is.cell, e.out$Total >= bcrank$inflection)
-w2kp = which(is.cell & e.out$Total >= bcrank$inflection)
-sce = sce[,w2kp]
-dim(sce)
-```
-
-### Incorporate Mito and Ribo to calculate QC metrics
 
 Next step we apply more QC based on a set of features per cell. We will look at ribosomal genes. The imported file can be found [here](https://www.genenames.org/cgi-bin/genefamilies/set/1054/download/branch).
 
-```{r fig.asp = 1, warning = FALSE, message = FALSE}
-file_link = "https://www.genenames.org/cgi-bin/genefamilies/set/1054/download/branch"
-file_name = strsplit(file_link,"/")[[1]]
-file_name = file_name[length(file_name)]
-ribo_fn = file.path(data_dir,file_name)
-if( !file.exists(ribo_fn) ){
-  cmd = sprintf("cd %s; wget %s",data_dir,file_link)
-  print(cmd)
-  system(cmd)
-}
-
-ribo = read.table(ribo_fn,sep='\t',header=TRUE,stringsAsFactors = FALSE)
+```{r fig.dim = c(7,7),warning = FALSE,message = FALSE}
+ribo = smart_RT("branch",sep = '\t',header = TRUE)
+dim(ribo)
 ribo[1:2,]
 
-# Temp save image
-post_ribo_download_fn = file.path(data_dir,"post_ribo_download.rds")
-if(where_file == "longleaf"){
-  saveRDS(list(sce=sce,ribo=ribo),post_ribo_download_fn)
-} else if(FALSE){
-  rds = readRDS(post_ribo_download_fn)
-  sce = rds$sce
-  ribo = rds$ribo
-  rm(rds)
-}
-
-# is_mito = which(rowData(sce)$chromosome_name == "MT")
-is_mito = which(rowData(sce)$chromosome == "MT") # MTG gene dataset contains chromosome
-is_ribo = which(rowData(sce)$hgnc_symbol %in% ribo$Approved.Symbol)
+smart_table(rowData(sce)$chromosome)
+is_mito = which(rowData(sce)$chromosome == "MT")
+is_ribo = which(rowData(sce)$gene %in% ribo$Approved.Symbol)
 length(is_mito)
 length(is_ribo)
 
-sce = calculateQCMetrics(sce, feature_controls=list(Mt=is_mito, Ri=is_ribo))
+sce = calculateQCMetrics(sce, feature_controls=list(Mt=is_mito,Ri=is_ribo))
 sort(colnames(colData(sce)))
 
-par(mfrow=c(2,2), mar=c(5, 4, 1, 1), bty="n")
-hist(log10(sce$total_counts), xlab="log10(Library sizes)", main="", 
-    breaks=20, col="grey80", ylab="Number of cells")
+par(mfrow=c(2,2),mar=c(5,4,1,1),bty="n")
+hist(log10(sce$total_counts),xlab="log10(Library sizes)",main="", 
+	breaks=20,col="grey80",ylab="Number of cells")
+hist(log10(sce$total_features),xlab="log10(# of expressed genes)", 
+	main="",breaks=20,col="grey80",ylab="Number of cells")
+hist(sce$pct_counts_Ri,xlab="Ribosome prop. (%)",
+	ylab="Number of cells",breaks=40,main="",col="grey80")
+hist(sce$pct_counts_Mt,xlab="Mitochondrial prop. (%)", 
+	ylab="Number of cells",breaks=80,main="",col="grey80")
 
-hist(log10(sce$total_features), xlab="log10(# of expressed genes)", 
-     main="", breaks=20, col="grey80", ylab="Number of cells")
+smoothScatter(log10(sce$total_counts),log10(sce$total_features), 
+			xlab="log10(Library sizes)",ylab="log10(# of expressed genes)", 
+			nrpoints=500,cex=0.5)
+smoothScatter(log10(sce$total_counts),sce$pct_counts_Ri, 
+			xlab="log10(Library sizes)",ylab="Ribosome prop. (%)",
+			nrpoints=500,cex=0.5)
+smoothScatter(log10(sce$total_counts),sce$pct_counts_Mt, 
+			xlab="log10(Library sizes)",ylab="Mitochondrial prop. (%)",
+			nrpoints=500,cex=0.5)
+smoothScatter(sce$pct_counts_Ri,sce$pct_counts_Mt, 
+			xlab="Ribosome prop. (%)",ylab="Mitochondrial prop. (%)",
+			nrpoints=500,cex=0.5)
+```
 
-hist(sce$pct_counts_Ri, xlab="Ribosome prop. (%)",
-    ylab="Number of cells", breaks=40, main="", col="grey80")
+From the QC results, we will filter on the metrics below.
+```{r}
+libsize_drop = isOutlier(sce$total_counts,nmads = 3,type = "lower",log = TRUE)
+feature_drop = isOutlier(sce$total_features_by_counts,nmads = 3,type = "lower",log = TRUE)
+mito_drop = isOutlier(sce$pct_counts_Mt,nmads = 3,type = "higher")
+ribo_drop = isOutlier(sce$pct_counts_Ri,nmads = 3,type = "higher")
+keep = !(libsize_drop | feature_drop | mito_drop | ribo_drop)
+smart_df(ByLibSize = sum(libsize_drop),ByFeature = sum(feature_drop),
+		ByMito = sum(mito_drop),ByRibo = sum(ribo_drop),
+		Remaining = sum(keep))
 
-hist(sce$pct_counts_Mt, xlab="Mitochondrial prop. (%)", 
-    ylab="Number of cells", breaks=80, main="", col="grey80")
-
-par(mfrow=c(2,2), mar=c(5, 4, 1, 1), bty="n")
-smoothScatter(log10(sce$total_counts), log10(sce$total_features), 
-     xlab="log10(Library sizes)", ylab="log10(# of expressed genes)", 
-     nrpoints=500, cex=0.5)
-smoothScatter(log10(sce$total_counts), sce$pct_counts_Ri, 
-     xlab="log10(Library sizes)", ylab="Ribosome prop. (%)",
-     nrpoints=500, cex=0.5)
-# abline(h=10,  lty=1)
-
-smoothScatter(log10(sce$total_counts), sce$pct_counts_Mt, 
-     xlab="log10(Library sizes)", ylab="Mitochondrial prop. (%)",
-     nrpoints=500, cex=0.5)
-# abline(h=5,  lty=1)
-
-smoothScatter(sce$pct_counts_Ri, sce$pct_counts_Mt, 
-     xlab="Ribosome prop. (%)", ylab="Mitochondrial prop. (%)",
-     nrpoints=500, cex=0.5)
-# abline(h=5,  lty=1)
-# abline(v=10, lty=1)
-
-par(mfrow=c(2,1))
-hist(sce$pct_counts_Ri,breaks=40,col="gray")
-hist(sce$pct_counts_Mt,breaks=40,col="gray")
-par(mfrow=c(1,1))
-
-plot(x=sce$pct_counts_Ri,y=sce$pct_counts_Mt,pch=16,col=rgb(0,0,0,0.4))
-# abline(v=10,lty=2); abline(h=5,lty=2)
-
-table(sce$pct_counts_Mt < 5, sce$pct_counts_Ri < 10)
-sce = sce[,which(sce$pct_counts_Mt < 5 | sce$pct_counts_Ri < 10)]
-# sce = sce[,which(sce$pct_counts_Mt < 5 & sce$pct_counts_Ri < 10)]
+sce = sce[,keep]
 dim(sce)
 ```
 
 ## Summarize gene-level information
-```{r warning = FALSE, message = FALSE, fig.asp = 1}
+```{r warning = FALSE, message = FALSE, fig.dim = c(6,6)}
 
 rowData(sce)[1:2,]
-min(rowData(sce)$mean_counts)
-min(rowData(sce)$mean_counts[rowData(sce)$mean_counts>0])
-min(rowData(sce)$n_cells_counts)
-
-par(mfrow=c(1,3), mar=c(5,4,1,1))
-hist(log10(rowData(sce)$mean_counts+1e-6), col="grey80",  main="", 
-     breaks=40, xlab="log10(ave # of UMI + 1e-6)")
-hist(log10(rowData(sce)$n_cells_counts+1), col="grey80", main="", 
-     breaks=40, xlab="log10(# of expressed cells + 1)")
-smoothScatter(log10(rowData(sce)$mean_counts+1e-6), 
-              log10(rowData(sce)$n_cells_counts + 1), 
-              xlab="log10(ave # of UMI + 1e-6)", 
-              ylab="log10(# of expressed cells + 1)")
-
+summary(rowData(sce)$mean_counts)
+summary(rowData(sce)$mean_counts[rowData(sce)$mean_counts > 0])
+summary(rowData(sce)$mean_counts[rowData(sce)$mean_counts > 1])
+summary(rowData(sce)$n_cells_counts)
 tb1 = table(rowData(sce)$n_cells_counts)
 tb1[1:11]
 
+par(mfrow=c(2,2), mar=c(5,4,1,1))
+hist(log10(rowData(sce)$mean_counts+1e-6),col="grey80",main="", 
+	breaks=40,xlab="log10(ave # of counts + 1e-6)")
+hist(log10(rowData(sce)$n_cells_counts+1), col="grey80",main="", 
+	breaks=40,xlab="log10(# of expressed cells + 1)")
+smoothScatter(log10(rowData(sce)$mean_counts+1e-6), 
+			log10(rowData(sce)$n_cells_counts + 1), 
+			xlab="log10(ave # of counts + 1e-6)", 
+			ylab="log10(# of expressed cells + 1)")
+tmp_filter = rowData(sce)$mean_counts > 1
+smart_table(tmp_filter)
+smoothScatter(log10(rowData(sce)$mean_counts[tmp_filter] + 1e-6), 
+			log10(rowData(sce)$n_cells_counts[tmp_filter] + 1), 
+			xlab="log10(ave # of counts + 1e-6)", 
+			ylab="log10(# of expressed cells + 1)")
+
 ```
 
-We remove those genes that are expressed in zero or only one cell. The variable _strand_ need to be renamed, otherwise there is an error message that such a variabel name cannot be used. 
+We remove those genes that are on average expressed in less or equal to 1 counts and we check the remaining highly expressed genes 
 
-```{r}
-names(rowData(sce))[6] = "strand_n"
-# Dr. Sun's code
-rowData(sce)$n_cell_count_filter = rowData(sce)$n_cells_counts > 1
-table(rowData(sce)$n_cell_count_filter)
-sce = sce[which(rowData(sce)$n_cell_count_filter == TRUE),]
+```{r fig.dim = c(5,5)}
+sce = sce[which(rowData(sce)$mean_counts > 1),]
 dim(sce)
-```
 
-Next we check those highly expressed genes 
-```{r fig.asp=1.5}
-par(mar=c(5,4,1,1))
+par(mfrow=c(1,1),mar=c(5,4,1,1))
 od1 = order(rowData(sce)$mean_counts, decreasing = TRUE)
 barplot(rowData(sce)$mean_counts[od1[20:1]], las=1, 
-        names.arg=rowData(sce)$hgnc_symbol[od1[20:1]], 
-        horiz=TRUE, cex.names=0.5, cex.axis=0.7, 
-        xlab="ave # of UMI")
+		names.arg=rowData(sce)$gene[od1[20:1]], 
+		horiz=TRUE, cex.names=0.8, cex.axis=0.7, 
+		xlab="ave # of counts")
 
 ```
 
@@ -359,11 +213,12 @@ A simple solution for normalization and stablizing expression varaince across ge
 
 As shown in the following plot, the final size factor estimation is indeed highly correlated with the naive definition by total count. 
 
-Finally, the command ```normalize(sce)``` adds the normalized expression into the variable ```sce```.
-```{r warning = FALSE, message = FALSE}
+Finally, the command `normalize(sce)` adds the normalized expression into the variable `sce`.
+```{r warning = FALSE, message = FALSE, fig.dim=c(7,4)}
 
 date()
 clusters = quickCluster(sce, min.mean=0.1, method="igraph")
+table(clusters)
 date()
 sce = computeSumFactors(sce, cluster=clusters, min.mean=0.1)
 date()
@@ -376,117 +231,137 @@ dim(sce)
 
 par(mfrow=c(1,2), mar=c(5,4,2,1), bty="n")
 smoothScatter(sce$total_counts, sizeFactors(sce), log="xy", 
-              xlab="total counts", ylab="size factors")
+			xlab="total counts", ylab="size factors")
 plot(sce$total_counts, sizeFactors(sce), log="xy", 
-     xlab="total counts", ylab="size factors", 
-     cex=0.3, pch=20, col=rgb(0.1,0.2,0.7,0.3))
+	xlab="total counts", ylab="size factors", 
+	cex=0.3, pch=20, col=rgb(0.1,0.2,0.7,0.3))
 
 sce = normalize(sce)
-
-# Save temp image
-post_norm_fn = file.path(data_dir,"post_norm.rds")
-if( where_file == "longleaf" ){
-  saveRDS(sce,post_norm_fn)
-} else if(FALSE){
-  sce = readRDS(post_norm_fn)
-}
 ```
 
 ## Dimension reduction
 
-For dimension reduction, such as calculating PCA or performing TSNE, we should start by identifying a subset of genes with high level of biological signal relative to background (technical) noise. The ```decomposeVar``` function from R/cran is designed for this task. 
-```{r warning = FALSE, message = FALSE, fig.height=5,fig.width=5}
+For dimension reduction, such as calculating PCA or performing TSNE, we should start by identifying a subset of genes with high level of biological signal relative to background (technical) noise. The `decomposeVar` function from R/cran is designed for this task. 
+```{r warning = FALSE, message = FALSE, fig.dim=c(5,5)}
 
-new.trend = makeTechTrend(x=sce)
+new_trend = makeTechTrend(x=sce)
 fit = trendVar(sce, use.spikes=FALSE, loess.args=list(span=0.05))
 
 par(mfrow=c(1,1), mar=c(5,4,2,1), bty="n")
-plot(fit$mean, fit$var, pch=20, col=rgb(0.1,0.2,0.7,0.6), 
-     xlab="log(mean)", ylab="var")
-curve(fit$trend(x), col="orange", lwd=2, add=TRUE)
-curve(new.trend(x), col="red", lwd=2, add=TRUE)
-legend("topright", legend=c("Poisson noise", "observed trend"), 
-       lty=1, lwd=2, col=c("red", "orange"), bty="n")
+plot(fit$mean,fit$var,pch=20,col=rgb(0.1,0.2,0.7,0.6), 
+	xlab="log(mean)",ylab="var")
+curve(fit$trend(x),col="orange",lwd=2,add=TRUE)
+curve(new_trend(x),col="red",lwd=2,add=TRUE)
+legend("topright",legend=c("Poisson noise","observed trend"), 
+	lty=1,lwd=2,col=c("red","orange"),bty="n")
 
-fit$trend = new.trend
+# fit$trend = new_trend
 dec = decomposeVar(fit=fit)
-top.dec = dec[order(dec$bio, decreasing=TRUE),]
-plotExpression(sce, features=rownames(top.dec)[1:10])
+top_dec = dec[order(dec$bio, decreasing=TRUE),]
+plotExpression(sce, features=rownames(top_dec)[1:10])
+
 ```
 
-When performing PCA, we can use all the genes or just those genes with high signal-to-noise ratio. TSNE analysis is usually based on the top PCs rather than the original gene expression data. We first perform PCA using all the genes and the function ```denoisePCA``` can automatically select the PCs based on modeling of technical noise. 
+When performing PCA, we can use all the genes or just those genes with high signal-to-noise ratio. TSNE analysis is usually based on the top PCs rather than the original gene expression data. We first perform PCA using all the genes and the function `denoisePCA` can automatically select the PCs based on modeling of technical noise. 
 
-```{r warning = FALSE, message = FALSE, fig.height=8,fig.width=11}
+```{r warning = FALSE, message = FALSE, fig.dim=c(7,5)}
 date()
-sce = denoisePCA(sce, technical=new.trend, approx=TRUE)
+# sce = denoisePCA(sce,technical=new_trend,approx=TRUE)
+sce = denoisePCA(sce,technical=fit$trend,approx=TRUE)
 date()
-dim(reducedDim(sce, "PCA"))
+dim(reducedDim(sce,"PCA"))
 
-plot(log10(attr(reducedDim(sce), "percentVar")), xlab="PC",
-     ylab="log10(Prop of variance explained)", pch=20, cex=0.6, 
-     col=rgb(0.8, 0.2, 0.2, 0.5))
+plot(log10(attr(reducedDim(sce),"percentVar")), xlab="PC",
+	ylab="log10(Prop of variance explained)", pch=20, cex=0.6, 
+	col=rgb(0.8, 0.2, 0.2, 0.5))
 abline(v=ncol(reducedDim(sce, "PCA")), lty=2, col="red")
 
+names(colData(sce))[1:35]
+sapply(c("sample_type","organism","donor","sex",
+	"brain_hemisphere","brain_subregion","facs_sort_criteria",
+	"class","cluster","cluster0"),
+	function(xx) smart_table(colData(sce)[,xx]))
 
-df_pcs = data.frame(reducedDim(sce, "PCA"))
-df_pcs$log10_total_features = colData(sce)$log10_total_features
+df_redDim = smart_df(colData(sce)[,c("sample_name","sex",
+						"brain_hemisphere","brain_subregion",
+						"facs_sort_criteria","class",
+						"cluster","cluster0","log10_total_features")],
+					reducedDim(sce,"PCA"))
+rownames(df_redDim) = NULL
 
-gp1 = ggplot(df_pcs, aes(PC1,PC2,col=log10_total_features)) + 
-  geom_point(size=0.2,alpha=0.6) + theme_classic() + 
-  scale_colour_gradient(low="lightblue",high="red") +
-  guides(color = guide_legend(override.aes = list(size=3)))
-gp1
+ggplot_custom(DATA = df_redDim,X = "PC1",Y = "PC2",COL = "sex",TYPE = "cat")
+ggplot_custom(DATA = df_redDim,X = "PC1",Y = "PC2",COL = "brain_hemisphere",TYPE = "cat")
+ggplot_custom(DATA = df_redDim,X = "PC1",Y = "PC2",COL = "brain_subregion",TYPE = "cat")
+ggplot_custom(DATA = df_redDim,X = "PC1",Y = "PC2",COL = "facs_sort_criteria",TYPE = "cat")
+ggplot_custom(DATA = df_redDim,X = "PC1",Y = "PC2",COL = "class",TYPE = "cat")
+ggplot_custom(DATA = df_redDim,X = "PC1",Y = "PC2",COL = "cluster",TYPE = "cat")
+ggplot_custom(DATA = df_redDim,X = "PC1",Y = "PC2",COL = "cluster0",TYPE = "cat")
+ggplot_custom(DATA = df_redDim,X = "PC1",Y = "PC2",COL = "log10_total_features",TYPE = "cont")
 
 date()
-sce = runTSNE(sce, use_dimred="PCA", perplexity=30, rand_seed=100)
+sce = runTSNE(sce,use_dimred="PCA", perplexity=30, rand_seed=100)
 date()
 
-df_tsne = data.frame(reducedDim(sce, "TSNE"))
-df_tsne$log10_total_features = colData(sce)$log10_total_features
+df_tsne = smart_df(reducedDim(sce,"TSNE"))
+rownames(df_tsne) = NULL
+names(df_tsne) = paste0("TSNE",seq(ncol(df_tsne)))
+df_redDim = smart_df(df_redDim,df_tsne)
+df_redDim[1:2,]
 
-gp1 = ggplot(df_tsne, aes(X1,X2,col=log10_total_features)) + 
-  geom_point(size=0.2,alpha=0.6) + theme_classic() + 
-  scale_colour_gradient(low="lightblue",high="red") +
-  guides(color = guide_legend(override.aes = list(size=3)))
-gp1
+ggplot_custom(DATA = df_redDim,X = "TSNE1",Y = "TSNE2",COL = "sex",TYPE = "cat")
+ggplot_custom(DATA = df_redDim,X = "TSNE1",Y = "TSNE2",COL = "brain_hemisphere",TYPE = "cat")
+ggplot_custom(DATA = df_redDim,X = "TSNE1",Y = "TSNE2",COL = "brain_subregion",TYPE = "cat")
+ggplot_custom(DATA = df_redDim,X = "TSNE1",Y = "TSNE2",COL = "facs_sort_criteria",TYPE = "cat")
+ggplot_custom(DATA = df_redDim,X = "TSNE1",Y = "TSNE2",COL = "class",TYPE = "cat")
+ggplot_custom(DATA = df_redDim,X = "TSNE1",Y = "TSNE2",COL = "cluster",TYPE = "cat")
+ggplot_custom(DATA = df_redDim,X = "TSNE1",Y = "TSNE2",COL = "cluster0",TYPE = "cat")
+ggplot_custom(DATA = df_redDim,X = "TSNE1",Y = "TSNE2",COL = "log10_total_features",TYPE = "cont")
 
-# Save temp image
-post_dimRed_fn = file.path(data_dir,"post_dimRed.rds")
-if( where_file == "longleaf" ){
-  saveRDS(list(sce=sce,dec=dec),post_dimRed_fn)
-} else if(FALSE){
-  rds = readRDS(post_dimRed_fn)
-  sce = rds$sce
-  dec = rds$dec
-  rm(rds)
-}
+saveRDS(list(sce=sce,dec=dec),"post_redDim.rds")
 ```
 
-Next we only select around top 1000 genes for the PCA and use the top 50 PCs for TSNE projection. 
+Next we tune our FDR and bio thresholds to select around top 1000 genes for the PCA and use the top 50 PCs for TSNE projection. 
 
-```{r warning = FALSE, message = FALSE, fig.asp = 0.8}
-
-
+```{r warning = FALSE, message = FALSE, fig.dim = c(7,5)}
 library(svd)
 library(Rtsne)
 
 summary(dec$bio)
+summary(dec$FDR)
 dec1 = dec
 dec1$bio[which(dec$bio < 1e-8)] = 1e-8
 dec1$FDR[which(dec$FDR < 1e-100)] = 1e-100
 
-par(mfrow=c(1,2))
-hist(log10(dec1$bio), breaks=100, main="")
-hist(log10(dec1$FDR), breaks=100, main="")
+par(mfrow=c(2,1),mar=c(5,4,1,1))
+hist(log10(dec1$bio+1e-6),breaks=50,main="",
+	col="gray",xlab="log10(bio + 1e-6)",
+	ylab="# of genes")
+hist(log10(dec1$FDR+1e-6),breaks=50,main="",
+	col="gray",xlab="log10(FDR + 1e-6)",
+	ylab="# of genes")
 
-summary(dec$FDR[dec$bio > 0.001])
-table(dec$FDR < 1e-10, dec$bio > 0.01)
+table(dec$FDR < 1e-10,dec$bio > 1e-2)
+table(dec$FDR < 1e-10,dec$bio > 1e-1)
+table(dec$FDR < 1e-20,dec$bio > 1e-2)
+table(dec$FDR < 1e-20,dec$bio > 1e-1)
+table(dec$FDR < 1e-40,dec$bio > 1e-2)
+table(dec$FDR < 1e-40,dec$bio > 1e-1)
+table(dec$FDR < 1e-50,dec$bio > 1e-2)
+table(dec$FDR < 1e-50,dec$bio > 1e-1)
 
-w2kp = which(dec$FDR < 1e-10 & dec$bio > 0.01)
-sce_sub = sce[w2kp,]
-sce_sub
+FDR_thres = 1e-50
+bio_thres = 1e-2
+summary(dec$FDR[dec$bio > bio_thres])
+table(dec$FDR < FDR_thres,dec$bio > bio_thres)
 
-edat = t(as.matrix(logcounts(sce_sub)))
+w2kp = which(dec$FDR < FDR_thres & dec$bio > bio_thres)
+sce_hvg = sce[w2kp,]
+sce_hvg
+```
+
+We continue with a subset of `r nrow(sce_hvg)` highly variable genes to perform PCA and TSNE.
+```{r warning = FALSE,message = FALSE,fig.dim = c(7,7)}
+edat = t(as.matrix(logcounts(sce_hvg)))
 edat = scale(edat)
 dim(edat)
 edat[1:2,1:3]
@@ -496,34 +371,47 @@ ppk = propack.svd(edat,neig=50)
 date()
 pca = t(ppk$d*t(ppk$u))
 
-df_pcs = data.frame(pca)
-df_pcs$log10_total_features = colData(sce_sub)$log10_total_features
-df_pcs[1:2,]
+df_pcs = smart_df(pca)
+names(df_pcs) = paste0("HVG_PC",seq(ncol(df_pcs)))
+df_hvg = smart_df(colData(sce_hvg)[,c("sample_name","sex",
+						"brain_hemisphere","brain_subregion",
+						"facs_sort_criteria","class",
+						"cluster","cluster0","log10_total_features")],
+					df_pcs[,1:2])
+rownames(df_hvg) = NULL
 
-gp1 = ggplot(df_pcs, aes(X1,X2,col=log10_total_features)) + 
-  geom_point(size=0.2,alpha=0.6) + theme_classic() + 
-  scale_colour_gradient(low="lightblue",high="red") +
-  guides(color = guide_legend(override.aes = list(size=3)))
-gp1
+ggplot_custom(DATA = df_hvg,X = "HVG_PC1",Y = "HVG_PC2",COL = "sex",TYPE = "cat")
+ggplot_custom(DATA = df_hvg,X = "HVG_PC1",Y = "HVG_PC2",COL = "brain_hemisphere",TYPE = "cat")
+ggplot_custom(DATA = df_hvg,X = "HVG_PC1",Y = "HVG_PC2",COL = "brain_subregion",TYPE = "cat")
+ggplot_custom(DATA = df_hvg,X = "HVG_PC1",Y = "HVG_PC2",COL = "facs_sort_criteria",TYPE = "cat")
+ggplot_custom(DATA = df_hvg,X = "HVG_PC1",Y = "HVG_PC2",COL = "class",TYPE = "cat")
+ggplot_custom(DATA = df_hvg,X = "HVG_PC1",Y = "HVG_PC2",COL = "cluster",TYPE = "cat")
+ggplot_custom(DATA = df_hvg,X = "HVG_PC1",Y = "HVG_PC2",COL = "cluster0",TYPE = "cat")
+ggplot_custom(DATA = df_hvg,X = "HVG_PC1",Y = "HVG_PC2",COL = "log10_total_features",TYPE = "cont")
 
 set.seed(100)
 date()
 tsne = Rtsne(pca, pca = FALSE)
 date()
 
-df_tsne = data.frame(tsne$Y)
-df_tsne$log10_total_features = colData(sce_sub)$log10_total_features
-dim(df_tsne)
-df_tsne[1:2,]
+df_tsne = smart_df(tsne$Y)
+names(df_tsne) = paste0("HVG_TSNE",seq(ncol(df_tsne)))
+df_hvg = smart_df(df_hvg,df_tsne)
+df_hvg[1:2,]
 
-gp1 = ggplot(df_tsne, aes(X1,X2,col=log10_total_features)) + 
-  geom_point(size=0.2,alpha=0.6) + theme_classic() + 
-  scale_colour_gradient(low="lightblue",high="red") +
-  guides(color = guide_legend(override.aes = list(size=3)))
-gp1
+ggplot_custom(DATA = df_hvg,X = "HVG_TSNE1",Y = "HVG_TSNE2",COL = "sex",TYPE = "cat")
+ggplot_custom(DATA = df_hvg,X = "HVG_TSNE1",Y = "HVG_TSNE2",COL = "brain_hemisphere",TYPE = "cat")
+ggplot_custom(DATA = df_hvg,X = "HVG_TSNE1",Y = "HVG_TSNE2",COL = "brain_subregion",TYPE = "cat")
+ggplot_custom(DATA = df_hvg,X = "HVG_TSNE1",Y = "HVG_TSNE2",COL = "facs_sort_criteria",TYPE = "cat")
+ggplot_custom(DATA = df_hvg,X = "HVG_TSNE1",Y = "HVG_TSNE2",COL = "class",TYPE = "cat")
+ggplot_custom(DATA = df_hvg,X = "HVG_TSNE1",Y = "HVG_TSNE2",COL = "cluster",TYPE = "cat")
+ggplot_custom(DATA = df_hvg,X = "HVG_TSNE1",Y = "HVG_TSNE2",COL = "cluster0",TYPE = "cat")
+ggplot_custom(DATA = df_hvg,X = "HVG_TSNE1",Y = "HVG_TSNE2",COL = "log10_total_features",TYPE = "cont")
 
-reducedDims(sce_sub) = SimpleList(PCA=pca, TSNE=tsne$Y)
-sce_sub
+reducedDims(sce_hvg) = SimpleList(PCA=pca, TSNE=tsne$Y)
+sce_hvg
+
+saveRDS(sce_hvg,"post_redDim_HVG.rds")
 ```
 
 ## Clustering
@@ -531,110 +419,87 @@ sce_sub
 ### Kmeans
 There are many methods for clustering of single cell RNA-seq data. The performance of each method may also depend on pre-processing steps, such as performing imputation or not. We wil compare these methods in a seperate document. Here we just illustrate the clustering reuslts using a simple kmeans method on the top 50 PCs. 
 
-```{r warning = FALSE, message = FALSE, fig.asp = 1}
-
-k10_50_pcs = kmeans(reducedDim(sce_sub, "PCA"), centers=10, 
-                    iter.max=150, algorithm="MacQueen")
-names(k10_50_pcs)
-dim(k10_50_pcs$centers)
-
-df_tsne$cluster_kmean = as.factor(k10_50_pcs$cluster)
-cols = c("#FB9A99","#FF7F00","yellow","orchid","grey",
-         "red","dodgerblue2","tan4","green4","#99c9fb")
-
-gp1 = ggplot(df_tsne, aes(X1,X2,col=cluster_kmean)) + 
-  geom_point(size=0.2,alpha=0.6) + theme_classic() + 
-  scale_color_manual(values=cols) + 
-  guides(color = guide_legend(override.aes = list(size=3)))
-gp1
-
-# Save temp image
-post_cluster_fn = file.path(data_dir,"post_cluster.rds")
-if(where_file == "longleaf"){
-  saveRDS(list(sce=sce,sce_sub=sce_sub,
-    k10_50_pcs=k10_50_pcs,df_tsne=df_tsne),
-    post_cluster_fn)
-} else if(FALSE){
-  rds = readRDS(post_cluster_fn)
-  sce = rds$sce
-  sce_sub = rds$sce_sub
-  k10_50_pcs = rds$k10_50_pcs
-  df_tsne = rds$df_tsne
-  rm(rds)
+```{r warning = FALSE, message = FALSE, fig.dim = c(7,7)}
+all_num_clust = c(seq(5,40,5),length(unique(colData(sce_hvg)$cluster)))
+all_num_clust
+df_hvg = df_hvg[,!grepl("^KM_",names(df_hvg))]
+for(num_clust in all_num_clust){
+	cat(paste0("KM with ",num_clust," clusters\n"))
+	kmeans_out = kmeans(reducedDim(sce_hvg,"PCA"),centers = num_clust,
+		iter.max = 1e5,nstart = 500,algorithm = "MacQueen")
+	df_hvg = smart_df(df_hvg,VV = as.factor(kmeans_out$cluster))
+	names(df_hvg)[names(df_hvg) == "VV"] = paste0("KM_",num_clust)
+	print(ggplot_custom(DATA = df_hvg,X = "HVG_TSNE1",
+		Y = "HVG_TSNE2",COL = paste0("KM_",num_clust),TYPE = "cat"))
 }
 
+saveRDS(list(sce_hvg=sce_hvg,df_hvg=df_hvg),"post_kmeans.rds")
 ```
 
 ### SC3
 Code used here is based on [this link](https://bioconductor.org/packages/devel/bioc/vignettes/SC3/inst/doc/SC3.html#run-sc3).
 
-```{r fig.height=14, fig.width=14}
+```{r cache = TRUE,warning = FALSE,message = FALSE,fig.dim = c(14,14)}
 library(SC3)
-rowData(sce)$feature_symbol = rowData(sce)$gene
-time1 = date()
-# all_ks = c(2,4)
+rowData(sce_hvg)$feature_symbol = rowData(sce_hvg)$gene
 all_ks = c(10,15)
-sce = sc3(sce, 
-          # ks = c(2,4),
-          ks = all_ks,biology = TRUE,
-          n_cores = 1,rand_seed = 100,
-          svm_num_cells = 2000)
-warnings()
-time2 = date()
-time1; time2
+date()
+sce_hvg = sc3(sce_hvg,ks = all_ks,gene_filter=FALSE,
+	biology = TRUE,n_cores = 1,
+	rand_seed = 100,svm_num_cells = 2000)
+date()
 
 # Run SVM and predict labels of all other cells
-time3 = date()
-sce = sc3_run_svm(sce, ks = all_ks)
-time4 = date()
-time3; time4
+date()
+sce_hvg = sc3_run_svm(sce_hvg,ks = all_ks)
+date()
 
-# Save temp image
-post_sc3_fn = file.path(data_dir,"post_sc3.rds")
-if(where_file == "longleaf"){
-  saveRDS(list(sce=sce,all_ks=all_ks),post_sc3_fn)
-} else if(FALSE){
-  rds = readRDS(post_sc3_fn)
-  sce = rds$sce
-  all_ks = rds$all_ks
-  rm(rds)
-}
+saveRDS(list(sce_hvg=sce_hvg,df_hvg=df_hvg,all_ks=all_ks),"post_sc3.rds")
+
+row_vars = c("sex","brain_hemisphere",
+		"brain_subregion","facs_sort_criteria","class",
+		"cluster","cluster0","log10_total_features")
 
 # Plotting
 for(one_ks in all_ks){
-  # one_ks = 2
-  print(one_ks)
-  plotPCA(sce,
-      colour_by = paste0("sc3_",one_ks,"_clusters"), 
-      size_by = paste0("sc3_",one_ks,"_log2_outlier_score"))
+	# one_ks = 2
+	print(one_ks)
+	plotPCA(sce_hvg,
+			colour_by = paste0("sc3_",one_ks,"_clusters"), 
+			size_by = paste0("sc3_",one_ks,"_log2_outlier_score"))
   
-  sc3_plot_consensus(sce,k = one_ks,
-      show_pdata = c("log10_total_features",
-        paste0("sc3_",one_ks,"_clusters"), 
-        paste0("sc3_",one_ks,"_log2_outlier_score")))
+	sc3_plot_consensus(sce_hvg,k = one_ks,
+					show_pdata = c(row_vars,
+						paste0("sc3_",one_ks,"_clusters")))
   
-  sc3_plot_silhouette(sce, k = one_ks)
+	# sc3_plot_silhouette(sce_hvg, k = one_ks)
   
-  sc3_plot_expression(sce, k = one_ks,
-      show_pdata = c("log10_total_features",
-        paste0("sc3_",one_ks,"_clusters"), 
-        paste0("sc3_",one_ks,"_log2_outlier_score")))
+	sc3_plot_expression(sce_hvg, k = one_ks,
+					show_pdata = c(row_vars,
+						paste0("sc3_",one_ks,"_clusters")))
   
-  sc3_plot_cluster_stability(sce, k = one_ks)
+	# sc3_plot_cluster_stability(sce_hvg, k = one_ks)
   
-  sc3_plot_de_genes(sce, k = one_ks, 
-    show_pdata = c("log10_total_features",
-        paste0("sc3_",one_ks,"_clusters"), 
-        paste0("sc3_",one_ks,"_log2_outlier_score")))
+	sc3_plot_de_genes(sce_hvg, k = one_ks, 
+					show_pdata = c(row_vars,
+						paste0("sc3_",one_ks,"_clusters")))
   
-  sc3_plot_markers(sce, k = one_ks, 
-    show_pdata = c("log10_total_features",
-        paste0("sc3_",one_ks,"_clusters"), 
-        paste0("sc3_",one_ks,"_log2_outlier_score")))
-  
+	sc3_plot_markers(sce_hvg, k = one_ks, 
+				show_pdata = c(row_vars,
+					paste0("sc3_",one_ks,"_clusters")))
+	
+	df_hvg$VV = as.factor(colData(sce_hvg)[,paste0("sc3_",one_ks,"_clusters")])
+	names(df_hvg)[names(df_hvg) == "VV"] = paste0("sc3_",one_ks)
+	print(ggplot_custom(DATA = df_hvg,X = "HVG_TSNE1",
+		Y = "HVG_TSNE2",COL = paste0("sc3_",one_ks),TYPE = "cat"))
 }
+```
 
-
+Finally we save the sce object and the clustering results
+```{r}
+saveRDS(sce,"sce.rds")
+saveRDS(sce_hvg,"sce_sub.rds")
+saveRDS(list(df_redDim=df_redDim,df_hvg=df_hvg),"all_clust_res.rds")
 ```
 
 

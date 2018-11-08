@@ -1,20 +1,4 @@
 # ----------
-# Paul's R Source File
-# ----------
-
-# ----------
-# Libraries
-# ----------
-if(FALSE){
-suppressPackageStartupMessages(library(gplots))
-suppressPackageStartupMessages(library(mclust)) # for naive clustering
-suppressPackageStartupMessages(library(matrixcalc)) # to calculate rcond??
-suppressPackageStartupMessages(library(numDeriv)) # to approx gradient and hessian
-suppressPackageStartupMessages(library(survival)) # to run survival regressions
-suppressPackageStartupMessages(library(splines)) # for possible cubic spline fitting
-}
-
-# ----------
 # General Functions
 # ----------
 smart_date = function(){
