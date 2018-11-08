@@ -495,6 +495,49 @@ for(one_ks in all_ks){
 }
 ```
 
+## Compare clustering results
+
+We will look at our clustering results against the provided labels.
+
+```{r warning = FALSE,message = FALSE,fig.dim = c(7,7)}
+library(data.table)
+
+df_hvg2 = df_hvg
+df_hvg2 = name_change(df_hvg2,"cluster","cluster75")
+smart_table(df_hvg2[,c("cluster75","class")])
+
+# Compare existing class with my results
+for(num_clust in all_num_clust){
+	t2 = melt(smart_table(df_hvg2[,c("class",paste0("KM_",num_clust))]))
+	colnames(t2)[2] = "cluster"
+	# summary(t2$value)
+	print(gg.heatmap(t2,paste0("KM_",num_clust)))
+}
+
+for(one_ks in all_ks){
+	t2 = melt(smart_table(df_hvg2[,c("class",paste0("sc3_",one_ks))]))
+	colnames(t2)[2] = "cluster"
+	# summary(t2$value)
+	print(gg.heatmap(t2,paste0("sc3_",one_ks)))
+}
+
+# Compare existing cluster with my results
+for(num_clust in all_num_clust){
+	t2 = melt(smart_table(df_hvg2[,c("cluster75",paste0("KM_",num_clust))]))
+	colnames(t2)[2] = "cluster"
+	# summary(t2$value)
+	print(gg.heatmap(t2,paste0("KM_",num_clust)))
+}
+
+for(one_ks in all_ks){
+	t2 = melt(smart_table(df_hvg2[,c("cluster75",paste0("sc3_",one_ks))]))
+	colnames(t2)[2] = "cluster"
+	# summary(t2$value)
+	print(gg.heatmap(t2,paste0("sc3_",one_ks)))
+}
+
+```
+
 Finally we save the sce object and the clustering results
 ```{r}
 saveRDS(sce,"sce.rds")
