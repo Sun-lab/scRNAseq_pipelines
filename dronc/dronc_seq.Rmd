@@ -59,27 +59,79 @@ library(ggplot2)
 # src_dir   = "~/research/GitHub/scRNAseq_pipelines/dronc"
 # data_dir  = "~/research/scRNAseq/workflow/data"
 # dronc_dir = "~/research/scRNAseq/data/GTEx_droncseq_hip_pcf"
-src_dir = "/pine/scr/p/l/pllittle/CS_eQTL/s3_Real/scRNAseq_pipelines/dronc"
-data_dir = src_dir
-dronc_dir = file.path(src_dir,"GTEx_droncseq_hip_pcf")
+repo_dir = "/pine/scr/p/l/pllittle/CS_eQTL/s3_Real/scRNAseq_pipelines"
+data_dir = file.path(repo_dir,"dronc")
+dronc_dir = file.path(data_dir,"GTEx_droncseq_hip_pcf")
+
+source(file.path(repo_dir,"SOURCE.R"))
 ```
 
 # Obtaining/Loading Counts
 
-Next we read in the count data. The dataset is available [here](https://storage.googleapis.com/gtex_additional_datasets/single_cell_data/GTEx_droncseq_hip_pcf.tar).
+Next we import in the count data and other available information. The dataset is available [here](https://storage.googleapis.com/gtex_additional_datasets/single_cell_data/GTEx_droncseq_hip_pcf.tar).
 
 ```{r}
-fname  = file.path(dronc_dir,"GTEx_droncseq_hip_pcf.umi_counts.txt.gz")
-counts = fread(paste('zcat <',fname))
-dim(counts)
-counts[1:3,1:2]
+counts_fn  = file.path(dronc_dir,"GTEx_droncseq_hip_pcf.umi_counts.txt.gz")
+counts = data.table::fread(input = sprintf("zcat < %s",counts_fn))
+counts = smart_df(counts)
+dim(counts); counts[1:3,1:2]
 
-counts_mx = as.matrix(counts[,-1])
-rownames(counts_mx) = counts$V1
-sce = SingleCellExperiment(assays = list(counts = counts_mx))
-sce
+rownames(counts) = counts$V1
+counts = as.matrix(counts[,-1])
+col_dat = smart_df(sample_name = colnames(counts),
+	part_cell_id = sapply(colnames(counts),function(xx) 
+		strsplit(xx,"_")[[1]][1],USE.NAMES=FALSE))
+
 ```
 
+Import clustering results. We utilize the supplemental files to label clusters. Refer to the file nmeth.4407-S10.xlsx.
+
+```{r}
+clust_fn = file.path(dronc_dir,"GTEx_droncseq_hip_pcf.clusters.txt.gz")
+clust = smart_df(data.table::fread(sprintf("zcat < %s",clust_fn)))
+dim(clust); clust[1:5,]
+names(clust) = c("sample_name","paper_clusters")
+clust$paper_clusters = as.factor(clust$paper_clusters)
+
+# Double check sample names
+is_match = col_dat$sample_name == clust$sample_name; all(is_match)
+col_dat$sample_name[!is_match][1:5]
+clust$sample_name[!is_match][1:5]
+clust$sample_name = gsub("-",".",clust$sample_name)
+is_match = col_dat$sample_name == clust$sample_name; all(is_match)
+
+map_clust_name = smart_df(paper_clusters = as.factor(seq(19)),
+	paper_clusters_name = c("exPFC1","exPFC2","exCA1","exCA3",
+		"GABA1","GABA2","exDG","ASC1","ASC2","ODC1","ODC2",
+		"OPC","MG","NSC","END",rep(NA,4)),
+	paper_cell_type = c("exPFC","exPFC","exCA1","exCA3",
+		"GABA","GABA","exDG","ASC","ASC","ODC","ODC","OPC",
+		"MG","NSC","END",rep(NA,4)))
+clust = smart_merge(clust,map_clust_name)
+clust = clust[match(col_dat$sample_name,clust$sample_name),]
+clust[1:5,]
+
+# Merge in TSNE results from paper
+tsne_fn = file.path(dronc_dir,"GTEx_droncseq_hip_pcf.tsne.txt.gz")
+df_tsne = smart_df(data.table(fread(sprintf("zcat < %s",tsne_fn))))
+dim(df_tsne); df_tsne[1:5,]
+names(df_tsne) = c("sample_name",paste0("paper_TSNE",1:2))
+is_match = df_tsne$sample_name == clust$sample_name; table(is_match)
+df_tsne$sample_name[!is_match][1:5]
+clust$sample_name[!is_match][1:5]
+df_tsne$sample_name = gsub("-",".",df_tsne$sample_name)
+is_match = df_tsne$sample_name == clust$sample_name; table(is_match)
+is_match = (col_dat$sample_name == df_tsne$sample_name) & 
+	(df_tsne$sample_name == clust$sample_name); table(is_match)
+
+col_dat = cbind(col_dat,
+				clust[,names(clust) != "sample_name"],
+				df_tsne[,names(df_tsne) != "sample_name"])
+col_dat[1:5,]
+
+sce = SingleCellExperiment(assays = list(counts = counts),colData = col_dat)
+sce
+```
 
 # Pre-processing and Quality Control
 
@@ -87,7 +139,7 @@ sce
 
 We will extract annotation information based on gene names.
 
-```{r}
+```{r warning = FALSE,message = FALSE}
 anno_file = file.path(data_dir,"gene.annotation_dronc.rds")
 if( file.exists(anno_file) ){
 	gene_anno = readRDS(anno_file)
@@ -109,15 +161,15 @@ if( file.exists(anno_file) ){
 
 dim(sce); dim(gene_anno)
 
+# Genes in annotation that aren't in sce
 w2rm = which(!gene_anno$external_gene_name %in% rownames(sce))
 w2rm
-
 gene_anno[w2rm,]
 gene_anno = gene_anno[-w2rm,]
 dim(sce); dim(gene_anno)
 ```
 
-Many genes have multiple entries in annotation, often because they are annotatd to scaffolds, assembly patches and alternate loci. Here we simply remove such entries. The we remove duplicated annotations and genes without annotations. 
+Many genes have multiple entries in the annotation, often because they are annotated to scaffolds, assembly patches and alternate loci. Here we simply remove such entries. The we remove duplicated annotations and genes without annotations. 
 
 ```{r}
 table(gene_anno$chromosome_name)[1:30]
@@ -132,7 +184,7 @@ length(t2)
 t2[1:10]
 
 gene_anno[which(gene_anno$external_gene_name %in% names(t2)[1:4]), 1:4]
-w_duplicate = which(gene_anno$external_gene_name %in%  names(t2))
+w_duplicate = which(gene_anno$external_gene_name %in% names(t2))
 ganno2 = gene_anno[w_duplicate,]
 dim(ganno2)
 
@@ -159,12 +211,12 @@ dim(sce)
 rowData(sce) = gene_anno
 ```
 
-
 ## Identify Low quality cells
 
 ### barcodeRanks filtering
 Please refer to [this workflow in bioconductor](https://bioconductor.org/packages/release/workflows/vignettes/simpleSingleCell/inst/doc/work-3-tenx.html#calling-cells-from-empty-droplets) for reference. 
-```{r fig.height=5, fig.width=5, eval=TRUE, echo=TRUE}
+
+```{r fig.dim = c(5,5)}
 # Calling cells from empty droplets
 bcrank = barcodeRanks(counts(sce))
 
@@ -173,13 +225,12 @@ uniq = !duplicated(bcrank$rank)
 
 par(mar=c(5,4,2,1), bty="n")
 plot(bcrank$rank[uniq], bcrank$total[uniq], log="xy", 
-     xlab="Rank", ylab="Total UMI count", cex=0.5, cex.lab=1.2)
-
+	xlab="Rank", ylab="Total UMI count", cex=0.5, cex.lab=1.2)
 abline(h=bcrank$inflection, col="darkgreen", lty=2,lwd=2)
 abline(h=bcrank$knee, col="dodgerblue", lty=2,lwd=2)
 
 legend("left", legend=c("Inflection", "Knee"), bty="n", 
-       col=c("darkgreen", "dodgerblue"), lty=2, cex=1.2,lwd=2)
+	col=c("darkgreen", "dodgerblue"), lty=2, cex=1.2,lwd=2)
 
 bcrank$inflection
 bcrank$knee
@@ -189,7 +240,9 @@ table(bcrank$total >= bcrank$knee)
 table(bcrank$total >= bcrank$inflection)
 
 set.seed(100)
+date()
 e_out = emptyDrops(counts(sce))
+date()
 e_out
 length(unique(e_out$FDR))
 table(e_out$FDR)
@@ -205,9 +258,9 @@ From the above analysis, some cells with very small number of UMIs. Here we chos
 
 We will generate a set of QC features per cell, including the expression of mitochondira/ribosomal genes.  We identify ribosomal genes based on annoation from https://www.genenames.org/.
 
-```{r fig.asp = 1, warning = FALSE, message = FALSE}
+```{r fig.dim = c(5,5), warning = FALSE, message = FALSE}
 file_link = "https://www.genenames.org/cgi-bin/genefamilies/set/1054/download/branch"
-ribo_fn   = file.path(data_dir,"branch")
+ribo_fn = file.path(data_dir,"branch")
 if( !file.exists(ribo_fn) ){
 	cmd = sprintf("cd %s; wget %s",data_dir, file_link)
 	print(cmd)
@@ -218,7 +271,7 @@ ribo = read.table(ribo_fn, sep='\t', header=TRUE, stringsAsFactors = FALSE)
 ribo[1:2,]
 
 is_mito = which(rowData(sce)$chromosome_name == "MT")
-is_ribo = which(rowData(sce)$hgnc_symbol %in% ribo$Approved.Symbol)
+is_ribo = which(rowData(sce)$external_gene_name %in% ribo$Approved.Symbol)
 length(is_mito)
 length(is_ribo)
 
@@ -228,46 +281,59 @@ sort(colnames(colData(sce)))
 par(mfrow=c(2,2), mar=c(5, 4, 1, 1), bty="n")
 hist(log10(sce$total_counts), xlab="log10(Library sizes)", main="", 
     breaks=20, col="grey80", ylab="Number of cells")
-
 hist(log10(sce$total_features), xlab="log10(# of expressed genes)", 
-     main="", breaks=20, col="grey80", ylab="Number of cells")
-
+	main="", breaks=20, col="grey80", ylab="Number of cells")
 hist(sce$pct_counts_Ri, xlab="Ribosome prop. (%)",
     ylab="Number of cells", breaks=40, main="", col="grey80")
-
 hist(sce$pct_counts_Mt, xlab="Mitochondrial prop. (%)", 
     ylab="Number of cells", breaks=80, main="", col="grey80")
 
 par(mfrow=c(2,2), mar=c(5, 4, 1, 1), bty="n")
-plot(log10(sce$total_counts), log10(sce$total_features), 
-     xlab="log10(Library sizes)", ylab="log10(# of expressed genes)", 
-     pch=16, col=rgb(0,0,0,0.4))
-plot(log10(sce$total_counts), sce$pct_counts_Ri, pch=16, col=rgb(0,0,0,0.4), 
-     xlab="log10(Library sizes)", ylab="Ribosome prop. (%)")
+smoothScatter(log10(sce$total_counts), log10(sce$total_features), 
+	xlab="log10(Library sizes)", ylab="log10(# of expressed genes)")
+smoothScatter(log10(sce$total_counts), sce$pct_counts_Ri,
+	xlab="log10(Library sizes)", ylab="Ribosome prop. (%)")
+smoothScatter(log10(sce$total_counts), sce$pct_counts_Mt,
+	xlab="log10(Library sizes)", ylab="Mitochondrial prop. (%)")
+smoothScatter(sce$pct_counts_Ri,sce$pct_counts_Mt,
+	xlab="Ribosome prop. (%)", ylab="Mitochondrial prop. (%)")
+```
 
-plot(log10(sce$total_counts), sce$pct_counts_Mt, pch=16, col=rgb(0,0,0,0.4), 
-     xlab="log10(Library sizes)", ylab="Mitochondrial prop. (%)")
+From the QC results, we will filter on the metrics below.
+```{r}
+libsize_drop = isOutlier(sce$total_counts,nmads = 3,type = "lower",log = TRUE)
+feature_drop = isOutlier(sce$total_features_by_counts,nmads = 3,type = "lower",log = TRUE)
+mito_drop = isOutlier(sce$pct_counts_Mt,nmads = 3,type = "higher")
+ribo_drop = isOutlier(sce$pct_counts_Ri,nmads = 3,type = "higher")
+keep = !(libsize_drop | feature_drop | mito_drop | ribo_drop)
+smart_df(ByLibSize = sum(libsize_drop),ByFeature = sum(feature_drop),
+		ByMito = sum(mito_drop),ByRibo = sum(ribo_drop),
+		Remaining = sum(keep))
 
-plot(x=sce$pct_counts_Ri, y=sce$pct_counts_Mt, pch=16, col=rgb(0,0,0,0.4), 
-     xlab="Ribosome prop. (%)", ylab="Mitochondrial prop. (%)")
+smart_table(colData(sce)$paper_clusters,keep)
+smart_table(colData(sce)$paper_clusters_name,keep)
+# Notice that paper_cluster = 18 samples will all be excluded
+
+sce = sce[,keep]
+dim(sce)
 ```
 
 ## Summarize gene level information
-```{r warning = FALSE, message = FALSE, fig.asp = .33}
+```{r warning = FALSE, message = FALSE, fig.dim = c(8,3)}
 rowData(sce)[1:2,]
-min(rowData(sce)$mean_counts)
-min(rowData(sce)$mean_counts[rowData(sce)$mean_counts>0])
-min(rowData(sce)$n_cells_counts)
+summary(rowData(sce)$mean_counts)
+summary(rowData(sce)$mean_counts[rowData(sce)$mean_counts>0])
+summary(rowData(sce)$n_cells_counts)
 
 par(mfrow=c(1,3), mar=c(5,4,1,1))
 hist(log10(rowData(sce)$mean_counts+1e-6), col="grey80",  main="", 
-     breaks=40, xlab="log10(ave # of UMI + 1e-6)")
+	breaks=40, xlab="log10(ave # of UMI + 1e-6)")
 hist(log10(rowData(sce)$n_cells_counts+1), col="grey80", main="", 
-     breaks=40, xlab="log10(# of expressed cells + 1)")
+	breaks=40, xlab="log10(# of expressed cells + 1)")
 plot(log10(rowData(sce)$mean_counts+1e-6), pch=16, col=rgb(0,0,0,0.4), 
-              log10(rowData(sce)$n_cells_counts + 1), 
-              xlab="log10(ave # of UMI + 1e-6)", 
-              ylab="log10(# of expressed cells + 1)")
+	log10(rowData(sce)$n_cells_counts + 1), 
+	xlab="log10(ave # of UMI + 1e-6)", 
+	ylab="log10(# of expressed cells + 1)")
 
 tb1 = table(rowData(sce)$n_cells_counts)
 tb1[1:11]
@@ -307,7 +373,7 @@ dim(sce)
 ```
 
 Next we check those highly expressed genes 
-```{r fig.asp=1.5}
+```{r fig.dim = c(5,5)}
 par(mar=c(5,4,1,1))
 od1 = order(rowData(sce)$mean_counts, decreasing = TRUE)
 barplot(rowData(sce)$mean_counts[od1[20:1]], las=1, 
@@ -323,7 +389,7 @@ As shown in the following plot, the final size factor estimation is indeed highl
 
 Finally, the command ```normalize(sce)``` adds the normalized expression into the variable ```sce```, which can be accessed by ````logcounts(sce) = log2(gene_cell_count / size_factor + 1)````.
 
-```{r warning = FALSE, message = FALSE}
+```{r warning = FALSE,message = FALSE,fig.dim = c(5,5)}
 
 date()
 clusters = quickCluster(sce, min.mean=0.1, method="igraph")
@@ -357,7 +423,7 @@ sce = normalize(sce)
 ## Dimension Reduction
 For dimension reduction, such as calculating PCA or performing TSNE, we should start by identifying a subset of genes with high level of biological signal relative to background (technical) noise. The ```decomposeVar``` function from R/cran is designed for this task. 
 
-```{r warning = FALSE, message = FALSE, fig.height=5, fig.width=5}
+```{r warning = FALSE,message = FALSE,fig.dim = c(5,5)}
 
 new_trend = makeTechTrend(x=sce)
 fit = trendVar(sce, use.spikes=FALSE, loess.args=list(span=0.05))
@@ -379,7 +445,7 @@ plotExpression(sce, features=rownames(top_dec)[1:10])
 
 When performing PCA, we can use all the genes or just those genes with high signal-to-noise ratio. TSNE analysis is usually based on the top PCs rather than the original gene expression data. We select around top 1000 genes for the PCA and use the top 50 PCs for TSNE projection. 
 
-```{r warning = FALSE, message = FALSE, fig.asp = 0.8}
+```{r warning = FALSE,message = FALSE,fig.dim = c(5,5)}
 
 library(svd)
 library(Rtsne)
@@ -530,9 +596,7 @@ sum(table(colData(sce_sub)$sc3_10_clusters))
 We obtainted the cell type and clustering resutls from [@habib2017massively]. Supplementary Table 10: supplement nmeth.4407-S10.xlsx file. Here we compare the cell type reported by Habib et al. (2017) with ours. Habib et al. (2017) identified genes with high variation by fitting a gamma distribution on the relation between mean and coefficient of variation and chose the number of PCs based on "the largest eigen value gap". It was not clear what is the number of PCs used. Then they used these top PCs to perform tSNE anlaysis and clustering using a graph based method. 
 
 ```{r}
-source(file.path(src_dir,"SOURCE.R"))
-
-tmp_lab = smart_RT(file.path(src_dir, "cluster_num_label.txt"), 
+tmp_lab = smart_RT(file.path(data_dir,"cluster_num_label.txt"), 
                    sep = "\t",header = TRUE)
 tmp_lab = name_change(tmp_lab, "Name", "Cluster.Name")
 tmp_lab = name_change(tmp_lab, "Name.1", "Cell_Type")
@@ -540,7 +604,7 @@ tmp_lab = name_change(tmp_lab, "Name.1", "Cell_Type")
 dim(tmp_lab)
 tmp_lab[1:2,]
 
-tmp_res = smart_RT(file.path(src_dir, "paper_cluster_res.txt"), 
+tmp_res = smart_RT(file.path(data_dir, "paper_cluster_res.txt"), 
                    sep = "\t", header = TRUE, comment.char = "")
 tmp_res = name_change(tmp_res, "X.Genes", "nGenes")
 tmp_res = name_change(tmp_res, "X.Transcripts", "nTranscripts")
