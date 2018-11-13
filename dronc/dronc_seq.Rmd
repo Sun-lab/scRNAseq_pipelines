@@ -72,19 +72,19 @@ Next we import in the count data and other available information. The dataset is
 
 ```{r}
 counts_fn  = file.path(dronc_dir,"GTEx_droncseq_hip_pcf.umi_counts.txt.gz")
-counts = data.table::fread(input = sprintf("zcat < %s",counts_fn))
-counts = smart_df(counts)
+counts = smart_df(data.table::fread(input = sprintf("zcat < %s",counts_fn)))
 dim(counts); counts[1:3,1:2]
 
 rownames(counts) = counts$V1
 counts = as.matrix(counts[,-1])
+colnames(counts)[1:10]
 col_dat = smart_df(sample_name = colnames(counts),
 	part_cell_id = sapply(colnames(counts),function(xx) 
 		strsplit(xx,"_")[[1]][1],USE.NAMES=FALSE))
-
+col_dat[1:5,]
 ```
 
-Import clustering results. We utilize the supplemental files to label clusters. Refer to the file nmeth.4407-S10.xlsx.
+Import clustering results. We utilize the supplemental files to label clusters and incorporate the existing TSNE results. Refer to the file nmeth.4407-S10.xlsx.
 
 ```{r}
 clust_fn = file.path(dronc_dir,"GTEx_droncseq_hip_pcf.clusters.txt.gz")
@@ -113,7 +113,7 @@ clust[1:5,]
 
 # Merge in TSNE results from paper
 tsne_fn = file.path(dronc_dir,"GTEx_droncseq_hip_pcf.tsne.txt.gz")
-df_tsne = smart_df(data.table(fread(sprintf("zcat < %s",tsne_fn))))
+df_tsne = smart_df(data.table::fread(sprintf("zcat < %s",tsne_fn)))
 dim(df_tsne); df_tsne[1:5,]
 names(df_tsne) = c("sample_name",paste0("paper_TSNE",1:2))
 is_match = df_tsne$sample_name == clust$sample_name; table(is_match)
@@ -267,7 +267,7 @@ if( !file.exists(ribo_fn) ){
 	system(cmd)
 }
 
-ribo = read.table(ribo_fn, sep='\t', header=TRUE, stringsAsFactors = FALSE)
+ribo = smart_RT(ribo_fn,sep='\t',header=TRUE,)
 ribo[1:2,]
 
 is_mito = which(rowData(sce)$chromosome_name == "MT")
@@ -299,7 +299,7 @@ smoothScatter(sce$pct_counts_Ri,sce$pct_counts_Mt,
 	xlab="Ribosome prop. (%)", ylab="Mitochondrial prop. (%)")
 ```
 
-From the QC results, we will filter on the metrics below.
+From the QC results, we will filter on the metrics by identifying outliers using `isOutlier`.
 ```{r}
 libsize_drop = isOutlier(sce$total_counts,nmads = 3,type = "lower",log = TRUE)
 feature_drop = isOutlier(sce$total_features_by_counts,nmads = 3,type = "lower",log = TRUE)
@@ -436,14 +436,72 @@ curve(new_trend(x), col="red", lwd=2, add=TRUE)
 legend("top", legend=c("Poisson noise", "observed trend"), 
 		lty=1, lwd=2, col=c("red", "orange"), bty="n")
 
-# fit$trend = new_trend
+fit$trend = new_trend
 # obtain bio, FDR, pvalues for testing for HVGs (highly variable genes)
 dec = decomposeVar(fit=fit) 
 top_dec = dec[order(dec$bio, decreasing=TRUE),]
 plotExpression(sce, features=rownames(top_dec)[1:10])
 ```
 
-When performing PCA, we can use all the genes or just those genes with high signal-to-noise ratio. TSNE analysis is usually based on the top PCs rather than the original gene expression data. We select around top 1000 genes for the PCA and use the top 50 PCs for TSNE projection. 
+When performing PCA, we can use all the genes or just those genes with high signal-to-noise ratio. TSNE analysis is usually based on the top PCs rather than the original gene expression data. We first perform PCA using all the genes and the function ```denoisePCA``` can automatically select the PCs based on modeling of technical noise.
+
+```{r fig.dim = c(8,8)}
+date()
+sce = denoisePCA(sce,technical=new_trend,approx=TRUE) # Using the Poisson trend fit
+# sce = denoisePCA(sce,technical=fit$trend,approx=TRUE) # Using the observed trend fit
+date()
+dim(reducedDim(sce,"PCA"))
+
+par(mfrow=c(1,1))
+plot(log10(attr(reducedDim(sce), "percentVar")), xlab="PC",
+	ylab="log10(Prop of variance explained)", pch=20, cex=0.6, 
+	col=rgb(0.8, 0.2, 0.2, 0.5))
+abline(v=ncol(reducedDim(sce,"PCA")), lty=2, col="red")
+
+df_redDim = smart_df(colData(sce)[,c("sample_name","part_cell_id",
+	paste0("paper_TSNE",1:2),"log10_total_features","paper_clusters",
+	"paper_clusters_name","paper_cell_type")],
+	reducedDim(sce, "PCA")[,1:2])
+rownames(df_redDim) = NULL
+
+# all_vars = c("part_cell_id","log10_total_features","paper_clusters",
+# 	"paper_clusters_name","paper_cell_type")
+
+ggplot_custom(DATA = df_redDim,X = "paper_TSNE1",Y = "paper_TSNE2",COL = "part_cell_id",TYPE = "cat")
+ggplot_custom(DATA = df_redDim,X = "paper_TSNE1",Y = "paper_TSNE2",COL = "log10_total_features",TYPE = "cont")
+ggplot_custom(DATA = df_redDim,X = "paper_TSNE1",Y = "paper_TSNE2",COL = "paper_clusters",TYPE = "cat")
+ggplot_custom(DATA = df_redDim,X = "paper_TSNE1",Y = "paper_TSNE2",COL = "paper_clusters_name",TYPE = "cat")
+ggplot_custom(DATA = df_redDim,X = "paper_TSNE1",Y = "paper_TSNE2",COL = "paper_cell_type",TYPE = "cat")
+
+ggplot_custom(DATA = df_redDim,X = "PC1",Y = "PC2",COL = "part_cell_id",TYPE = "cat")
+ggplot_custom(DATA = df_redDim,X = "PC1",Y = "PC2",COL = "log10_total_features",TYPE = "cont")
+ggplot_custom(DATA = df_redDim,X = "PC1",Y = "PC2",COL = "paper_clusters",TYPE = "cat")
+ggplot_custom(DATA = df_redDim,X = "PC1",Y = "PC2",COL = "paper_clusters_name",TYPE = "cat")
+ggplot_custom(DATA = df_redDim,X = "PC1",Y = "PC2",COL = "paper_cell_type",TYPE = "cat")
+
+date()
+sce = runTSNE(sce,use_dimred="PCA",perplexity=30,rand_seed=100)
+date()
+
+tmp_df = smart_df(reducedDim(sce,"TSNE"))
+rownames(tmp_df) = NULL
+names(tmp_df) = paste0("my_TSNE",1:2)
+df_redDim = smart_df(df_redDim,tmp_df); rm(tmp_df)
+df_redDim[1:5,]
+
+ggplot_custom(DATA = df_redDim,X = "my_TSNE1",Y = "my_TSNE2",COL = "part_cell_id",TYPE = "cat")
+ggplot_custom(DATA = df_redDim,X = "my_TSNE1",Y = "my_TSNE2",COL = "log10_total_features",TYPE = "cont")
+ggplot_custom(DATA = df_redDim,X = "my_TSNE1",Y = "my_TSNE2",COL = "paper_clusters",TYPE = "cat")
+ggplot_custom(DATA = df_redDim,X = "my_TSNE1",Y = "my_TSNE2",COL = "paper_clusters_name",TYPE = "cat")
+ggplot_custom(DATA = df_redDim,X = "my_TSNE1",Y = "my_TSNE2",COL = "paper_cell_type",TYPE = "cat")
+
+saveRDS(list(sce = sce,dec = dec,df_redDim = df_redDim),
+		file.path(data_dir,"post_redDim_all_genes.rds"))
+# Note that this contains the results from PCA and TSNE with all genes
+# rds = readRDS("post_redDim_all_genes.rds"); sce = rds$sce; dec = rds$dec; df_redDim = rds$df_redDim; rm(rds)
+```
+
+We select around top 1000 genes for the PCA and use the top 50 PCs for TSNE projection. 
 
 ```{r warning = FALSE,message = FALSE,fig.dim = c(5,5)}
 
@@ -456,94 +514,85 @@ dec1$bio[which(dec$bio < 1e-5)] = 1e-5
 dec1$FDR[which(dec$FDR < 1e-100)] = 1e-100
 
 par(mfrow=c(1,2))
-hist(log10(dec1$bio), breaks=100, main="")
-hist(log10(dec1$FDR), breaks=100, main="")
+hist(log10(dec1$bio),breaks=100,main="")
+hist(log10(dec1$FDR),breaks=100,main="")
 
 summary(dec$FDR[dec$bio > 0.01])
 summary(dec$FDR[dec$bio > 0.03])
-table(dec$FDR < 1e-10, dec$bio > 0.03)
-table(dec$FDR < 1e-10, dec$bio > 0.01)
+table(dec$FDR < 1e-10,dec$bio > 0.03)
+table(dec$FDR < 1e-10,dec$bio > 0.01)
+table(dec$FDR < 1e-10,dec$bio > 0.02)
 
 # Subsetting genes based on FDR and biological residual thresholds
-w2kp = which(dec$FDR < 1e-10 & dec$bio > 0.01)
-sce_sub = sce[w2kp,]
-sce_sub
+w2kp = which(dec$FDR < 1e-10 & dec$bio > 0.02)
+sce_hvg = sce[w2kp,]
+sce_hvg
 
 # Extracting log2(norm_express+1)
-edat = t(as.matrix(logcounts(sce_sub)))
+edat = t(as.matrix(logcounts(sce_hvg)))
 edat = scale(edat)
 dim(edat)
 edat[1:2,1:3]
 
-# Perform SVD on sce_sub
+# Perform SVD on sce_hvg
 date()
 ppk = propack.svd(edat,neig=50)
 date()
 pca = t(ppk$d*t(ppk$u)) # calculates pc scores aka principal components
 
-df_pcs = data.frame(pca)
-df_pcs$log10_total_features = colData(sce_sub)$log10_total_features
-df_pcs$part_cell_id = sapply(colnames(sce_sub),function(xx) 
-	strsplit(xx,"_")[[1]][1],USE.NAMES=FALSE)
-df_pcs[1:2,1:10]
+tmp_df = smart_df(pca[,1:2])
+names(tmp_df) = paste0("HVG_PC",seq(ncol(tmp_df)))
 
-gp1 = ggplot(df_pcs, aes(X1,X2,col=log10_total_features)) + 
-	geom_point(size=0.5,alpha=0.6) + theme_classic() + 
-	scale_colour_gradient(low="lightblue",high="red") +
-	guides(color = guide_legend(override.aes = list(size=3)))
-gp1
+df_hvg = smart_df(colData(sce)[,c("sample_name","part_cell_id",
+	paste0("paper_TSNE",1:2),"log10_total_features","paper_clusters",
+	"paper_clusters_name","paper_cell_type")],tmp_df)
+rownames(df_hvg) = NULL
 
-gp2 = ggplot(df_pcs, aes(X1,X2,col=part_cell_id)) + 
-	geom_point(size=0.5,alpha=0.6) + theme_classic() + 
-	guides(color = guide_legend(override.aes = list(size=3)))
-gp2
+ggplot_custom(DATA = df_hvg,X = "HVG_PC1",Y = "HVG_PC2",COL = "part_cell_id",TYPE = "cat")
+ggplot_custom(DATA = df_hvg,X = "HVG_PC1",Y = "HVG_PC2",COL = "log10_total_features",TYPE = "cont")
+ggplot_custom(DATA = df_hvg,X = "HVG_PC1",Y = "HVG_PC2",COL = "paper_clusters",TYPE = "cat")
+ggplot_custom(DATA = df_hvg,X = "HVG_PC1",Y = "HVG_PC2",COL = "paper_clusters_name",TYPE = "cat")
+ggplot_custom(DATA = df_hvg,X = "HVG_PC1",Y = "HVG_PC2",COL = "paper_cell_type",TYPE = "cat")
 
 set.seed(100)
 date()
 tsne = Rtsne(pca, pca = FALSE)
 date()
 
-df_tsne = data.frame(tsne$Y)
-df_tsne$log10_total_features = colData(sce_sub)$log10_total_features
-df_tsne$part_cell_id = sapply(colnames(sce_sub),function(xx) 
-	strsplit(xx,"_")[[1]][1],USE.NAMES=FALSE)
-dim(df_tsne)
-df_tsne[1:2,]
+tmp_df = smart_df(tsne$Y)
+names(tmp_df) = paste0("HVG_TSNE",seq(ncol(tmp_df)))
+df_hvg = smart_df(df_hvg,tmp_df)
 
-gp1 = ggplot(df_tsne, aes(X1,X2,col=log10_total_features)) + 
-	geom_point(size=0.3,alpha=0.6) + theme_classic() + 
-	scale_colour_gradient(low="lightblue",high="red") +
-	guides(color = guide_legend(override.aes = list(size=3)))
-gp1
+ggplot_custom(DATA = df_hvg,X = "HVG_TSNE1",Y = "HVG_TSNE2",COL = "part_cell_id",TYPE = "cat")
+ggplot_custom(DATA = df_hvg,X = "HVG_TSNE1",Y = "HVG_TSNE2",COL = "log10_total_features",TYPE = "cont")
+ggplot_custom(DATA = df_hvg,X = "HVG_TSNE1",Y = "HVG_TSNE2",COL = "paper_clusters",TYPE = "cat")
+ggplot_custom(DATA = df_hvg,X = "HVG_TSNE1",Y = "HVG_TSNE2",COL = "paper_clusters_name",TYPE = "cat")
+ggplot_custom(DATA = df_hvg,X = "HVG_TSNE1",Y = "HVG_TSNE2",COL = "paper_cell_type",TYPE = "cat")
 
-gp2 = ggplot(df_tsne, aes(X1,X2,col=part_cell_id)) + 
-	geom_point(size=0.3,alpha=0.6) + theme_classic() + 
-	guides(color = guide_legend(override.aes = list(size=3)))
-gp2
-
-reducedDims(sce_sub) = SimpleList(PCA=pca, TSNE=tsne$Y)
-sce_sub
+reducedDims(sce_hvg) = SimpleList(PCA=pca, TSNE=tsne$Y)
+sce_hvg
+saveRDS(sce_hvg,file.path(data_dir,"post_HVG.rds"))
 ```
 
 ## Clustering
 
 ### Kmeans
 Next we cluster the cells using a simple kmeans method on the top 50 PCs. We set the number of clusters to be 12, to match with the 12 cell types reported by [@habib2017massively]. 
-```{r warning = FALSE, message = FALSE, fig.asp = 1}
+```{r warning = FALSE,message = FALSE,fig.dim = c(8,8)}
 
-k10_50_pcs = kmeans(reducedDim(sce_sub, "PCA"), 
-					centers = 12, iter.max=1e3,nstart = 30,
+kmeans_50_pcs = kmeans(reducedDim(sce_hvg, "PCA"), 
+					centers = 12, iter.max=1e8,nstart = 2500,
 					algorithm="MacQueen")
-names(k10_50_pcs)
-dim(k10_50_pcs$centers)
+names(kmeans_50_pcs)
+dim(kmeans_50_pcs$centers)
 
-df_tsne$cluster_kmean = as.factor(k10_50_pcs$cluster)
+df_hvg$cluster_kmean = as.factor(kmeans_50_pcs$cluster)
+ggplot_custom(DATA = df_hvg,X = "HVG_TSNE1",Y = "HVG_TSNE2",COL = "cluster_kmean",TYPE = "cat")
+smart_table(df_hvg[,c("paper_clusters","cluster_kmean")])
+smart_table(df_hvg[,c("paper_clusters_name","cluster_kmean")])
+smart_table(df_hvg[,c("paper_cell_type","cluster_kmean")])
 
-gp1 = ggplot(df_tsne, aes(X1,X2,col=cluster_kmean)) + 
-	geom_point(size=0.3,alpha=0.6) + theme_classic() + 
-	guides(color = guide_legend(override.aes = list(size=3)))
-gp1
-
+saveRDS(list(sce_hvg=sce_hvg,df_hvg=df_hvg),file.path(data_dir,"post_kmeans.rds"))
 ```
 
 ### SC3
@@ -560,69 +609,70 @@ table(rowData(sce)$pct_dropout_counts < 90)
 
 This will end up with 1418 genes. However, we found the clustering resutls using these 1418 genes have considerable discrepency with clustering resutls from Kmeans and cell types reported by [@habib2017massively]. Therefore, we chose to use those genes identified from previous step for SC3.
 
-```{r cache=TRUE, warning = FALSE, message = FALSE, fig.height=14, fig.width=14}
+```{r cache=TRUE, warning = FALSE, message = FALSE, fig.dim=c(14,14)}
 library(SC3)
-rowData(sce_sub)$feature_symbol = rowData(sce_sub)$external_gene_name
+rowData(sce_hvg)$feature_symbol = rowData(sce_hvg)$external_gene_name
 date()
 all_ks = c(10,12)
-# all_ks = 10
-sce_sub = sc3(sce_sub, gene_filter=FALSE,
-			n_cores = 1,kmeans_nstart = 50,
-			kmeans_iter_max = 3e3,
-			ks = all_ks, biology = TRUE, 
+sce_hvg = sc3(sce_hvg,gene_filter=FALSE,
+			n_cores = 1,ks = all_ks,biology = TRUE, 
 			rand_seed = 100)
 date()
 
-dim(colData(sce_sub))
-colData(sce_sub)[1:2,1:5]
-names(colData(sce_sub))
+dim(colData(sce_hvg))
+colData(sce_hvg)[1:2,1:5]
+names(colData(sce_hvg))
 
-table(colData(sce_sub)$sc3_12_clusters, useNA="ifany")
-table(colData(sce_sub)$sc3_10_clusters, useNA="ifany")
+table(colData(sce_hvg)$sc3_12_clusters, useNA="ifany")
+table(colData(sce_hvg)$sc3_10_clusters, useNA="ifany")
 
 # Run SVM and predict labels of all other cells
 date()
-sce_sub = sc3_run_svm(sce_sub, ks = all_ks)
+sce_hvg = sc3_run_svm(sce_hvg, ks = all_ks)
 date()
 
-table(colData(sce_sub)$sc3_12_clusters, useNA="ifany")
-table(colData(sce_sub)$sc3_10_clusters, useNA="ifany")
-sum(table(colData(sce_sub)$sc3_12_clusters))
-sum(table(colData(sce_sub)$sc3_10_clusters))
+table(colData(sce_hvg)$sc3_12_clusters, useNA="ifany")
+table(colData(sce_hvg)$sc3_10_clusters, useNA="ifany")
+sum(table(colData(sce_hvg)$sc3_12_clusters))
+sum(table(colData(sce_hvg)$sc3_10_clusters))
+
+saveRDS(list(sce_hvg=sce_hvg,all_ks=all_ks),file.path(data_dir,"post_sc3.rds"))
 ```
 
 ## Compare our kmeans to SC3 and to DrocNc clustering
 
 We obtainted the cell type and clustering resutls from [@habib2017massively]. Supplementary Table 10: supplement nmeth.4407-S10.xlsx file. Here we compare the cell type reported by Habib et al. (2017) with ours. Habib et al. (2017) identified genes with high variation by fitting a gamma distribution on the relation between mean and coefficient of variation and chose the number of PCs based on "the largest eigen value gap". It was not clear what is the number of PCs used. Then they used these top PCs to perform tSNE anlaysis and clustering using a graph based method. 
 
-```{r}
+```{r fig.dim = c(7,7)}
 tmp_lab = smart_RT(file.path(data_dir,"cluster_num_label.txt"), 
-                   sep = "\t",header = TRUE)
-tmp_lab = name_change(tmp_lab, "Name", "Cluster.Name")
-tmp_lab = name_change(tmp_lab, "Name.1", "Cell_Type")
+					sep = "\t",header = TRUE)
+tmp_lab
+tmp_lab = name_change(tmp_lab,"Name","Cluster.Name")
+tmp_lab = name_change(tmp_lab,"Name.1","Cell_Type")
 
-dim(tmp_lab)
-tmp_lab[1:2,]
-
-tmp_res = smart_RT(file.path(data_dir, "paper_cluster_res.txt"), 
-                   sep = "\t", header = TRUE, comment.char = "")
-tmp_res = name_change(tmp_res, "X.Genes", "nGenes")
-tmp_res = name_change(tmp_res, "X.Transcripts", "nTranscripts")
+tmp_res = smart_RT(file.path(data_dir,"paper_cluster_res.txt"), 
+					sep = "\t",header = TRUE,comment.char = "")
+dim(tmp_res); tmp_res[1:5,]
+tmp_res = name_change(tmp_res,"X.Genes","nGenes")
+tmp_res = name_change(tmp_res,"X.Transcripts","nTranscripts")
 
 tmp_res = smart_merge(tmp_res, tmp_lab[,c("Cluster.Name","Cell_Type")], 
-                      all.x=TRUE)
-dim(tmp_res)
-tmp_res[1:2,]
+					all.x=TRUE)
 
 summary(tmp_res$nGenes)
 hist(tmp_res$nGenes, breaks=50, col="gray", main="", 
-     xlab="number of genes per cell")
-df_tsne$Cell.ID = colnames(sce_sub)
+		xlab="number of genes per cell")
+df_hvg$Cell.ID = colnames(sce_hvg)
+
+table(df_hvg$Cell.ID %in% tmp_res$Cell.ID)
+tmp_res$Cell.ID[!(tmp_res$Cell.ID %in% df_hvg$Cell.ID)][1:5]
+tmp_res$Cell.ID = gsub("-",".",tmp_res$Cell.ID)
+table(df_hvg$Cell.ID %in% tmp_res$Cell.ID)
 
 # Merge and compare
-all_clust_res = smart_merge(df_tsne, tmp_res)
-sc3_res = smart_df(colData(sce_sub)[,c("sc3_12_clusters", "sc3_10_clusters")])
-sc3_res$Cell.ID = colnames(sce_sub)
+all_clust_res = smart_merge(df_hvg,tmp_res)
+sc3_res = smart_df(colData(sce_hvg)[,c("sc3_12_clusters","sc3_10_clusters")])
+sc3_res$Cell.ID = colnames(sce_hvg)
 all_clust_res = smart_merge(all_clust_res, sc3_res)
 dim(all_clust_res)
 all_clust_res[1:5,]
@@ -650,78 +700,28 @@ gg.heatmap(t2, "sc3 10 clusters")
 ```
 
 We plot our TSNE colored by our clustering results. 
-```{r}
-gp1 = ggplot(all_clust_res, aes(X1,X2,col=Cell_Type)) + 
-  geom_point(size=0.2,alpha=0.6) + theme_classic() + 
-  guides(color = guide_legend(override.aes = list(size=3))) + 
-  ggtitle("cell type")
-gp1
-
-gp1 = ggplot(all_clust_res, aes(X1,X2,col=cluster_kmean)) + 
-  geom_point(size=0.2,alpha=0.6) + theme_classic() + 
-  guides(color = guide_legend(override.aes = list(size=3))) +
-  ggtitle("kmeans 12 clusters")
-gp1
-
-gp1 = ggplot(all_clust_res, aes(X1,X2,col=factor(sc3_10_clusters))) + 
-  geom_point(size=0.2,alpha=0.6) + theme_classic() + 
-  guides(color = guide_legend(override.aes = list(size=3))) + 
-  ggtitle("sc3 10 clusters")
-gp1
-
-gp1 = ggplot(all_clust_res, aes(X1,X2,col=factor(sc3_12_clusters))) + 
-  geom_point(size=0.2,alpha=0.6) + theme_classic() + 
-  guides(color = guide_legend(override.aes = list(size=3))) + 
-  ggtitle("sc3 12 clusters")
-gp1
+```{r fig.dim = c(7,7)}
+ggplot_custom(DATA = all_clust_res,X = "HVG_TSNE1",Y = "HVG_TSNE2",COL = "Cell_Type",TYPE = "cat")
+ggplot_custom(DATA = all_clust_res,X = "HVG_TSNE1",Y = "HVG_TSNE2",COL = "cluster_kmean",TYPE = "cat")
+ggplot_custom(DATA = all_clust_res,X = "HVG_TSNE1",Y = "HVG_TSNE2",COL = "sc3_10_clusters",TYPE = "cat")
+ggplot_custom(DATA = all_clust_res,X = "HVG_TSNE1",Y = "HVG_TSNE2",COL = "sc3_12_clusters",TYPE = "cat")
 ```
 
 Next we plot the TSNE by Habib et al. (2017). and colored by our clustering results. 
 
-```{r}
-paper_tsne = smart_RT(file.path(dronc_dir, "GTEx_droncseq_hip_pcf.tsne.txt"), 
-                      sep='\t',header=TRUE,row.names=1)
-paper_tsne$Cell.ID = rownames(paper_tsne)
-rownames(paper_tsne) = NULL
-all_clust_res = smart_merge(all_clust_res,paper_tsne)
-
-gp1 = ggplot(all_clust_res, aes(tSNE_1,tSNE_2,col=Cell_Type)) + 
-  geom_point(size=0.2,alpha=0.6) + theme_classic() + 
-  guides(color = guide_legend(override.aes = list(size=3))) + 
-  ggtitle("cell types")
-gp1
-
-gp1 = ggplot(all_clust_res, aes(tSNE_1,tSNE_2,col=cluster_kmean)) + 
-  geom_point(size=0.2,alpha=0.6) + theme_classic() + 
-  guides(color = guide_legend(override.aes = list(size=3))) + 
-  ggtitle("kmeans 12 clusters")
-gp1
-
-gp1 = ggplot(all_clust_res, aes(tSNE_1,tSNE_2,col=factor(sc3_10_clusters))) + 
-  geom_point(size=0.2,alpha=0.6) + theme_classic() + 
-  guides(color = guide_legend(override.aes = list(size=3))) +
-  ggtitle("sc3 10 clusters")
-gp1
-
-gp1 = ggplot(all_clust_res, aes(tSNE_1,tSNE_2,col=factor(sc3_12_clusters))) + 
-  geom_point(size=0.2,alpha=0.6) + theme_classic() + 
-  guides(color = guide_legend(override.aes = list(size=3))) + 
-  ggtitle("sc3 12 clusters")
-gp1
+```{r fig.dim = c(7,7)}
+ggplot_custom(DATA = all_clust_res,X = "paper_TSNE1",Y = "paper_TSNE2",COL = "Cell_Type",TYPE = "cat")
+ggplot_custom(DATA = all_clust_res,X = "paper_TSNE1",Y = "paper_TSNE2",COL = "cluster_kmean",TYPE = "cat")
+ggplot_custom(DATA = all_clust_res,X = "paper_TSNE1",Y = "paper_TSNE2",COL = "sc3_10_clusters",TYPE = "cat")
+ggplot_custom(DATA = all_clust_res,X = "paper_TSNE1",Y = "paper_TSNE2",COL = "sc3_12_clusters",TYPE = "cat")
 ```
 
 Finally we save the sce object and the clustering results
 
 ```{r}
-
-sce_fn = file.path(dronc_dir, "sce.rds")
-saveRDS(sce, sce_fn)
-
-sce_sub_fn = file.path(dronc_dir, "sce_sub.rds")
-saveRDS(sce_sub, sce_sub_fn)
-
-all_clust_res_fn = file.path(dronc_dir, "all_clust_res.rds")
-saveRDS(all_clust_res, all_clust_res_fn)
+saveRDS(sce,file.path(data_dir,"sce.rds"))
+saveRDS(sce_hvg,file.path(data_dir,"sce_hvg.rds"))
+saveRDS(all_clust_res,file.path(data_dir,"all_clust_res.rds"))
 
 ```
 
