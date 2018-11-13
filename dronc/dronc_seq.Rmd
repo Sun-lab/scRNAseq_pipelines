@@ -672,6 +672,8 @@ table(df_hvg$Cell.ID %in% tmp_res$Cell.ID)
 # Merge and compare
 all_clust_res = smart_merge(df_hvg,tmp_res)
 sc3_res = smart_df(colData(sce_hvg)[,c("sc3_12_clusters","sc3_10_clusters")])
+	sc3_res$sc3_12_clusters = as.factor(sc3_res$sc3_12_clusters)
+	sc3_res$sc3_10_clusters = as.factor(sc3_res$sc3_10_clusters)
 sc3_res$Cell.ID = colnames(sce_hvg)
 all_clust_res = smart_merge(all_clust_res, sc3_res)
 dim(all_clust_res)
