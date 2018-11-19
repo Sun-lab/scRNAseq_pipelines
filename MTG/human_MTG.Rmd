@@ -457,8 +457,10 @@ for(num_clust in all_num_clust){
                       iter.max = 5e2, algorithm = "MacQueen")
   
   km.label = paste0("KM_",num_clust)
-  df_hvg[[km.label]] = as.factor(kmeans_out$cluster)
-  
+  # df_hvg[[km.label]] = as.factor(kmeans_out$cluster)
+  df_hvg$VV = as.factor(kmeans_out$cluster)
+  names(df_hvg)[names(df_hvg) == "VV"] = paste0("KM_",num_clust)
+
   print(table(df_hvg$cell_type, kmeans_out$cluster))
   
   print(ggplot_custom(DATA = df_hvg, X = "HVG_TSNE1", Y = "HVG_TSNE2", 
