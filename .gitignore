@@ -3,4 +3,5 @@
 *.txt
 *.rds
 *.csv
+*.pdf
 .DS_Store
