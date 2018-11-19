@@ -64,7 +64,7 @@ library(svd)
 library(Rtsne)
 library(SC3)
 
-source("SOURCE.R")
+# source("SOURCE.R")
 
 ```
 
@@ -73,12 +73,16 @@ Before runing this R markdown, please first download the datafile human_MTG_gene
 You can modify the following code to determine if the analysis will be conducted with exon counts only(`exon_only = TRUE`) or with both exon and intron counts summed together (`exon_only = FALSE`).  We have requested 7 cores (`num_cores = 7`) to improve SC3 runtime. 
 
 ```{r input}
-work_dir = "~/research/scRNAseq/data/Allen_BI/"
-work_dir = paste0(work_dir, "human_MTG_gene_expression_matrices_2018-06-14")
-work_dir = normalizePath(work_dir)
+# work_dir = "~/research/scRNAseq/data/Allen_BI/"
+# work_dir = paste0(work_dir, "human_MTG_gene_expression_matrices_2018-06-14")
+# work_dir = normalizePath(work_dir)
+
+work_dir = "/pine/scr/p/l/pllittle/CS_eQTL/s3_Real/scRNAseq_pipelines/MTG"
+source(file.path(work_dir,"SOURCE.R"))
 
 exon_only = TRUE
-num_cores = 7
+run_sc3 = FALSE
+num_cores = ifelse(run_sc3,7,1);
 
 exons_fn    = "human_MTG_2018-06-14_exon-matrix.csv"
 introns_fn  = "human_MTG_2018-06-14_intron-matrix.csv"
@@ -102,7 +106,7 @@ if(! exon_only) {
 }
 ```
 
-Next we add the sample/cell information and gene information. Spike-in is used for this data, though in this final count matrix, the spike-in's are not included. 
+Next we add the sample/cell information and gene information. Spike-in is used for this data, though in this final count matrix, the spike-ins are not included. 
 
 ```{r read_cell_gene_data}
 
@@ -467,7 +471,7 @@ for(num_clust in all_num_clust){
 ### SC3
 Next we try to clustering cell using SC3. Code used here is based on [this link](https://bioconductor.org/packages/devel/bioc/vignettes/SC3/inst/doc/SC3.html#run-sc3). Since SC3 is computationally much more expensive, we only try three number of clusters, 5, 10, and 15. 
 
-```{r}
+```{r eval = run_sc3,echo = run_sc3}
 rowData(sce_hvg)$feature_symbol = rowData(sce_hvg)$gene
 
 all_ks = c(5,10,15)
@@ -501,7 +505,7 @@ all_ks  = r1$all_ks
 df_hvg  = r2$df_hvg
 ```
 
-```{r sc3, fig.height = 8, fig.width = 8, fig.path='figures/', dev=c('png')}
+```{r sc3, fig.height = 8, fig.width = 8, eval = run_sc3, echo = run_sc3,fig.path='figures/', dev=c('png')}
 
 for(one_ks in all_ks){
   sc3.label = paste0("sc3_",one_ks,"_clusters")
