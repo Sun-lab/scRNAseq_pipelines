@@ -40,11 +40,15 @@ knitr::opts_chunk$set(echo = TRUE)
 ```{r library, warning = FALSE, message = FALSE}
 bio_packs = c("SingleCellExperiment","biomaRt","scater","scran","SC3")
 
+source("https://bioconductor.org/biocLite.R")
 for(pack1 in bio_packs){
-  if( !pack1 %in% installed.packages()[,"Package"]){
-    source("https://bioconductor.org/biocLite.R")
-    biocLite(pack1, suppressUpdates = TRUE)
-  }
+	if( !pack1 %in% installed.packages()[,"Package"]){
+		biocLite(pack1, suppressUpdates = TRUE)
+	}
+}
+
+for(pack1 in bio_packs){
+	BiocManager::install(pack1, suppressUpdates = TRUE)
 }
 
 cran_packs = c("data.table", "svd", "Rtsne")
@@ -98,9 +102,9 @@ counts[1:2,1:2]
 rownames(counts) = counts$V1
 counts = as.matrix(counts[,-1])
 
-if(! exon_only) {
+if( !exon_only ) {
 	intron_counts = fread(file.path(work_dir, introns_fn), data.table=FALSE)
-  rownames(intron_counts) = intron_counts$V1
+	rownames(intron_counts) = intron_counts$V1
 	intron_counts = as.matrix(intron_counts[,-1])
 	counts = counts + intron_counts
 }
@@ -110,7 +114,7 @@ Next we add the sample/cell information and gene information. Spike-in is used f
 
 ```{r read_cell_gene_data}
 
-cell_data=fread(file.path(work_dir,"human_MTG_2018-06-14_samples-columns.csv"))
+cell_data = fread(file.path(work_dir,"human_MTG_2018-06-14_samples-columns.csv"))
 
 dim(cell_data)
 cell_data[1:2,]
@@ -156,7 +160,6 @@ Next step we apply QC based on a set of features per cell. The code and filterin
 ```{r fig.width = 8,fig.height = 12}
 sort(names(colData(sce)))
 sort(names(rowData(sce)))
-
 sce = calculateQCMetrics(sce)
 sort(names(colData(sce)))
 sort(names(rowData(sce)))
