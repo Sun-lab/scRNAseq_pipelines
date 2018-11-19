@@ -47,10 +47,6 @@ for(pack1 in bio_packs){
 	}
 }
 
-for(pack1 in bio_packs){
-	BiocManager::install(pack1, suppressUpdates = TRUE)
-}
-
 cran_packs = c("data.table", "svd", "Rtsne")
 
 for(pack1 in cran_packs){
