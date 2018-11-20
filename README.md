@@ -6,7 +6,7 @@ This repository include the following pipelines for scRNAseq data analysis
 
     Habib, Naomi, et al. "Massively parallel single-nucleus RNA-seq with DroNc-seq." Nature methods 14.10 (2017): 955.
 
-2. MGT: analyze single-nucleus RNA-seq data from human brain Allen Brain Atlas MTG (Middle Temporal Gyrus) dataset.
+2. MTG: analyze single-nucleus RNA-seq data from human brain Allen Brain Atlas MTG (Middle Temporal Gyrus) dataset.
 
     http://celltypes.brain-map.org/rnaseq. ``In total, 15,928 nuclei from 8 human tissue donors ranging in age from 24-66 years were analyzed. Analysis of these transcriptional profiles reveals approximately 75 transcriptionally distinct cell types, subdivided into 45 inhibitory neuron types, 24 excitatory neuron types, and 6 non-neuronal types.''
 

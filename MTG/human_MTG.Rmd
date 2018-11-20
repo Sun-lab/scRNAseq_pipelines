@@ -36,8 +36,7 @@ The packages required for the analysis are as follows:
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
-
-```{r library, warning = FALSE, message = FALSE}
+```{r load_libraries, warning = FALSE, message = FALSE}
 bio_packs = c("SingleCellExperiment","biomaRt","scater","scran","SC3")
 
 source("https://bioconductor.org/biocLite.R")
@@ -50,9 +49,9 @@ for(pack1 in bio_packs){
 cran_packs = c("data.table", "svd", "Rtsne")
 
 for(pack1 in cran_packs){
-  if( !pack1 %in% installed.packages()[,"Package"]){
-    install.packages(pack1)
-  }
+	if( !pack1 %in% installed.packages()[,"Package"]){
+		install.packages(pack1)
+	}
 }
 
 library(SingleCellExperiment)
@@ -77,12 +76,13 @@ You can modify the following code to determine if the analysis will be conducted
 # work_dir = paste0(work_dir, "human_MTG_gene_expression_matrices_2018-06-14")
 # work_dir = normalizePath(work_dir)
 
-work_dir = "/pine/scr/p/l/pllittle/CS_eQTL/s3_Real/scRNAseq_pipelines/MTG"
-source(file.path(work_dir,"SOURCE.R"))
+repo_dir = "/pine/scr/p/l/pllittle/CS_eQTL/s3_Real/scRNAseq_pipelines"
+work_dir = file.path(repo_dir,"MTG")
+source(file.path(repo_dir,"SOURCE.R"))
 
 exon_only = TRUE
 run_sc3 = FALSE
-num_cores = ifelse(run_sc3,7,1);
+num_cores = ifelse(run_sc3,7,1)
 
 exons_fn    = "human_MTG_2018-06-14_exon-matrix.csv"
 introns_fn  = "human_MTG_2018-06-14_intron-matrix.csv"
@@ -91,7 +91,7 @@ introns_fn  = "human_MTG_2018-06-14_intron-matrix.csv"
 The following code read-in count data. To be compatible with other studies that only use count data from exonic regions, here we just read the exon counts. 
 
 ```{r read_count_data}
-counts = fread(file.path(work_dir, exons_fn), data.table=FALSE)
+counts = fread(file.path(work_dir,exons_fn),data.table = FALSE)
 dim(counts)
 counts[1:2,1:2]
 
@@ -106,7 +106,7 @@ if( !exon_only ) {
 }
 ```
 
-Next we add the sample/cell information and gene information. Spike-in is used for this data, though in this final count matrix, the spike-ins are not included. 
+Next we add the sample/cell information and gene information. Spike-ins are used for this data, though in this final count matrix, the spike-ins are not included. 
 
 ```{r read_cell_gene_data}
 
@@ -153,62 +153,62 @@ sce
 
 Next step we apply QC based on a set of features per cell. The code and filtering below are motivated by the vignette presented [here](https://bioconductor.org/packages/release/workflows/vignettes/simpleSingleCell/inst/doc/work-1-reads.html#32_identifying_outliers_for_each_metric).
 
-```{r fig.width = 8,fig.height = 12}
+```{r calcQC, fig.dim = c(8,12)}
 sort(names(colData(sce)))
 sort(names(rowData(sce)))
 sce = calculateQCMetrics(sce)
 sort(names(colData(sce)))
 sort(names(rowData(sce)))
 
-par(mfrow=c(3,2), mar=c(5, 4, 1, 1), bty="n", cex=0.9)
+par(mfrow=c(3,2),mar=c(5, 4, 1, 1), bty="n",cex=0.9)
 
-smart_hist(log10(sce$total_counts),xlab="log10(Library sizes)", main="", 
-	breaks=40,ylab="Number of cells")
+smart_hist(log10(sce$total_counts),xlab="log10(Library sizes)",
+	main="",breaks=40,ylab="Number of cells")
 
 smart_hist(log10(sce$total_features),xlab="log10(# of expressed genes)", 
-	main="", breaks=40,ylab="Number of cells")
+	main="",breaks=40,ylab="Number of cells")
 
 smart_hist(sce$percent_rrna_reads, xlab="Ribosome prop. (%)",
-	ylab="Number of cells", breaks=40, main="")
+	ylab="Number of cells", breaks=40,main="")
 
 smart_hist(sce$percent_mt_exon_reads, xlab="Mitochondrial prop. (%)", 
-	ylab="Number of cells", breaks=80, main="")
+	ylab="Number of cells", breaks=80,main="")
 
 smart_hist(sce$percent_synth_reads, xlab="Synthetic reads (%)",
-	ylab="Number of cells", breaks=40, main="")
+	ylab="Number of cells", breaks=40,main="")
 
 smart_hist(sce$percent_reads_unique, xlab="Unique reads (%)", 
-	ylab="Number of cells", breaks=80, main="")
+	ylab="Number of cells", breaks=80,main="")
 
-par(mfrow=c(3,2), mar=c(5, 4, 1, 1), bty="n", cex=0.9)
+par(mfrow=c(3,2),mar=c(5, 4, 1, 1),bty="n",cex=0.9)
 
-plot(log10(sce$total_counts), log10(sce$total_features), 
-	xlab="log10(Library sizes)", ylab="log10(# of expressed genes)", 
-	pch=20, cex=0.5)
+plot(log10(sce$total_counts),log10(sce$total_features), 
+	xlab="log10(Library sizes)",ylab="log10(# of expressed genes)", 
+	pch=20,cex=0.5,col=rgb(0,0,0,0.5))
 
-plot(log10(sce$total_counts), sce$percent_synth_reads, 
-	xlab="log10(Library sizes)", ylab="synth reads percent (%)",
-	pch=20, cex=0.5)
+plot(log10(sce$total_counts),sce$percent_synth_reads, 
+	xlab="log10(Library sizes)",ylab="synth reads percent (%)",
+	pch=20,cex=0.5,col=rgb(0,0,0,0.5))
 
-plot(log10(sce$total_counts), sce$percent_reads_unique, 
+plot(log10(sce$total_counts),sce$percent_reads_unique, 
 	xlab="log10(Library sizes)", ylab="unique reads percent (%)",
-	pch=20, cex=0.5)
+	pch=20,cex=0.5,col=rgb(0,0,0,0.5))
 
-plot(sce$percent_exon_reads, sce$percent_reads_unique, 
+plot(sce$percent_exon_reads,sce$percent_reads_unique, 
 	xlab="exon reads percent (%)", ylab="unique reads percent (%)",
-	pch=20, cex=0.5)
+	pch=20,cex=0.5,col=rgb(0,0,0,0.5))
 
-plot(sce$percent_aligned_reads_total, sce$percent_reads_unique, 
-	xlab="aligned reads percent (%)", ylab="unique reads percent (%)",
-	pch=20, cex=0.5)
+plot(sce$percent_aligned_reads_total,sce$percent_reads_unique, 
+	xlab="aligned reads percent (%)",ylab="unique reads percent (%)",
+	pch=20,cex=0.5,col=rgb(0,0,0,0.5))
 
-plot(sce$genes_detected_fpkm_criterion, sce$percent_reads_unique, 
-	xlab="detected genes (%)", ylab="unique reads percent (%)",
-	pch=20, cex=0.5)
+plot(sce$genes_detected_fpkm_criterion,sce$percent_reads_unique, 
+	xlab="detected genes (%)",ylab="unique reads percent (%)",
+	pch=20,cex=0.5,col=rgb(0,0,0,0.5))
 
 # Removing outliers defined as being percent_reads_unique lower than 50% 
-
 keep = sce$percent_reads_unique > 50
+table(keep)
 table(colData(sce)$cell_type, keep)
 
 ```
@@ -223,7 +223,7 @@ dim(sce)
 
 We keep those genes that are expressed in at least 30 cells, which is roughly 0.2% of the cells. This match to the goal of this study, to detect cell types as rare as 0.2% of all the cells. 
 
-```{r fig.width=12,fig.height=12}
+```{r fig.dim=c(12,12)}
 rowData(sce)[1:2,]
 summary(rowData(sce)$mean_counts)
 table(rowData(sce)$mean_counts == 0)
@@ -279,7 +279,7 @@ A simple solution for normalization and stablizing expression varaince across ge
 
 This mehtod will fail (i.e., giving negative size factors) if there are too many zeros in the count data. Therefore it is necessesary to remove "genes with a library size-adjusted average count below a specified threshold" using the parameter  `min.mean`. See [here](https://bioconductor.org/packages/devel/workflows/vignettes/simpleSingleCell/inst/doc/work-1-reads.html#61_using_the_deconvolution_method_to_deal_with_zero_counts) for more explanations. 
 
-```{r}
+```{r normalize}
 min_mean = 1
 
 date()
@@ -295,7 +295,7 @@ summary(sizeFactors(sce))
 
 As shown in the following plot, the final size factor estimation is indeed highly correlated with the naive definition by total count. 
 
-```{r fig.width=5,fig.height=5}
+```{r fig.dim=c(5,5)}
 
 par(mfrow=c(1,1), mar=c(5,4,2,1), bty="n")
 plot(sce$total_counts, sizeFactors(sce), log="xy", 
@@ -316,7 +316,7 @@ For dimension reduction, such as calculating PCA or performing TSNE, we should s
 
 Since the information of individual spikeIns have been removed from this MTG dataset, we implemented the code below similar to  [here](http://bioconductor.org/packages/devel/workflows/vignettes/simpleSingleCell/inst/doc/xtra-3-var.html#32_when_spike-ins_are_unavailable).
 
-```{r fig.height=5,fig.width=5}
+```{r fig.dim=c(5,5)}
 new_trend = makeTechTrend(x=sce)
 fit = trendVar(sce, use.spikes=FALSE, loess.args=list(span=0.05))
 
@@ -334,7 +334,7 @@ The above function `makeTechTrend()` assumes a Poisson model and from the above 
 In the following code, we used the ```decomposeVar``` function from R/cran to estimate the technical/biological component of variance of each gene.  
 > The technical component of the variance for each gene is determined by interpolating the fitted trend in fit at the mean log-count for that gene. This represents variance due to sequencing noise, variability in capture efficiency, etc. The biological component is determined by subtracting the technical component from the total variance. Highly variable genes (HVGs) can be identified as those with large biological components
 
-```{r fig.height = 8,fig.width = 8}
+```{r fig.dim = c(8,8)}
 dec     = decomposeVar(fit=fit)
 top_dec = dec[order(dec$bio,decreasing=TRUE),]
 top_dec[1:10,]
@@ -353,7 +353,7 @@ plotExpression(sce_sub, features=1:10)
 
 Here we only select approximately the top a few thousands highly variable genes based on tuning thresholds on `dec$bio` and `dec$FDR` from the earlier variance decomposition. 
 
-```{r gene_selection, fig.height = 8,fig.width = 8, fig.path='figures/', dev=c('png')}
+```{r gene_selection, fig.dim = c(8,8), fig.path='figures/', dev=c('png')}
 
 summary(dec$bio)
 summary(dec$FDR)
@@ -365,7 +365,7 @@ par(mfrow=c(2,2))
 smart_hist(log10(dec1$bio), breaks=100, xlab="log10(bio)")
 smart_hist(log10(dec1$FDR), breaks=100, main="", xlab="log10(FDR)")
 plot(log10(dec1$bio), log10(dec1$FDR), xlab="log10(bio)", ylab="log10(FDR)", 
-     pch=20, cex=0.5)
+	pch=20, cex=0.5)
 par(mfrow=c(1,1))
 
 FDR_thres = 1e-20 
@@ -384,7 +384,7 @@ sce_hvg
 
 Next we use the selected genes for PCA and use top 50 PCs for TSNE plot. 
 
-```{r tsne, fig.height = 8,fig.width = 8, fig.path='figures/', dev=c('png')}
+```{r tsne, fig.dim = c(8,8), fig.path='figures/', dev=c('png')}
 edat = t(as.matrix(logcounts(sce_hvg)))
 edat = scale(edat)
 dim(edat)
@@ -419,19 +419,20 @@ df_tsne[1:2,]
 
 df_hvg = smart_df(df_hvg, df_tsne)
 
-for(one_var in all_vars){
-  cat(paste0(one_var,"\n"))
-	print(ggplot_custom(DATA = df_hvg, X = "HVG_TSNE1", Y = "HVG_TSNE2", 
-	                    COL = one_var))
-	# wait the graph to show up
-	Sys.sleep(5)
-}
+ggplot_custom(DATA = df_hvg,X = "HVG_TSNE1",Y = "HVG_TSNE2",COL = "log10_total_features",TYPE = "cont")
+ggplot_custom(DATA = df_hvg,X = "HVG_TSNE1",Y = "HVG_TSNE2",COL = "sex",TYPE = "cat")
+ggplot_custom(DATA = df_hvg,X = "HVG_TSNE1",Y = "HVG_TSNE2",COL = "brain_hemisphere",TYPE = "cat")
+ggplot_custom(DATA = df_hvg,X = "HVG_TSNE1",Y = "HVG_TSNE2",COL = "brain_subregion",TYPE = "cat")
+ggplot_custom(DATA = df_hvg,X = "HVG_TSNE1",Y = "HVG_TSNE2",COL = "facs_sort_criteria",TYPE = "cat")
+ggplot_custom(DATA = df_hvg,X = "HVG_TSNE1",Y = "HVG_TSNE2",COL = "class",TYPE = "cat")
+ggplot_custom(DATA = df_hvg,X = "HVG_TSNE1",Y = "HVG_TSNE2",COL = "cluster",TYPE = "cat")
+ggplot_custom(DATA = df_hvg,X = "HVG_TSNE1",Y = "HVG_TSNE2",COL = "cell_type",TYPE = "cat")
 
 reducedDims(sce_hvg) = SimpleList(PCA=pca, TSNE=tsne$Y)
 sce_hvg
 
 saveRDS(list(sce_hvg=sce_hvg, df_hvg=df_hvg), 
-        file.path(work_dir, "post_redDim_HVG.rds"))
+		file.path(work_dir, "post_redDim_HVG.rds"))
 
 rm(edat)
 gc()
@@ -442,29 +443,22 @@ gc()
 ### Kmeans
 We first try clustering using kmeans. 
 
-```{r kmeans, fig.height = 8, fig.width = 8, fig.path='figures/', dev=c('png')}
+```{r kmeans, fig.dim = c(8,8), fig.path='figures/', dev=c('png')}
 all_num_clust = c(5:15)
 df_hvg = df_hvg[,!grepl("^KM_",names(df_hvg))]
 
-rd.idx = adj.rd.idx = matrix(NA, nrow=length(all_num_clust), ncol=2)
-k = 0
-
 for(num_clust in all_num_clust){
-  k = k + 1
-  cat(paste0("KM with ",num_clust," clusters.\n"))
+	cat(paste0("KM with ",num_clust," clusters.\n"))
   
-  kmeans_out = kmeans(reducedDim(sce_hvg,"PCA"), centers = num_clust,
-                      iter.max = 5e2, algorithm = "MacQueen")
-  
-  km.label = paste0("KM_",num_clust)
-  # df_hvg[[km.label]] = as.factor(kmeans_out$cluster)
-  df_hvg$VV = as.factor(kmeans_out$cluster)
-  names(df_hvg)[names(df_hvg) == "VV"] = paste0("KM_",num_clust)
+	kmeans_out = kmeans(reducedDim(sce_hvg,"PCA"), centers = num_clust,
+						iter.max = 5e2, algorithm = "MacQueen")
 
-  print(table(df_hvg$cell_type, kmeans_out$cluster))
-  
-  print(ggplot_custom(DATA = df_hvg, X = "HVG_TSNE1", Y = "HVG_TSNE2", 
-                      COL = paste0("KM_",num_clust)))
+	km_label = paste0("KM_",num_clust)
+	df_hvg[[km_label]] = as.factor(kmeans_out$cluster)
+
+	print(table(df_hvg$cell_type, kmeans_out$cluster))
+	print(ggplot_custom(DATA = df_hvg,X = "HVG_TSNE1",Y = "HVG_TSNE2", 
+						COL = km_label,TYPE = "cat"))
 }
 ```
 
@@ -506,41 +500,41 @@ all_ks  = r1$all_ks
 df_hvg  = r2$df_hvg
 ```
 
-```{r sc3, fig.height = 8, fig.width = 8, eval = run_sc3, echo = run_sc3,fig.path='figures/', dev=c('png')}
+```{r sc3, fig.dim = c(8,8), eval = run_sc3, echo = run_sc3,fig.path='figures/', dev=c('png')}
 
 for(one_ks in all_ks){
-  sc3.label = paste0("sc3_",one_ks,"_clusters")
-	df_hvg[[sc3.label]] = as.factor(colData(sce_hvg)[,sc3.label])
+	sc3_label = paste0("sc3_",one_ks,"_clusters")
+	df_hvg[[sc3_label]] = as.factor(colData(sce_hvg)[,sc3_label])
 
-	print(table(df_hvg$cell_type, df_hvg[[sc3.label]]))
+	print(table(df_hvg$cell_type, df_hvg[[sc3_label]]))
 
-	print(ggplot_custom(DATA = df_hvg, X = "HVG_TSNE1", Y = "HVG_TSNE2", 
-	                    COL = sc3.label))
+	print(ggplot_custom(DATA = df_hvg,X = "HVG_TSNE1",Y = "HVG_TSNE2", 
+						COL = sc3_label,TYPE = "cat"))
 }
 
 all_vars = c("brain_subregion", "class", "cell_type")
 
 for(one_ks in all_ks){
-  gc()
+	gc()
 
 	# one_ks = all_ks[1]
 	cat(paste0("Num Clusters = ",one_ks,"\n"))
 	
-  sc3.label = paste0("sc3_",one_ks,"_clusters")
-	sc3.outlier = paste0("sc3_",one_ks,"_log2_outlier_score")
+	sc3_label = paste0("sc3_",one_ks,"_clusters")
+	sc3_outlier = paste0("sc3_",one_ks,"_log2_outlier_score")
 	
 	# seems this consensus plot use too much memory 
 	# sc3_plot_consensus(sce_hvg, k = one_ks, 
-	#                    show_pdata = c(all_vars, sc3.label, sc3.outlier))
+	#                    show_pdata = c(all_vars, sc3_label, sc3_outlier))
 
 	sc3_plot_markers(sce_hvg, k = one_ks, 
-	                 show_pdata = c(all_vars, sc3.label, sc3.outlier))
+					show_pdata = c(all_vars, sc3_label, sc3_outlier))
 }
 
 ```
 
 Finally we save the sce object, sce_hvg object, and the clustering results.
-```{r}
+```{r save_objects}
 saveRDS(sce, file.path(work_dir, "final_sce.rds"))
 saveRDS(sce_hvg, file.path(work_dir, "final_sce_hvg.rds"))
 saveRDS(df_hvg,  file.path(work_dir, "final_hvg_clust.rds"))
