@@ -3,11 +3,7 @@
 <head>
 <meta http-equiv="Content-Type" content="text/html; charset=utf-8"/>
 
-<<<<<<< HEAD
-<title>Libraries and Obtaining Counts</title>
-=======
 <title>Libraries</title>
->>>>>>> october
 
 <script type="text/javascript">
 window.onload = function() {
@@ -69,7 +65,6 @@ h6 {
 
 a:visited {
    color: rgb(50%, 0%, 50%);
-<<<<<<< HEAD
 }
 
 pre, img {
@@ -165,385 +160,6 @@ hr {
 
 
 
-</head>
-
-<body>
-<h1>Libraries and Obtaining Counts</h1>
-
-<p>This workflow reanalyze the single nucleus RNA-seq data produced by [@habib2017massively], using DroNc-seq: massively parallel sNuc-seq with droplet technology. </p>
-
-<p>We will first load a few libraries. Among them, </p>
-
-<ul>
-<li><code>DropletUtils</code> provides functions for data from droplet technologies such as 10X Genomics. </li>
-<li><code>biomaRt</code> provides easy access to databases, such as Ensembl, COSMIC, Uniprot, HGNC, etc.</li>
-<li><code>scater</code> is a collection of tools for doing quality control analyses of scRNA-seq</li>
-<li><code>scran</code> provide functions for normalization of cell-specific libary sizes, correcting batch effects, and identification marker genes</li>
-</ul>
-
-<p>Next we read in the count data. The dataset is available <a href="https://storage.googleapis.com/gtex_additional_datasets/single_cell_data/GTEx_droncseq_hip_pcf.tar">here</a>. In addition to the raw counts, we will integrate their clustering results, tSNE vectors, cluster labels, and cell types contained in their supplemental materials into <code>colData(sce)</code>.</p>
-
-<p>I have requested 5 cores to improve SC3 runtime.</p>
-
-<pre><code class="r"># Specifying working directories
-repo_dir = &quot;/pine/scr/p/l/pllittle/CS_eQTL/s3_Real/scRNAseq_pipelines&quot;
-data_dir = file.path(repo_dir,&quot;dronc&quot;)
-num_cores = 5
-setwd(data_dir)
-
-# Source/Libraries
-source(file.path(repo_dir,&quot;SOURCE.R&quot;))
-# biocLite(&quot;BiocUpgrade&quot;)
-bio_packs = c(&quot;SingleCellExperiment&quot;,&quot;DropletUtils&quot;,&quot;biomaRt&quot;,&quot;scater&quot;,&quot;scran&quot;,&quot;SC3&quot;)
-if( !all(bio_packs %in% installed.packages()[,&quot;Package&quot;]) ){
-        source(&quot;https://bioconductor.org/biocLite.R&quot;)
-        biocLite(bio_packs,suppressUpdates = TRUE)
-}
-cran_packs = c(&quot;stringi&quot;,&quot;irlba&quot;,&quot;data.table&quot;)
-if( !all(cran_packs %in% installed.packages()[,&quot;Package&quot;]) ){
-        install.packages(cran_packs)
-}
-suppressPackageStartupMessages(library(SingleCellExperiment))
-suppressPackageStartupMessages(library(DropletUtils))
-suppressPackageStartupMessages(library(biomaRt))
-suppressPackageStartupMessages(library(scater))
-suppressPackageStartupMessages(library(scran))
-suppressPackageStartupMessages(library(limma))
-suppressPackageStartupMessages(library(data.table))
-
-counts_fn = file.path(data_dir,&quot;input_sce.rds&quot;)
-if( !file.exists(counts_fn) ){
-    tmp_fn = &quot;GTEx_droncseq_hip_pcf.tar&quot;
-    if( !file.exists(tmp_fn) ){
-        tmp_link = &quot;https://storage.googleapis.com/gtex_additional_datasets/single_cell_data/GTEx_droncseq_hip_pcf.tar&quot;
-        system(sprintf(&quot;cd %s; wget %s; tar -xvf %s&quot;,data_dir,tmp_link,tmp_fn))
-    }
-
-    fname = file.path(&quot;GTEx_droncseq_hip_pcf&quot;,&quot;GTEx_droncseq_hip_pcf.umi_counts.txt.gz&quot;)
-    counts = fread(paste(&quot;zcat &lt;&quot;,fname))
-    counts = smart_df(counts)
-    rownames(counts) = counts$V1
-    counts = as.matrix(counts[,-1])
-
-    fname2 = file.path(&quot;GTEx_droncseq_hip_pcf&quot;,&quot;GTEx_droncseq_hip_pcf.clusters.txt.gz&quot;)
-    clust = smart_df(fread(paste(&quot;zcat &lt;&quot;,fname2)))
-    names(clust) = c(&quot;sample_name&quot;,&quot;paper_clusters&quot;)
-    all(colnames(counts) == clust$sample_name)
-    clust$paper_clusters = as.factor(clust$paper_clusters)
-    clust$sample_name = gsub(&quot;-&quot;,&quot;.&quot;,clust$sample_name)
-    all(colnames(counts) == clust$sample_name)
-    clust$orig_order = seq(nrow(clust))
-
-    # Use paper&#39;s supplemental files to label clusters
-    # Reference: Supplementary Materials file &quot;nmeth.4407-S10.xlsx&quot;
-    map_clust_name = smart_df(paper_clusters = as.factor(seq(19)),
-        paper_clusters_name = c(&quot;exPFC1&quot;,&quot;exPFC2&quot;,&quot;exCA1&quot;,&quot;exCA3&quot;,
-            &quot;GABA1&quot;,&quot;GABA2&quot;,&quot;exDG&quot;,&quot;ASC1&quot;,&quot;ASC2&quot;,&quot;ODC1&quot;,&quot;ODC2&quot;,
-            &quot;OPC&quot;,&quot;MG&quot;,&quot;NSC&quot;,&quot;END&quot;,rep(NA,4)),
-        paper_cell_type = c(&quot;exPFC&quot;,&quot;exPFC&quot;,&quot;exCA1&quot;,&quot;exCA3&quot;,
-            &quot;GABA&quot;,&quot;GABA&quot;,&quot;exDG&quot;,&quot;ASC&quot;,&quot;ASC&quot;,&quot;ODC&quot;,&quot;ODC&quot;,&quot;OPC&quot;,
-            &quot;MG&quot;,&quot;NSC&quot;,&quot;END&quot;,rep(NA,4)))
-    clust = smart_merge(clust,map_clust_name)
-
-    # Merge in TSNE results from paper
-    fname3 = file.path(&quot;GTEx_droncseq_hip_pcf&quot;,&quot;GTEx_droncseq_hip_pcf.tsne.txt.gz&quot;)
-    df_tsne = smart_df(fread(paste(&quot;zcat &lt;&quot;,fname3)))
-    names(df_tsne) = c(&quot;sample_name&quot;,paste0(&quot;paper_TSNE&quot;,1:2))
-    all(df_tsne$sample_name == clust$sample_name)
-    df_tsne$sample_name = gsub(&quot;-&quot;,&quot;.&quot;,df_tsne$sample_name)
-    all(df_tsne$sample_name == clust$sample_name)
-    clust = cbind(clust,df_tsne[,names(df_tsne) != &quot;sample_name&quot;])
-    all(colnames(counts) == clust$sample_name)
-    clust$part_cell_id = sapply(clust$sample_name,function(xx) strsplit(xx,&quot;_&quot;)[[1]][1],USE.NAMES=FALSE)
-    clust = clust[order(clust$orig_order),]
-    all(colnames(counts) == clust$sample_name)
-    clust = clust[,c(&quot;sample_name&quot;,&quot;paper_clusters&quot;,
-        &quot;paper_clusters_name&quot;,&quot;paper_cell_type&quot;,
-        paste0(&quot;paper_TSNE&quot;,1:2),&quot;part_cell_id&quot;)]
-
-    sce = SingleCellExperiment(assays = list(counts = counts),colData = clust)
-    saveRDS(sce,counts_fn)
-}
-
-sce = readRDS(counts_fn)
-sce
-</code></pre>
-
-<pre><code>## class: SingleCellExperiment 
-## dim: 32111 14963 
-## metadata(0):
-## assays(1): counts
-## rownames(32111): A1BG A1BG-AS1 ... ZZEF1 ZZZ3
-## rowData names(0):
-## colnames(14963): hHP1_AACACTATCTAC hHP1_CTACGCATCCAT ...
-##   PFC.CD_CTCCATTCATGC PFC.CD_CGTCATTAGCAG
-## colData names(7): sample_name paper_clusters ... paper_TSNE2
-##   part_cell_id
-## reducedDimNames(0):
-## spikeNames(0):
-</code></pre>
-
-<h1>Pre-processing and Quality Control</h1>
-
-<h2>Gene Annotation</h2>
-
-<p>We will extract annotation information based on gene names.</p>
-
-<pre><code class="r">sce_gene_fn = &quot;sce_geneAnno.rds&quot;
-if( !file.exists(sce_gene_fn) ){
-
-    anno_file = &quot;gene_annotation_dronc.rds&quot;
-    if( file.exists(anno_file) ){
-        gene_anno = readRDS(anno_file)
-    } else {
-        ensembl = useEnsembl(biomart=&quot;ensembl&quot;,GRCh=37,
-            dataset=&quot;hsapiens_gene_ensembl&quot;)
-
-        attr_string = c(&quot;hgnc_symbol&quot;,&quot;external_gene_name&quot;,&quot;chromosome_name&quot;,
-            &quot;start_position&quot;,&quot;end_position&quot;,&quot;strand&quot;,&quot;description&quot;,
-            &quot;percentage_gene_gc_content&quot;,&quot;gene_biotype&quot;)
-
-        gene_anno = getBM(attributes = attr_string,
-            filters = &quot;external_gene_name&quot;,
-            values = rownames(sce),
-            mart = ensembl)
-        saveRDS(gene_anno,file = anno_file)
-    }
-
-    print(dim(sce))
-    print(dim(gene_anno))
-    print(gene_anno[1:3,])
-
-    # Genes from annotation not in sce
-    w2rm = which(!(gene_anno$external_gene_name %in% rownames(sce)))
-    print(w2rm)
-
-    print(gene_anno[w2rm,])
-    gene_anno = gene_anno[-w2rm,]
-    print(dim(sce))
-    print(dim(gene_anno))
-
-    # Many genes have multiple entries in annotation, often because they are annotatd to scaffolds, assembly patches and alternate loci. Here we simply remove such entries. The we remove duplicated annotations and genes without annotations. 
-    print(table(gene_anno$chromosome_name))
-    chr_nms = c(1:22,&quot;X&quot;,&quot;Y&quot;,&quot;MT&quot;)
-    gene_anno = gene_anno[which(gene_anno$chromosome_name %in% chr_nms),]
-    print(dim(sce))
-    print(dim(gene_anno))
-
-    t1 = table(gene_anno$external_gene_name)
-    t2 = sort(t1[t1 &gt; 1], decreasing=TRUE)
-    print(length(t2))
-    print(t2[1:10])
-
-    gene_anno[which(gene_anno$external_gene_name %in% names(t2)[1:4]), 1:4]
-    w_duplicate = which(gene_anno$external_gene_name %in% names(t2))
-    ganno2 = gene_anno[w_duplicate,]
-    print(dim(ganno2))
-
-    print(table(ganno2$hgnc_symbol == ganno2$external_gene_name))
-    ganno2 = ganno2[which(ganno2$hgnc_symbol == ganno2$external_gene_name),]
-    print(dim(ganno2))
-
-    ganno2 = dplyr::distinct(ganno2,external_gene_name,.keep_all = TRUE)
-    print(dim(ganno2))
-
-    gene_anno = rbind(gene_anno[-w_duplicate,], ganno2)
-    print(dim(gene_anno))
-    print(table(gene_anno$gene_biotype))
-
-    # which genes in sce are missing in the annotation
-    gene_missing = setdiff(rownames(sce),gene_anno$external_gene_name)
-    print(gene_missing[1:10])
-    print(length(gene_missing))
-
-    w2kp = match(gene_anno$external_gene_name,rownames(sce))
-    print(table(is.na(w2kp)))
-    print(gene_anno$external_gene_name[which(is.na(w2kp))])
-    sce = sce[w2kp,]
-    print(dim(sce))
-    rowData(sce) = gene_anno
-    names(rowData(sce))[names(rowData(sce)) == &quot;external_gene_name&quot;] = &quot;gene&quot;
-
-    saveRDS(sce,sce_gene_fn)
-}
-
-sce = readRDS(sce_gene_fn)
-</code></pre>
-
-<h2>Identify Low quality cells</h2>
-
-<h3>barcodeRanks filtering</h3>
-
-<p>Refer to <a href="https://bioconductor.org/packages/release/workflows/vignettes/simpleSingleCell/inst/doc/work-3-tenx.html#calling-cells-from-empty-droplets">this workflow in bioconductor</a> for reference. </p>
-
-<pre><code class="r"># Calling cells from empty droplets
-bcrank = barcodeRanks(counts(sce))
-
-# Only show unique points for plotting speed.
-uniq = !duplicated(bcrank$rank)
-
-par(mar=c(5,4,2,1), bty=&quot;n&quot;)
-plot(bcrank$rank[uniq], bcrank$total[uniq], log=&quot;xy&quot;, 
-    xlab=&quot;Rank&quot;, ylab=&quot;Total UMI count&quot;, cex=0.5, cex.lab=1.2)
-abline(h=bcrank$inflection, col=&quot;darkgreen&quot;, lty=2,lwd=2)
-abline(h=bcrank$knee, col=&quot;dodgerblue&quot;, lty=2,lwd=2)
-legend(&quot;left&quot;, legend=c(&quot;Inflection&quot;, &quot;Knee&quot;), bty=&quot;n&quot;, 
-    col=c(&quot;darkgreen&quot;, &quot;dodgerblue&quot;), lty=2, cex=1.2,lwd=2)
-</code></pre>
-=======
-}
-
-pre, img {
-  max-width: 100%;
-}
-pre {
-  overflow-x: auto;
-}
-pre code {
-   display: block; padding: 0.5em;
-}
-
-code {
-  font-size: 92%;
-  border: 1px solid #ccc;
-}
-
-code[class] {
-  background-color: #F8F8F8;
-}
-
-table, td, th {
-  border: none;
-}
-
-blockquote {
-   color:#666666;
-   margin:0;
-   padding-left: 1em;
-   border-left: 0.5em #EEE solid;
-}
-
-hr {
-   height: 0px;
-   border-bottom: none;
-   border-top-width: thin;
-   border-top-style: dotted;
-   border-top-color: #999999;
-}
-
-@media print {
-   * {
-      background: transparent !important;
-      color: black !important;
-      filter:none !important;
-      -ms-filter: none !important;
-   }
-
-   body {
-      font-size:12pt;
-      max-width:100%;
-   }
-
-   a, a:visited {
-      text-decoration: underline;
-   }
-
-   hr {
-      visibility: hidden;
-      page-break-before: always;
-   }
-
-   pre, blockquote {
-      padding-right: 1em;
-      page-break-inside: avoid;
-   }
-
-   tr, img {
-      page-break-inside: avoid;
-   }
-
-   img {
-      max-width: 100% !important;
-   }
-
-   @page :left {
-      margin: 15mm 20mm 15mm 10mm;
-   }
-
-   @page :right {
-      margin: 15mm 10mm 15mm 20mm;
-   }
-
-   p, h2, h3 {
-      orphans: 3; widows: 3;
-   }
-
-   h2, h3 {
-      page-break-after: avoid;
-   }
-}
-</style>
-
->>>>>>> october
-
-<p><img src="figure/unnamed-chunk-3-1.png" alt="plot of chunk unnamed-chunk-3"></p>
-
-<<<<<<< HEAD
-<pre><code class="r">bcrank$inflection
-</code></pre>
-
-<pre><code>## hCf_TAATAGCGGTAC 
-##              221
-</code></pre>
-
-<pre><code class="r">bcrank$knee
-</code></pre>
-
-<pre><code>## PFC2.A2_CACAGCGCTGTC 
-##                  580
-</code></pre>
-
-<pre><code class="r">summary(bcrank$total)
-</code></pre>
-
-<pre><code>##    Min. 1st Qu.  Median    Mean 3rd Qu.    Max. 
-##   218.0   459.0   716.0   948.9  1167.0  9423.0
-</code></pre>
-
-<pre><code class="r">table(bcrank$total &gt;= bcrank$knee)
-</code></pre>
-
-<pre><code>## 
-## FALSE  TRUE 
-##  5513  9450
-</code></pre>
-
-<pre><code class="r">table(bcrank$total &gt;= bcrank$inflection)
-</code></pre>
-
-<pre><code>## 
-## FALSE  TRUE 
-##     1 14962
-</code></pre>
-
-<pre><code class="r">set.seed(100)
-date()
-</code></pre>
-
-<pre><code>## [1] &quot;Mon Nov  5 22:49:02 2018&quot;
-</code></pre>
-
-<pre><code class="r">e_out = emptyDrops(counts(sce))
-date()
-</code></pre>
-
-<pre><code>## [1] &quot;Mon Nov  5 22:49:23 2018&quot;
-</code></pre>
-
-<pre><code class="r">e_out
-</code></pre>
-
-=======
 </head>
 
 <body>
@@ -560,18 +176,22 @@ date()
 <li><code>scran</code> provide functions for normalization of cell-specific libary sizes, correcting batch effects, and identification marker genes</li>
 </ul>
 
+<p>We have requested 7 cores to improve SC3 runtime. </p>
+
 <pre><code class="r">bio_packs = c(&quot;SingleCellExperiment&quot;,&quot;DropletUtils&quot;,&quot;biomaRt&quot;,
             &quot;scater&quot;,&quot;scran&quot;,&quot;limma&quot;,&quot;org.Hs.eg.db&quot;,&quot;SC3&quot;)
-bio_packs = bio_packs[! bio_packs %in% installed.packages()[,&quot;Package&quot;]]
-if( length(bio_packs) &gt; 0 ){
-    source(&quot;https://bioconductor.org/biocLite.R&quot;)
-    biocLite(bio_packs, suppressUpdates = TRUE)
+source(&quot;https://bioconductor.org/biocLite.R&quot;)
+for(pack1 in bio_packs){
+    if( !pack1 %in% installed.packages()[,&quot;Package&quot;]){
+        biocLite(pack1, suppressUpdates = TRUE)
+    }
 }
 
-cran_packs = c(&quot;stringi&quot;,&quot;irlba&quot;)
-cran_packs = cran_packs[! cran_packs %in% installed.packages()[,&quot;Package&quot;]]
-if( length(cran_packs) &gt; 0 ){
-    install.packages(cran_packs)
+cran_packs = c(&quot;data.table&quot;,&quot;svd&quot;,&quot;Rtsne&quot;,&quot;stringi&quot;,&quot;irlba&quot;)
+for(pack1 in cran_packs){
+    if( !pack1 %in% installed.packages()[,&quot;Package&quot;]){
+        install.packages(pack1)
+    }
 }
 
 library(data.table)
@@ -584,11 +204,11 @@ library(limma)
 library(ggplot2)
 
 # src_dir   = &quot;~/research/GitHub/scRNAseq_pipelines/dronc&quot;
-# data_dir  = &quot;~/research/scRNAseq/workflow/data&quot;
+# work_dir  = &quot;~/research/scRNAseq/workflow/data&quot;
 # dronc_dir = &quot;~/research/scRNAseq/data/GTEx_droncseq_hip_pcf&quot;
 repo_dir = &quot;/pine/scr/p/l/pllittle/CS_eQTL/s3_Real/scRNAseq_pipelines&quot;
-data_dir = file.path(repo_dir,&quot;dronc&quot;)
-dronc_dir = file.path(data_dir,&quot;GTEx_droncseq_hip_pcf&quot;)
+work_dir = file.path(repo_dir,&quot;dronc&quot;)
+dronc_dir = file.path(work_dir,&quot;GTEx_droncseq_hip_pcf&quot;)
 
 source(file.path(repo_dir,&quot;SOURCE.R&quot;))
 </code></pre>
@@ -598,7 +218,7 @@ source(file.path(repo_dir,&quot;SOURCE.R&quot;))
 <p>Next we import in the count data and other available information. The dataset is available <a href="https://storage.googleapis.com/gtex_additional_datasets/single_cell_data/GTEx_droncseq_hip_pcf.tar">here</a>.</p>
 
 <pre><code class="r">counts_fn  = file.path(dronc_dir,&quot;GTEx_droncseq_hip_pcf.umi_counts.txt.gz&quot;)
-counts = smart_df(data.table::fread(input = sprintf(&quot;zcat &lt; %s&quot;,counts_fn)))
+counts = fread(cmd = sprintf(&quot;zcat &lt; %s&quot;,counts_fn),data.table = FALSE)
 dim(counts); counts[1:3,1:2]
 </code></pre>
 
@@ -639,7 +259,7 @@ col_dat[1:5,]
 <p>Import clustering results. We utilize the supplemental files to label clusters and incorporate the existing TSNE results. Refer to the file nmeth.4407-S10.xlsx.</p>
 
 <pre><code class="r">clust_fn = file.path(dronc_dir,&quot;GTEx_droncseq_hip_pcf.clusters.txt.gz&quot;)
-clust = smart_df(data.table::fread(sprintf(&quot;zcat &lt; %s&quot;,clust_fn)))
+clust = fread(cmd = sprintf(&quot;zcat &lt; %s&quot;,clust_fn),data.table = FALSE)
 dim(clust); clust[1:5,]
 </code></pre>
 
@@ -658,28 +278,7 @@ dim(clust); clust[1:5,]
 clust$paper_clusters = as.factor(clust$paper_clusters)
 
 # Double check sample names
-is_match = col_dat$sample_name == clust$sample_name; all(is_match)
-</code></pre>
-
-<pre><code>## [1] FALSE
-</code></pre>
-
-<pre><code class="r">col_dat$sample_name[!is_match][1:5]
-</code></pre>
-
-<pre><code>## [1] &quot;HP2.A_GAATTCTCCAAN&quot; &quot;HP2.A_CTAGCTGGATTG&quot; &quot;HP2.A_AGTATATTTATN&quot;
-## [4] &quot;HP2.A_GATATTAGTCTN&quot; &quot;HP2.A_GTTGACGACTTT&quot;
-</code></pre>
-
-<pre><code class="r">clust$sample_name[!is_match][1:5]
-</code></pre>
-
-<pre><code>## [1] &quot;HP2-A_GAATTCTCCAAN&quot; &quot;HP2-A_CTAGCTGGATTG&quot; &quot;HP2-A_AGTATATTTATN&quot;
-## [4] &quot;HP2-A_GATATTAGTCTN&quot; &quot;HP2-A_GTTGACGACTTT&quot;
-</code></pre>
-
-<pre><code class="r">clust$sample_name = gsub(&quot;-&quot;,&quot;.&quot;,clust$sample_name)
-is_match = col_dat$sample_name == clust$sample_name; all(is_match)
+all(col_dat$sample_name == clust$sample_name)
 </code></pre>
 
 <pre><code>## [1] TRUE
@@ -707,7 +306,7 @@ clust[1:5,]
 
 <pre><code class="r"># Merge in TSNE results from paper
 tsne_fn = file.path(dronc_dir,&quot;GTEx_droncseq_hip_pcf.tsne.txt.gz&quot;)
-df_tsne = smart_df(data.table::fread(sprintf(&quot;zcat &lt; %s&quot;,tsne_fn)))
+df_tsne = fread(cmd = sprintf(&quot;zcat &lt; %s&quot;,tsne_fn),data.table = FALSE)
 dim(df_tsne); df_tsne[1:5,]
 </code></pre>
 
@@ -723,33 +322,18 @@ dim(df_tsne); df_tsne[1:5,]
 </code></pre>
 
 <pre><code class="r">names(df_tsne) = c(&quot;sample_name&quot;,paste0(&quot;paper_TSNE&quot;,1:2))
-is_match = df_tsne$sample_name == clust$sample_name; table(is_match)
+table(df_tsne$sample_name == clust$sample_name)
 </code></pre>
 
-<pre><code>## is_match
-## FALSE  TRUE 
-##  9170  5793
+<pre><code>## 
+##  TRUE 
+## 14963
 </code></pre>
 
-<pre><code class="r">df_tsne$sample_name[!is_match][1:5]
+<pre><code class="r">table(df_tsne$sample_name == clust$sample_name)
 </code></pre>
 
-<pre><code>## [1] &quot;HP2-A_GAATTCTCCAAN&quot; &quot;HP2-A_CTAGCTGGATTG&quot; &quot;HP2-A_AGTATATTTATN&quot;
-## [4] &quot;HP2-A_GATATTAGTCTN&quot; &quot;HP2-A_GTTGACGACTTT&quot;
-</code></pre>
-
-<pre><code class="r">clust$sample_name[!is_match][1:5]
-</code></pre>
-
-<pre><code>## [1] &quot;HP2.A_GAATTCTCCAAN&quot; &quot;HP2.A_CTAGCTGGATTG&quot; &quot;HP2.A_AGTATATTTATN&quot;
-## [4] &quot;HP2.A_GATATTAGTCTN&quot; &quot;HP2.A_GTTGACGACTTT&quot;
-</code></pre>
-
-<pre><code class="r">df_tsne$sample_name = gsub(&quot;-&quot;,&quot;.&quot;,df_tsne$sample_name)
-is_match = df_tsne$sample_name == clust$sample_name; table(is_match)
-</code></pre>
-
-<pre><code>## is_match
+<pre><code>## 
 ##  TRUE 
 ## 14963
 </code></pre>
@@ -794,11 +378,19 @@ sce
 ## rownames(32111): A1BG A1BG-AS1 ... ZZEF1 ZZZ3
 ## rowData names(0):
 ## colnames(14963): hHP1_AACACTATCTAC hHP1_CTACGCATCCAT ...
-##   PFC.CD_CTCCATTCATGC PFC.CD_CGTCATTAGCAG
+##   PFC-CD_CTCCATTCATGC PFC-CD_CGTCATTAGCAG
 ## colData names(7): sample_name part_cell_id ... paper_TSNE1
 ##   paper_TSNE2
 ## reducedDimNames(0):
 ## spikeNames(0):
+</code></pre>
+
+<pre><code class="r"># Check for spike-ins
+rownames(sce)[grep(&quot;^ERCC&quot;,rownames(sce))]
+</code></pre>
+
+<pre><code>## [1] &quot;ERCC1&quot;   &quot;ERCC2&quot;   &quot;ERCC3&quot;   &quot;ERCC4&quot;   &quot;ERCC5&quot;   &quot;ERCC6&quot;   &quot;ERCC6L&quot; 
+## [8] &quot;ERCC6L2&quot; &quot;ERCC8&quot;
 </code></pre>
 
 <h1>Pre-processing and Quality Control</h1>
@@ -807,9 +399,11 @@ sce
 
 <p>We will extract annotation information based on gene names.</p>
 
-<pre><code class="r">anno_file = file.path(data_dir,&quot;gene.annotation_dronc.rds&quot;)
+<pre><code class="r">anno_file = file.path(work_dir,&quot;gene.annotation_dronc.rds&quot;)
 if( file.exists(anno_file) ){
+
     gene_anno = readRDS(anno_file)
+
 } else{
 
     ensembl = useEnsembl(biomart=&quot;ensembl&quot;,GRCh=37,
@@ -824,6 +418,7 @@ if( file.exists(anno_file) ){
         values = rownames(sce),
         mart = ensembl)
     saveRDS(gene_anno, file=anno_file)
+
 }
 
 dim(sce); dim(gene_anno)
@@ -1025,6 +620,7 @@ table(is.na(w2kp))
 </code></pre>
 
 <pre><code class="r">sce = sce[w2kp,]
+
 dim(sce)
 </code></pre>
 
@@ -1032,6 +628,57 @@ dim(sce)
 </code></pre>
 
 <pre><code class="r">rowData(sce) = gene_anno
+
+sce
+</code></pre>
+
+<pre><code>## class: SingleCellExperiment 
+## dim: 31930 14963 
+## metadata(0):
+## assays(1): counts
+## rownames(31930): AC006946.16 AC006946.17 ... ZNF8 ZNF788
+## rowData names(9): hgnc_symbol external_gene_name ...
+##   percentage_gene_gc_content gene_biotype
+## colnames(14963): hHP1_AACACTATCTAC hHP1_CTACGCATCCAT ...
+##   PFC-CD_CTCCATTCATGC PFC-CD_CGTCATTAGCAG
+## colData names(7): sample_name part_cell_id ... paper_TSNE1
+##   paper_TSNE2
+## reducedDimNames(0):
+## spikeNames(0):
+</code></pre>
+
+<pre><code class="r">rowData(sce)[1:5,]
+</code></pre>
+
+<pre><code>## DataFrame with 5 rows and 9 columns
+##   hgnc_symbol external_gene_name chromosome_name start_position
+##   &lt;character&gt;        &lt;character&gt;     &lt;character&gt;      &lt;integer&gt;
+## 1                    AC006946.16              22       17548711
+## 2                    AC006946.17              22       17561591
+## 3                    AC004019.13              22       18062923
+## 4       ABHD3              ABHD3              18       19230858
+## 5                    AC004471.10              22       19111822
+##   end_position    strand
+##      &lt;integer&gt; &lt;integer&gt;
+## 1     17551565         1
+## 2     17562346         1
+## 3     18071958        -1
+## 4     19284766        -1
+## 5     19115962        -1
+##                                                      description
+##                                                      &lt;character&gt;
+## 1                                                               
+## 2                                                               
+## 3                                                               
+## 4 abhydrolase domain containing 3 [Source:HGNC Symbol;Acc:18718]
+## 5                                                               
+##   percentage_gene_gc_content   gene_biotype
+##                    &lt;numeric&gt;    &lt;character&gt;
+## 1                      41.61        lincRNA
+## 2                      41.67        lincRNA
+## 3                       52.6      antisense
+## 4                      42.45 protein_coding
+## 5                       58.3        lincRNA
 </code></pre>
 
 <h2>Identify Low quality cells</h2>
@@ -1056,7 +703,7 @@ legend(&quot;left&quot;, legend=c(&quot;Inflection&quot;, &quot;Knee&quot;), bty
     col=c(&quot;darkgreen&quot;, &quot;dodgerblue&quot;), lty=2, cex=1.2,lwd=2)
 </code></pre>
 
-<p><img src="figure/unnamed-chunk-6-1.png" alt="plot of chunk unnamed-chunk-6"></p>
+<p><img src="figure/unnamed-chunk-3-1.png" alt="plot of chunk unnamed-chunk-3"></p>
 
 <pre><code class="r">bcrank$inflection
 </code></pre>
@@ -1068,7 +715,7 @@ legend(&quot;left&quot;, legend=c(&quot;Inflection&quot;, &quot;Knee&quot;), bty
 <pre><code class="r">bcrank$knee
 </code></pre>
 
-<pre><code>## PFC2.A2_CACAGCGCTGTC 
+<pre><code>## PFC2-A2_CACAGCGCTGTC 
 ##                  580
 </code></pre>
 
@@ -1099,20 +746,19 @@ legend(&quot;left&quot;, legend=c(&quot;Inflection&quot;, &quot;Knee&quot;), bty
 date()
 </code></pre>
 
-<pre><code>## [1] &quot;Tue Nov 13 12:43:13 2018&quot;
+<pre><code>## [1] &quot;Tue Nov 20 10:53:17 2018&quot;
 </code></pre>
 
 <pre><code class="r">e_out = emptyDrops(counts(sce))
 date()
 </code></pre>
 
-<pre><code>## [1] &quot;Tue Nov 13 12:43:35 2018&quot;
+<pre><code>## [1] &quot;Tue Nov 20 10:53:50 2018&quot;
 </code></pre>
 
 <pre><code class="r">e_out
 </code></pre>
 
->>>>>>> october
 <pre><code>## DataFrame with 14963 rows and 5 columns
 ##                         Total   LogProb    PValue   Limited       FDR
 ##                     &lt;integer&gt; &lt;numeric&gt; &lt;numeric&gt; &lt;logical&gt; &lt;numeric&gt;
@@ -1122,11 +768,11 @@ date()
 ## hHP1_CCCGCACGCTAT        5030       NaN         1     FALSE         0
 ## hHP1_TCATTTTGTCAT        3588       NaN         1     FALSE         0
 ## ...                       ...       ...       ...       ...       ...
-## PFC.CD_TTGCCTGGCGGG       590       NaN         1     FALSE         0
-## PFC.CD_CACGCTCCCCTA       269       NaN         1     FALSE         1
-## PFC.CD_GCTCTACAACCG       522       NaN         1     FALSE         1
-## PFC.CD_CTCCATTCATGC       497       NaN         1     FALSE         1
-## PFC.CD_CGTCATTAGCAG       568       NaN         1     FALSE         1
+## PFC-CD_TTGCCTGGCGGG       590       NaN         1     FALSE         0
+## PFC-CD_CACGCTCCCCTA       269       NaN         1     FALSE         1
+## PFC-CD_GCTCTACAACCG       522       NaN         1     FALSE         1
+## PFC-CD_CTCCATTCATGC       497       NaN         1     FALSE         1
+## PFC-CD_CGTCATTAGCAG       568       NaN         1     FALSE         1
 </code></pre>
 
 <pre><code class="r">length(unique(e_out$FDR))
@@ -1155,40 +801,25 @@ date()
 ##   218.0   317.0   391.0   402.3   489.0   580.0
 </code></pre>
 
-<<<<<<< HEAD
-<p>From the above analysis, some cells with very small number of UMIs. Here we chose do not remove any cells because it appears all these 14,963 cells were used in the main analysis. Based on Figure 2 of their paper, there are &gt; 14,963 DroNc-seq nuclei profiles (each with &gt;10,000 reads and &gt;200 genes)</p>
-=======
 <p>From the above analysis, some cells with very small number of UMIs. Here we chose do not remove any cells because it appears all these 14,963 cells were used in the main anlaysis. Based on Figure 2 of their paper, there are </p>
 
 <blockquote>
 <p>14,963 DroNc-seq nuclei profiles (each with &gt;10,000 reads and &gt;200 genes)</p>
 </blockquote>
->>>>>>> october
 
 <h3>Incorporate information of mitochondira/ribosomal genes in QC metrics</h3>
 
 <p>We will generate a set of QC features per cell, including the expression of mitochondira/ribosomal genes.  We identify ribosomal genes based on annoation from <a href="https://www.genenames.org/">https://www.genenames.org/</a>.</p>
 
 <pre><code class="r">file_link = &quot;https://www.genenames.org/cgi-bin/genefamilies/set/1054/download/branch&quot;
-<<<<<<< HEAD
-file_name = strsplit(file_link,&quot;/&quot;)[[1]]
-file_name = file_name[length(file_name)]
-ribo_fn = file.path(data_dir, file_name)
+ribo_fn = file.path(work_dir,&quot;branch&quot;)
 if( !file.exists(ribo_fn) ){
-  system(sprintf(&quot;cd %s; wget %s&quot;,data_dir, file_link))
-}
-
-ribo = smart_RT(ribo_fn,sep=&#39;\t&#39;,header=TRUE)
-=======
-ribo_fn = file.path(data_dir,&quot;branch&quot;)
-if( !file.exists(ribo_fn) ){
-    cmd = sprintf(&quot;cd %s; wget %s&quot;,data_dir, file_link)
+    cmd = sprintf(&quot;cd %s; wget %s&quot;,work_dir, file_link)
     print(cmd)
     system(cmd)
 }
 
 ribo = smart_RT(ribo_fn,sep=&#39;\t&#39;,header=TRUE,)
->>>>>>> october
 ribo[1:2,]
 </code></pre>
 
@@ -1204,11 +835,7 @@ ribo[1:2,]
 </code></pre>
 
 <pre><code class="r">is_mito = which(rowData(sce)$chromosome_name == &quot;MT&quot;)
-<<<<<<< HEAD
-is_ribo = which(rowData(sce)$gene %in% ribo$Approved.Symbol)
-=======
 is_ribo = which(rowData(sce)$external_gene_name %in% ribo$Approved.Symbol)
->>>>>>> october
 length(is_mito)
 </code></pre>
 
@@ -1221,52 +848,8 @@ length(is_mito)
 <pre><code>## [1] 160
 </code></pre>
 
-<<<<<<< HEAD
-<pre><code class="r">sort(names(rowData(sce)))
-</code></pre>
-
-<pre><code>## [1] &quot;chromosome_name&quot;            &quot;description&quot;               
-## [3] &quot;end_position&quot;               &quot;gene&quot;                      
-## [5] &quot;gene_biotype&quot;               &quot;hgnc_symbol&quot;               
-## [7] &quot;percentage_gene_gc_content&quot; &quot;start_position&quot;            
-## [9] &quot;strand&quot;
-</code></pre>
-
-<pre><code class="r">sort(names(colData(sce)))
-</code></pre>
-
-<pre><code>## [1] &quot;paper_cell_type&quot;     &quot;paper_clusters&quot;      &quot;paper_clusters_name&quot;
-## [4] &quot;paper_TSNE1&quot;         &quot;paper_TSNE2&quot;         &quot;part_cell_id&quot;       
-## [7] &quot;sample_name&quot;
-</code></pre>
-
-<pre><code class="r">sce = calculateQCMetrics(sce,feature_controls=list(Mt=is_mito, Ri=is_ribo))
-</code></pre>
-
-<pre><code>## Note that the names of some metrics have changed, see &#39;Renamed metrics&#39; in ?calculateQCMetrics.
-## Old names are currently maintained for back-compatibility, but may be removed in future releases.
-</code></pre>
-
-<pre><code class="r">sort(names(rowData(sce)))
-</code></pre>
-
-<pre><code>##  [1] &quot;chromosome_name&quot;            &quot;description&quot;               
-##  [3] &quot;end_position&quot;               &quot;gene&quot;                      
-##  [5] &quot;gene_biotype&quot;               &quot;hgnc_symbol&quot;               
-##  [7] &quot;is_feature_control&quot;         &quot;is_feature_control_Mt&quot;     
-##  [9] &quot;is_feature_control_Ri&quot;      &quot;log10_mean_counts&quot;         
-## [11] &quot;log10_total_counts&quot;         &quot;mean_counts&quot;               
-## [13] &quot;n_cells_by_counts&quot;          &quot;n_cells_counts&quot;            
-## [15] &quot;pct_dropout_by_counts&quot;      &quot;pct_dropout_counts&quot;        
-## [17] &quot;percentage_gene_gc_content&quot; &quot;start_position&quot;            
-## [19] &quot;strand&quot;                     &quot;total_counts&quot;
-</code></pre>
-
-<pre><code class="r">sort(names(colData(sce)))
-=======
 <pre><code class="r">sce = calculateQCMetrics(sce, feature_controls=list(Mt=is_mito, Ri=is_ribo))
 sort(colnames(colData(sce)))
->>>>>>> october
 </code></pre>
 
 <pre><code>##  [1] &quot;is_cell_control&quot;                               
@@ -1338,56 +921,6 @@ sort(colnames(colData(sce)))
 </code></pre>
 
 <pre><code class="r">par(mfrow=c(2,2), mar=c(5, 4, 1, 1), bty=&quot;n&quot;)
-<<<<<<< HEAD
-smart_hist(log10(sce$total_counts),xlab=&quot;log10(Library sizes)&quot;,main=&quot;&quot;, 
-    breaks=20,ylab=&quot;Number of cells&quot;)
-smart_hist(log10(sce$total_features),xlab=&quot;log10(# of expressed genes)&quot;, 
-    main=&quot;&quot;,breaks=20,ylab=&quot;Number of cells&quot;)
-smart_hist(sce$pct_counts_Ri,xlab=&quot;Ribosome prop. (%)&quot;,
-    ylab=&quot;Number of cells&quot;,breaks=40,main=&quot;&quot;)
-smart_hist(sce$pct_counts_Mt,xlab=&quot;Mitochondrial prop. (%)&quot;, 
-    ylab=&quot;Number of cells&quot;,breaks=80,main=&quot;&quot;)
-</code></pre>
-
-<p><img src="figure/unnamed-chunk-4-1.png" alt="plot of chunk unnamed-chunk-4"></p>
-
-<pre><code class="r">smoothScatter(log10(sce$total_counts),log10(sce$total_features), 
-    xlab=&quot;log10(Library sizes)&quot;,ylab=&quot;log10(# of expressed genes)&quot;, 
-    nrpoints=500,cex=0.5)
-smoothScatter(log10(sce$total_counts),sce$pct_counts_Ri,
-    xlab=&quot;log10(Library sizes)&quot;, ylab=&quot;Ribosome prop. (%)&quot;,
-    nrpoints=500,cex=0.5)
-</code></pre>
-
-<pre><code>## Warning in KernSmooth::bkde2D(x, bandwidth = bandwidth, gridsize = nbin, :
-## Binning grid too coarse for current (small) bandwidth: consider increasing
-## &#39;gridsize&#39;
-</code></pre>
-
-<pre><code class="r">smoothScatter(log10(sce$total_counts),sce$pct_counts_Mt,
-    xlab=&quot;log10(Library sizes)&quot;, ylab=&quot;Mitochondrial prop. (%)&quot;,
-    nrpoints=500,cex=0.5)
-smoothScatter(x=sce$pct_counts_Ri,y=sce$pct_counts_Mt,
-    xlab=&quot;Ribosome prop. (%)&quot;, ylab=&quot;Mitochondrial prop. (%)&quot;,
-    nrpoints=500,cex=0.5)
-</code></pre>
-
-<pre><code>## Warning in KernSmooth::bkde2D(x, bandwidth = bandwidth, gridsize = nbin, :
-## Binning grid too coarse for current (small) bandwidth: consider increasing
-## &#39;gridsize&#39;
-</code></pre>
-
-<p><img src="figure/unnamed-chunk-4-2.png" alt="plot of chunk unnamed-chunk-4"></p>
-
-<pre><code class="r">libsize_drop = isOutlier(sce$total_counts,nmads=3,type=&quot;lower&quot;,log=TRUE)
-feature_drop = isOutlier(sce$total_features_by_counts,nmads=3,type=&quot;lower&quot;,log=TRUE)
-mito_drop = isOutlier(sce$pct_counts_Mt,nmads=3,type=&quot;higher&quot;)
-ribo_drop = isOutlier(sce$pct_counts_Ri,nmads=3,type=&quot;higher&quot;)
-
-keep = !(libsize_drop | feature_drop | mito_drop | ribo_drop)
-data.frame(ByLibSize=sum(libsize_drop),ByFeature=sum(feature_drop),
-    ByMito=sum(mito_drop),ByRibo=sum(ribo_drop),Remaining=sum(keep))
-=======
 hist(log10(sce$total_counts), xlab=&quot;log10(Library sizes)&quot;, main=&quot;&quot;, 
     breaks=20, col=&quot;grey80&quot;, ylab=&quot;Number of cells&quot;)
 hist(log10(sce$total_features), xlab=&quot;log10(# of expressed genes)&quot;, 
@@ -1398,7 +931,7 @@ hist(sce$pct_counts_Mt, xlab=&quot;Mitochondrial prop. (%)&quot;,
     ylab=&quot;Number of cells&quot;, breaks=80, main=&quot;&quot;, col=&quot;grey80&quot;)
 </code></pre>
 
-<p><img src="figure/unnamed-chunk-7-1.png" alt="plot of chunk unnamed-chunk-7"></p>
+<p><img src="figure/unnamed-chunk-4-1.png" alt="plot of chunk unnamed-chunk-4"></p>
 
 <pre><code class="r">par(mfrow=c(2,2), mar=c(5, 4, 1, 1), bty=&quot;n&quot;)
 smoothScatter(log10(sce$total_counts), log10(sce$total_features), 
@@ -1411,7 +944,7 @@ smoothScatter(sce$pct_counts_Ri,sce$pct_counts_Mt,
     xlab=&quot;Ribosome prop. (%)&quot;, ylab=&quot;Mitochondrial prop. (%)&quot;)
 </code></pre>
 
-<p><img src="figure/unnamed-chunk-7-2.png" alt="plot of chunk unnamed-chunk-7"></p>
+<p><img src="figure/unnamed-chunk-4-2.png" alt="plot of chunk unnamed-chunk-4"></p>
 
 <p>From the QC results, we will filter on the metrics by identifying outliers using <code>isOutlier</code>.</p>
 
@@ -1423,7 +956,6 @@ keep = !(libsize_drop | feature_drop | mito_drop | ribo_drop)
 smart_df(ByLibSize = sum(libsize_drop),ByFeature = sum(feature_drop),
         ByMito = sum(mito_drop),ByRibo = sum(ribo_drop),
         Remaining = sum(keep))
->>>>>>> october
 </code></pre>
 
 <pre><code>##   ByLibSize ByFeature ByMito ByRibo Remaining
@@ -1481,11 +1013,6 @@ smart_df(ByLibSize = sum(libsize_drop),ByFeature = sum(feature_drop),
 
 <pre><code class="r"># Notice that paper_cluster = 18 samples will all be excluded
 
-<<<<<<< HEAD
-sce$PassQC = keep
-saveRDS(sce,&quot;preQC.rds&quot;)
-=======
->>>>>>> october
 sce = sce[,keep]
 dim(sce)
 </code></pre>
@@ -1493,70 +1020,12 @@ dim(sce)
 <pre><code>## [1] 31930 13181
 </code></pre>
 
-<<<<<<< HEAD
-<pre><code class="r"># sce = readRDS(&quot;preQC.rds&quot;); sce = sce[,which(colData(sce)$PassQC == TRUE)]
-</code></pre>
-
-=======
->>>>>>> october
 <h2>Summarize gene level information</h2>
 
 <pre><code class="r">rowData(sce)[1:2,]
 </code></pre>
 
 <pre><code>## DataFrame with 2 rows and 20 columns
-<<<<<<< HEAD
-##   hgnc_symbol        gene chromosome_name start_position end_position
-##   &lt;character&gt; &lt;character&gt;     &lt;character&gt;      &lt;integer&gt;    &lt;integer&gt;
-## 1             AC006946.16              22       17548711     17551565
-## 2             AC006946.17              22       17561591     17562346
-##      strand description percentage_gene_gc_content gene_biotype
-##   &lt;integer&gt; &lt;character&gt;                  &lt;numeric&gt;  &lt;character&gt;
-## 1         1                                  41.61      lincRNA
-## 2         1                                  41.67      lincRNA
-##   is_feature_control is_feature_control_Mt is_feature_control_Ri
-##            &lt;logical&gt;             &lt;logical&gt;             &lt;logical&gt;
-## 1              FALSE                 FALSE                 FALSE
-## 2              FALSE                 FALSE                 FALSE
-##           mean_counts   log10_mean_counts n_cells_by_counts
-##             &lt;numeric&gt;           &lt;numeric&gt;         &lt;integer&gt;
-## 1 0.00548018445498897  0.0023735161394708                79
-## 2 0.00360890195816347 0.00156450482886486                52
-##   pct_dropout_by_counts total_counts log10_total_counts n_cells_counts
-##               &lt;numeric&gt;    &lt;integer&gt;          &lt;numeric&gt;      &lt;integer&gt;
-## 1      99.4720310098242           82   1.91907809237607             79
-## 2      99.6524761077324           54   1.74036268949424             52
-##   pct_dropout_counts
-##            &lt;numeric&gt;
-## 1   99.4720310098242
-## 2   99.6524761077324
-</code></pre>
-
-<pre><code class="r">min(rowData(sce)$mean_counts)
-</code></pre>
-
-<pre><code>## [1] 6.683152e-05
-</code></pre>
-
-<pre><code class="r">min(rowData(sce)$mean_counts[rowData(sce)$mean_counts&gt;0])
-</code></pre>
-
-<pre><code>## [1] 6.683152e-05
-</code></pre>
-
-<pre><code class="r">min(rowData(sce)$n_cells_counts)
-</code></pre>
-
-<pre><code>## [1] 1
-</code></pre>
-
-<pre><code class="r">par(mfrow=c(1,3), mar=c(5,4,1,1))
-smart_hist(log10(rowData(sce)$mean_counts+1e-6),main=&quot;&quot;, 
-    breaks=40, xlab=&quot;log10(ave # of UMI + 1e-6)&quot;)
-smart_hist(log10(rowData(sce)$n_cells_counts+1),main=&quot;&quot;, 
-    breaks=40, xlab=&quot;log10(# of expressed cells + 1)&quot;)
-smoothScatter(log10(rowData(sce)$mean_counts+1e-6),
-=======
 ##   hgnc_symbol external_gene_name chromosome_name start_position
 ##   &lt;character&gt;        &lt;character&gt;     &lt;character&gt;      &lt;integer&gt;
 ## 1                    AC006946.16              22       17548711
@@ -1610,17 +1079,12 @@ hist(log10(rowData(sce)$mean_counts+1e-6), col=&quot;grey80&quot;,  main=&quot;&
 hist(log10(rowData(sce)$n_cells_counts+1), col=&quot;grey80&quot;, main=&quot;&quot;, 
     breaks=40, xlab=&quot;log10(# of expressed cells + 1)&quot;)
 plot(log10(rowData(sce)$mean_counts+1e-6), pch=16, col=rgb(0,0,0,0.4), 
->>>>>>> october
     log10(rowData(sce)$n_cells_counts + 1), 
     xlab=&quot;log10(ave # of UMI + 1e-6)&quot;, 
     ylab=&quot;log10(# of expressed cells + 1)&quot;)
 </code></pre>
 
-<<<<<<< HEAD
-<p><img src="figure/unnamed-chunk-5-1.png" alt="plot of chunk unnamed-chunk-5"></p>
-=======
-<p><img src="figure/unnamed-chunk-9-1.png" alt="plot of chunk unnamed-chunk-9"></p>
->>>>>>> october
+<p><img src="figure/unnamed-chunk-6-1.png" alt="plot of chunk unnamed-chunk-6"></p>
 
 <pre><code class="r">tb1 = table(rowData(sce)$n_cells_counts)
 tb1[1:11]
@@ -1631,11 +1095,7 @@ tb1[1:11]
 ## 3302 1958 1280 1029  843  667  552  525  473  383  369
 </code></pre>
 
-<<<<<<< HEAD
-<p>We remove those genes that are lowly expressed. [@habib2017massively] mentioned in section &quot;Gene detection and quality controls of Online Methods&quot;</p>
-=======
 <p>We remove those genes that are lowly expressed. [@habib2017massively] mentioned in section &quot;Gene detection and quality controls&quot; of <em>Online Methods</em></p>
->>>>>>> october
 
 <blockquote>
 <p>Nuclei with less than 200 detected genes and less than 10,000 usable reads were filtered out.</p>
@@ -1646,31 +1106,6 @@ tb1[1:11]
 <blockquote>
 <p>A gene is considered detected in a cell if it has at least two unique UMIs (transcripts) associated with it. For each analysis, genes were removed that were detected in less than 10 nuclei.</p>
 </blockquote>
-<<<<<<< HEAD
-
-<p>Therefore it seems we should remove all the cells having less than 200 genes with two or more UMI counts. However, this would remove a majority of the cells. Therefore, we conclude that they meant to remove the cells having less than 200 genes with one or more UMI counts. To filter genes, we follow a similar threshold, specifically to remove genes with two or more UMIs in less than 2 nuclei.</p>
-
-<p>Note that the variable <em>strand</em> need to be renamed, otherwise there is an error message that such a variable name cannot be used. </p>
-
-<pre><code class="r">names(rowData(sce))
-</code></pre>
-
-<pre><code>##  [1] &quot;hgnc_symbol&quot;                &quot;gene&quot;                      
-##  [3] &quot;chromosome_name&quot;            &quot;start_position&quot;            
-##  [5] &quot;end_position&quot;               &quot;strand&quot;                    
-##  [7] &quot;description&quot;                &quot;percentage_gene_gc_content&quot;
-##  [9] &quot;gene_biotype&quot;               &quot;is_feature_control&quot;        
-## [11] &quot;is_feature_control_Mt&quot;      &quot;is_feature_control_Ri&quot;     
-## [13] &quot;mean_counts&quot;                &quot;log10_mean_counts&quot;         
-## [15] &quot;n_cells_by_counts&quot;          &quot;pct_dropout_by_counts&quot;     
-## [17] &quot;total_counts&quot;               &quot;log10_total_counts&quot;        
-## [19] &quot;n_cells_counts&quot;             &quot;pct_dropout_counts&quot;
-</code></pre>
-
-<pre><code class="r">names(rowData(sce))[names(rowData(sce)) == &quot;strand&quot;] = &quot;strand_n&quot;
-
-# Count number of genes &quot;detected&quot; in each sample
-=======
 
 <p>Therefore it seems we should remove all the cells having less than 200 genes with two or more UMI counts. However, this would remove majorify of the cells. Therefore, we conlcude that they meant to remove the cells having less than 200 genes with one or more UMI counts. To filter genes, we follow their threshold to remove genes with two or more UMIs in less than 10 nuclei.</p>
 
@@ -1678,7 +1113,6 @@ tb1[1:11]
 
 <pre><code class="r">names(rowData(sce))[names(rowData(sce)) == &quot;strand&quot;] = &quot;strand_n&quot;
 
->>>>>>> october
 n_genes = colSums(counts(sce) &gt;= 2)
 summary(n_genes)
 </code></pre>
@@ -1727,12 +1161,7 @@ summary(n_genes)
 ##     2 13179
 </code></pre>
 
-<<<<<<< HEAD
-<pre><code class="r"># Count number of samples &quot;detected&quot; for each gene
-n_cells = rowSums(counts(sce) &gt;= 2)
-=======
 <pre><code class="r">n_cells = rowSums(counts(sce) &gt;= 2)
->>>>>>> october
 summary(n_cells)
 </code></pre>
 
@@ -1740,11 +1169,7 @@ summary(n_cells)
 ##     0.00     0.00     1.00    46.45    22.00 11725.00
 </code></pre>
 
-<<<<<<< HEAD
-<pre><code class="r">table(n_cells &gt;= 10) # How many genes had &gt;= 2 UMIs in at least 10 cells
-=======
 <pre><code class="r">table(n_cells &gt;= 10)
->>>>>>> october
 </code></pre>
 
 <pre><code>## 
@@ -1752,60 +1177,15 @@ summary(n_cells)
 ## 21323 10607
 </code></pre>
 
-<<<<<<< HEAD
-<pre><code class="r">table(n_cells &gt;= 5) # How many genes had &gt;= 2 UMIs in at least 5 cells
-</code></pre>
-
-<pre><code>## 
-## FALSE  TRUE 
-## 19174 12756
-</code></pre>
-
-<pre><code class="r">table(n_cells &gt;= 2) # How many genes had &gt;= 2 UMIs in at least 2 cells
-</code></pre>
-
-<pre><code>## 
-## FALSE  TRUE 
-## 16264 15666
-</code></pre>
-
-<pre><code class="r"># sce = sce[which(n_cells &gt;= 10),]
-sce = sce[which(n_cells &gt;= 2),]
-dim(sce)
-</code></pre>
-
-<pre><code>## [1] 15666 13181
-=======
 <pre><code class="r">sce = sce[which(n_cells &gt;= 10),]
 dim(sce)
 </code></pre>
 
 <pre><code>## [1] 10607 13181
->>>>>>> october
 </code></pre>
 
 <p>Next we check those highly expressed genes </p>
 
-<<<<<<< HEAD
-<pre><code class="r">par(mfrow=c(1,2),mar=c(5,8,1,1))
-od1 = order(rowData(sce)$mean_counts, decreasing = TRUE)
-barplot(rowData(sce)$mean_counts[od1[20:1]], las=1, 
-    names.arg=rowData(sce)$gene[od1[20:1]], 
-    horiz=TRUE, cex.names=0.8, cex.axis=0.8, 
-    xlab=&quot;ave # of UMI&quot;)
-barplot(log10(1+rowData(sce)$mean_counts[od1[20:1]]), las=1, 
-    names.arg=rowData(sce)$gene[od1[20:1]], 
-    horiz=TRUE, cex.names=0.8, cex.axis=0.8, 
-    xlab=&quot;log10(1+ave # of UMI)&quot;)
-</code></pre>
-
-<p><img src="figure/unnamed-chunk-7-1.png" alt="plot of chunk unnamed-chunk-7"></p>
-
-<pre><code class="r">par(mfrow=c(1,1),mar=c(5,4,1,1))
-saveRDS(sce,&quot;post_gene_filter.rds&quot;)
-# sce = readRDS(&quot;post_gene_filter.rds&quot;)
-</code></pre>
-=======
 <pre><code class="r">par(mar=c(5,4,1,1))
 od1 = order(rowData(sce)$mean_counts, decreasing = TRUE)
 barplot(rowData(sce)$mean_counts[od1[20:1]], las=1, 
@@ -1814,8 +1194,7 @@ barplot(rowData(sce)$mean_counts[od1[20:1]], las=1,
         xlab=&quot;ave # of UMI&quot;)
 </code></pre>
 
-<p><img src="figure/unnamed-chunk-11-1.png" alt="plot of chunk unnamed-chunk-11"></p>
->>>>>>> october
+<p><img src="figure/unnamed-chunk-8-1.png" alt="plot of chunk unnamed-chunk-8"></p>
 
 <h2>Normalization</h2>
 
@@ -1825,68 +1204,38 @@ barplot(rowData(sce)$mean_counts[od1[20:1]], las=1,
 
 <p>Finally, the command <code>normalize(sce)</code> adds the normalized expression into the variable <code>sce</code>, which can be accessed by <code>logcounts(sce) = log2(gene_cell_count / size_factor + 1)</code>.</p>
 
-<<<<<<< HEAD
-<pre><code class="r">min_mean = 0.1
-date()
-</code></pre>
-
-<pre><code>## [1] &quot;Mon Nov  5 22:50:51 2018&quot;
-</code></pre>
-
-<pre><code class="r">clusters = quickCluster(sce,min.mean=min_mean,method=&quot;igraph&quot;)
-=======
 <pre><code class="r">date()
 </code></pre>
 
-<pre><code>## [1] &quot;Tue Nov 13 12:45:13 2018&quot;
+<pre><code>## [1] &quot;Tue Nov 20 10:55:06 2018&quot;
 </code></pre>
 
 <pre><code class="r">clusters = quickCluster(sce, min.mean=0.1, method=&quot;igraph&quot;)
->>>>>>> october
 table(clusters)
 </code></pre>
 
 <pre><code>## clusters
-<<<<<<< HEAD
-##    1    2    3    4    5 
-## 1663 1546 4454 2566 2952
-=======
 ##    1    2    3    4    5    6 
 ##  503 1590 1591 2864 2062 4571
->>>>>>> october
 </code></pre>
 
 <pre><code class="r">date()
 </code></pre>
 
-<<<<<<< HEAD
-<pre><code>## [1] &quot;Mon Nov  5 22:51:52 2018&quot;
-</code></pre>
-
-<pre><code class="r">sce = computeSumFactors(sce,cluster=clusters,min.mean=min_mean)
-date()
-</code></pre>
-
-<pre><code>## [1] &quot;Mon Nov  5 22:54:35 2018&quot;
-=======
-<pre><code>## [1] &quot;Tue Nov 13 12:47:49 2018&quot;
+<pre><code>## [1] &quot;Tue Nov 20 10:57:02 2018&quot;
 </code></pre>
 
 <pre><code class="r">sce = computeSumFactors(sce, cluster=clusters, min.mean=0.1)
 date()
 </code></pre>
 
-<pre><code>## [1] &quot;Tue Nov 13 12:53:07 2018&quot;
->>>>>>> october
+<pre><code>## [1] &quot;Tue Nov 20 11:01:44 2018&quot;
 </code></pre>
 
 <pre><code class="r">summary(sizeFactors(sce))
 </code></pre>
 
 <pre><code>##    Min. 1st Qu.  Median    Mean 3rd Qu.    Max. 
-<<<<<<< HEAD
-## 0.07065 0.41916 0.75382 1.00000 1.27281 9.43128
-=======
 ##  0.0927  0.4487  0.7515  1.0000  1.2610  9.7585
 </code></pre>
 
@@ -1898,77 +1247,47 @@ date()
 ## [13] 0.12144386 0.12297642 0.12451394 0.12485572 0.12649517 0.12703992
 ## [19] 0.13203308 0.13261365 0.13403081 0.13450431 0.13482033 0.13840999
 ## [25] 0.13862154 0.13927866 0.14119765 0.14164402 0.14274874 0.14293551
->>>>>>> october
 </code></pre>
 
 <pre><code class="r"># Remove cells with negative or very small size factors
 dim(sce)
 </code></pre>
 
-<<<<<<< HEAD
-<pre><code>## [1] 15666 13181
-=======
 <pre><code>## [1] 10607 13181
->>>>>>> october
 </code></pre>
 
 <pre><code class="r">sce = sce[,which(sizeFactors(sce) &gt; 0.01)]
 dim(sce)
 </code></pre>
 
-<<<<<<< HEAD
-<pre><code>## [1] 15666 13181
-=======
 <pre><code>## [1] 10607 13181
->>>>>>> october
 </code></pre>
 
 <pre><code class="r">par(mfrow=c(1,2), mar=c(5,4,2,1), bty=&quot;n&quot;)
 smoothScatter(sce$total_counts, sizeFactors(sce), log=&quot;xy&quot;, 
-<<<<<<< HEAD
-    xlab=&quot;total counts&quot;, ylab=&quot;size factors&quot;)
-=======
                 xlab=&quot;total counts&quot;, ylab=&quot;size factors&quot;)
->>>>>>> october
 plot(sce$total_counts, sizeFactors(sce), log=&quot;xy&quot;, 
     xlab=&quot;total counts&quot;, ylab=&quot;size factors&quot;, 
     cex=0.3, pch=20, col=rgb(0.1,0.2,0.7,0.3))
 abline(h=0.05)
 </code></pre>
 
-<<<<<<< HEAD
-<p><img src="figure/unnamed-chunk-8-1.png" alt="plot of chunk unnamed-chunk-8"></p>
-=======
-<p><img src="figure/unnamed-chunk-12-1.png" alt="plot of chunk unnamed-chunk-12"></p>
->>>>>>> october
+<p><img src="figure/normalize-1.png" alt="plot of chunk normalize"></p>
 
 <pre><code class="r">dim(sce)
 </code></pre>
 
-<<<<<<< HEAD
-<pre><code>## [1] 15666 13181
-=======
 <pre><code>## [1] 10607 13181
->>>>>>> october
 </code></pre>
 
 <pre><code class="r">sce = sce[,which(sizeFactors(sce) &gt; 0.05)]
 dim(sce)
 </code></pre>
 
-<<<<<<< HEAD
-<pre><code>## [1] 15666 13181
-</code></pre>
-
-<pre><code class="r">sce = normalize(sce)
-saveRDS(sce,&quot;post_norm.rds&quot;)
-# sce = readRDS(&quot;post_norm.rds&quot;)
-=======
 <pre><code>## [1] 10607 13181
 </code></pre>
 
 <pre><code class="r">sce = normalize(sce) 
->>>>>>> october
 </code></pre>
 
 <h2>Dimension Reduction</h2>
@@ -1976,11 +1295,7 @@ saveRDS(sce,&quot;post_norm.rds&quot;)
 <p>For dimension reduction, such as calculating PCA or performing TSNE, we should start by identifying a subset of genes with high level of biological signal relative to background (technical) noise. The <code>decomposeVar</code> function from R/cran is designed for this task. </p>
 
 <pre><code class="r">new_trend = makeTechTrend(x=sce)
-<<<<<<< HEAD
-fit = trendVar(sce,use.spikes=FALSE,loess.args=list(span=0.05))
-=======
 fit = trendVar(sce, use.spikes=FALSE, loess.args=list(span=0.05))
->>>>>>> october
 
 par(mfrow=c(1,1), mar=c(5,4,2,1), bty=&quot;n&quot;)
 plot(fit$mean, fit$var, pch=20, col=rgb(0.1,0.2,0.7,0.6), 
@@ -1988,52 +1303,26 @@ plot(fit$mean, fit$var, pch=20, col=rgb(0.1,0.2,0.7,0.6),
 curve(fit$trend(x), col=&quot;orange&quot;, lwd=2, add=TRUE)
 curve(new_trend(x), col=&quot;red&quot;, lwd=2, add=TRUE)
 legend(&quot;top&quot;, legend=c(&quot;Poisson noise&quot;, &quot;observed trend&quot;), 
-<<<<<<< HEAD
-    lty=1, lwd=2, col=c(&quot;red&quot;, &quot;orange&quot;), bty=&quot;n&quot;)
+        lty=1, lwd=2, col=c(&quot;red&quot;, &quot;orange&quot;), bty=&quot;n&quot;)
 </code></pre>
 
 <p><img src="figure/unnamed-chunk-9-1.png" alt="plot of chunk unnamed-chunk-9"></p>
 
-<pre><code class="r"># fit$trend = new_trend
-# obtain bio, FDR, pvalues for testing for HVGs (highly variable genes)
-dec = decomposeVar(fit=fit)
-=======
-        lty=1, lwd=2, col=c(&quot;red&quot;, &quot;orange&quot;), bty=&quot;n&quot;)
-</code></pre>
-
-<p><img src="figure/unnamed-chunk-13-1.png" alt="plot of chunk unnamed-chunk-13"></p>
-
 <pre><code class="r">fit$trend = new_trend
 # obtain bio, FDR, pvalues for testing for HVGs (highly variable genes)
 dec = decomposeVar(fit=fit) 
->>>>>>> october
 top_dec = dec[order(dec$bio, decreasing=TRUE),]
 plotExpression(sce, features=rownames(top_dec)[1:10])
 </code></pre>
 
-<<<<<<< HEAD
 <p><img src="figure/unnamed-chunk-9-2.png" alt="plot of chunk unnamed-chunk-9"></p>
-=======
-<p><img src="figure/unnamed-chunk-13-2.png" alt="plot of chunk unnamed-chunk-13"></p>
->>>>>>> october
 
 <p>When performing PCA, we can use all the genes or just those genes with high signal-to-noise ratio. TSNE analysis is usually based on the top PCs rather than the original gene expression data. We first perform PCA using all the genes and the function <code>denoisePCA</code> can automatically select the PCs based on modeling of technical noise.</p>
 
 <pre><code class="r">date()
 </code></pre>
 
-<<<<<<< HEAD
-<pre><code>## [1] &quot;Mon Nov  5 22:56:00 2018&quot;
-</code></pre>
-
-<pre><code class="r"># sce = denoisePCA(sce,technical=new_trend,approx=TRUE) # Using the Poisson trend fit
-sce = denoisePCA(sce,technical=fit$trend,approx=TRUE) # Using the observed trend fit
-date()
-</code></pre>
-
-<pre><code>## [1] &quot;Mon Nov  5 22:58:05 2018&quot;
-=======
-<pre><code>## [1] &quot;Tue Nov 13 12:54:46 2018&quot;
+<pre><code>## [1] &quot;Tue Nov 20 11:02:59 2018&quot;
 </code></pre>
 
 <pre><code class="r">sce = denoisePCA(sce,technical=new_trend,approx=TRUE) # Using the Poisson trend fit
@@ -2041,18 +1330,13 @@ date()
 date()
 </code></pre>
 
-<pre><code>## [1] &quot;Tue Nov 13 12:59:00 2018&quot;
->>>>>>> october
+<pre><code>## [1] &quot;Tue Nov 20 11:06:23 2018&quot;
 </code></pre>
 
 <pre><code class="r">dim(reducedDim(sce,&quot;PCA&quot;))
 </code></pre>
 
-<<<<<<< HEAD
-<pre><code>## [1] 13181    38
-=======
 <pre><code>## [1] 13181    94
->>>>>>> october
 </code></pre>
 
 <pre><code class="r">par(mfrow=c(1,1))
@@ -2062,31 +1346,11 @@ plot(log10(attr(reducedDim(sce), &quot;percentVar&quot;)), xlab=&quot;PC&quot;,
 abline(v=ncol(reducedDim(sce,&quot;PCA&quot;)), lty=2, col=&quot;red&quot;)
 </code></pre>
 
-<<<<<<< HEAD
-<p><img src="figure/unnamed-chunk-10-1.png" alt="plot of chunk unnamed-chunk-10"></p>
-=======
-<p><img src="figure/unnamed-chunk-14-1.png" alt="plot of chunk unnamed-chunk-14"></p>
->>>>>>> october
+<p><img src="figure/denoisepca-1.png" alt="plot of chunk denoisepca"></p>
 
 <pre><code class="r">df_redDim = smart_df(colData(sce)[,c(&quot;sample_name&quot;,&quot;part_cell_id&quot;,
     paste0(&quot;paper_TSNE&quot;,1:2),&quot;log10_total_features&quot;,&quot;paper_clusters&quot;,
     &quot;paper_clusters_name&quot;,&quot;paper_cell_type&quot;)],
-<<<<<<< HEAD
-    reducedDim(sce, &quot;PCA&quot;))
-rownames(df_redDim) = NULL
-
-all_vars = c(&quot;part_cell_id&quot;,&quot;log10_total_features&quot;,&quot;paper_clusters&quot;,
-    &quot;paper_clusters_name&quot;,&quot;paper_cell_type&quot;)
-for(one_var in all_vars){
-    print(ggplot_custom(DATA = df_redDim,
-        X = &quot;PC1&quot;,Y = &quot;PC2&quot;,COL = one_var))
-    print(ggplot_custom(DATA = df_redDim,
-        X = &quot;paper_TSNE1&quot;,Y = &quot;paper_TSNE2&quot;,COL = one_var))
-}
-</code></pre>
-
-<p><img src="figure/unnamed-chunk-10-2.png" alt="plot of chunk unnamed-chunk-10"><img src="figure/unnamed-chunk-10-3.png" alt="plot of chunk unnamed-chunk-10"><img src="figure/unnamed-chunk-10-4.png" alt="plot of chunk unnamed-chunk-10"><img src="figure/unnamed-chunk-10-5.png" alt="plot of chunk unnamed-chunk-10"><img src="figure/unnamed-chunk-10-6.png" alt="plot of chunk unnamed-chunk-10"><img src="figure/unnamed-chunk-10-7.png" alt="plot of chunk unnamed-chunk-10"><img src="figure/unnamed-chunk-10-8.png" alt="plot of chunk unnamed-chunk-10"><img src="figure/unnamed-chunk-10-9.png" alt="plot of chunk unnamed-chunk-10"><img src="figure/unnamed-chunk-10-10.png" alt="plot of chunk unnamed-chunk-10"><img src="figure/unnamed-chunk-10-11.png" alt="plot of chunk unnamed-chunk-10"></p>
-=======
     reducedDim(sce, &quot;PCA&quot;)[,1:2])
 rownames(df_redDim) = NULL
 
@@ -2096,91 +1360,51 @@ rownames(df_redDim) = NULL
 ggplot_custom(DATA = df_redDim,X = &quot;paper_TSNE1&quot;,Y = &quot;paper_TSNE2&quot;,COL = &quot;part_cell_id&quot;,TYPE = &quot;cat&quot;)
 </code></pre>
 
-<p><img src="figure/unnamed-chunk-14-2.png" alt="plot of chunk unnamed-chunk-14"></p>
+<p><img src="figure/denoisepca-2.png" alt="plot of chunk denoisepca"></p>
 
 <pre><code class="r">ggplot_custom(DATA = df_redDim,X = &quot;paper_TSNE1&quot;,Y = &quot;paper_TSNE2&quot;,COL = &quot;log10_total_features&quot;,TYPE = &quot;cont&quot;)
 </code></pre>
 
-<p><img src="figure/unnamed-chunk-14-3.png" alt="plot of chunk unnamed-chunk-14"></p>
+<p><img src="figure/denoisepca-3.png" alt="plot of chunk denoisepca"></p>
 
 <pre><code class="r">ggplot_custom(DATA = df_redDim,X = &quot;paper_TSNE1&quot;,Y = &quot;paper_TSNE2&quot;,COL = &quot;paper_clusters&quot;,TYPE = &quot;cat&quot;)
 </code></pre>
 
-<p><img src="figure/unnamed-chunk-14-4.png" alt="plot of chunk unnamed-chunk-14"></p>
+<p><img src="figure/denoisepca-4.png" alt="plot of chunk denoisepca"></p>
 
 <pre><code class="r">ggplot_custom(DATA = df_redDim,X = &quot;paper_TSNE1&quot;,Y = &quot;paper_TSNE2&quot;,COL = &quot;paper_clusters_name&quot;,TYPE = &quot;cat&quot;)
 </code></pre>
 
-<p><img src="figure/unnamed-chunk-14-5.png" alt="plot of chunk unnamed-chunk-14"></p>
+<p><img src="figure/denoisepca-5.png" alt="plot of chunk denoisepca"></p>
 
 <pre><code class="r">ggplot_custom(DATA = df_redDim,X = &quot;paper_TSNE1&quot;,Y = &quot;paper_TSNE2&quot;,COL = &quot;paper_cell_type&quot;,TYPE = &quot;cat&quot;)
 </code></pre>
 
-<p><img src="figure/unnamed-chunk-14-6.png" alt="plot of chunk unnamed-chunk-14"></p>
+<p><img src="figure/denoisepca-6.png" alt="plot of chunk denoisepca"></p>
 
-<pre><code class="r">ggplot_custom(DATA = df_redDim,X = &quot;PC1&quot;,Y = &quot;PC2&quot;,COL = &quot;part_cell_id&quot;,TYPE = &quot;cat&quot;)
+<pre><code class="r"># ggplot_custom(DATA = df_redDim,X = &quot;PC1&quot;,Y = &quot;PC2&quot;,COL = &quot;part_cell_id&quot;,TYPE = &quot;cat&quot;)
+# ggplot_custom(DATA = df_redDim,X = &quot;PC1&quot;,Y = &quot;PC2&quot;,COL = &quot;log10_total_features&quot;,TYPE = &quot;cont&quot;)
+# ggplot_custom(DATA = df_redDim,X = &quot;PC1&quot;,Y = &quot;PC2&quot;,COL = &quot;paper_clusters&quot;,TYPE = &quot;cat&quot;)
+# ggplot_custom(DATA = df_redDim,X = &quot;PC1&quot;,Y = &quot;PC2&quot;,COL = &quot;paper_clusters_name&quot;,TYPE = &quot;cat&quot;)
+# ggplot_custom(DATA = df_redDim,X = &quot;PC1&quot;,Y = &quot;PC2&quot;,COL = &quot;paper_cell_type&quot;,TYPE = &quot;cat&quot;)
+
+date()
 </code></pre>
 
-<p><img src="figure/unnamed-chunk-14-7.png" alt="plot of chunk unnamed-chunk-14"></p>
-
-<pre><code class="r">ggplot_custom(DATA = df_redDim,X = &quot;PC1&quot;,Y = &quot;PC2&quot;,COL = &quot;log10_total_features&quot;,TYPE = &quot;cont&quot;)
-</code></pre>
-
-<p><img src="figure/unnamed-chunk-14-8.png" alt="plot of chunk unnamed-chunk-14"></p>
-
-<pre><code class="r">ggplot_custom(DATA = df_redDim,X = &quot;PC1&quot;,Y = &quot;PC2&quot;,COL = &quot;paper_clusters&quot;,TYPE = &quot;cat&quot;)
-</code></pre>
-
-<p><img src="figure/unnamed-chunk-14-9.png" alt="plot of chunk unnamed-chunk-14"></p>
-
-<pre><code class="r">ggplot_custom(DATA = df_redDim,X = &quot;PC1&quot;,Y = &quot;PC2&quot;,COL = &quot;paper_clusters_name&quot;,TYPE = &quot;cat&quot;)
-</code></pre>
-
-<p><img src="figure/unnamed-chunk-14-10.png" alt="plot of chunk unnamed-chunk-14"></p>
-
-<pre><code class="r">ggplot_custom(DATA = df_redDim,X = &quot;PC1&quot;,Y = &quot;PC2&quot;,COL = &quot;paper_cell_type&quot;,TYPE = &quot;cat&quot;)
-</code></pre>
-
-<p><img src="figure/unnamed-chunk-14-11.png" alt="plot of chunk unnamed-chunk-14"></p>
->>>>>>> october
-
-<pre><code class="r">date()
-</code></pre>
-
-<<<<<<< HEAD
-<pre><code>## [1] &quot;Mon Nov  5 22:58:12 2018&quot;
-=======
-<pre><code>## [1] &quot;Tue Nov 13 12:59:15 2018&quot;
->>>>>>> october
+<pre><code>## [1] &quot;Tue Nov 20 11:06:29 2018&quot;
 </code></pre>
 
 <pre><code class="r">sce = runTSNE(sce,use_dimred=&quot;PCA&quot;,perplexity=30,rand_seed=100)
 date()
 </code></pre>
 
-<<<<<<< HEAD
-<pre><code>## [1] &quot;Mon Nov  5 23:01:19 2018&quot;
-=======
-<pre><code>## [1] &quot;Tue Nov 13 13:08:12 2018&quot;
->>>>>>> october
+<pre><code>## [1] &quot;Tue Nov 20 11:09:46 2018&quot;
 </code></pre>
 
 <pre><code class="r">tmp_df = smart_df(reducedDim(sce,&quot;TSNE&quot;))
 rownames(tmp_df) = NULL
 names(tmp_df) = paste0(&quot;my_TSNE&quot;,1:2)
 df_redDim = smart_df(df_redDim,tmp_df); rm(tmp_df)
-<<<<<<< HEAD
-
-for(one_var in all_vars){
-    print(ggplot_custom(DATA = df_redDim,
-        X = &quot;my_TSNE1&quot;,Y = &quot;my_TSNE2&quot;,COL = one_var))
-}
-</code></pre>
-
-<p><img src="figure/unnamed-chunk-10-12.png" alt="plot of chunk unnamed-chunk-10"><img src="figure/unnamed-chunk-10-13.png" alt="plot of chunk unnamed-chunk-10"><img src="figure/unnamed-chunk-10-14.png" alt="plot of chunk unnamed-chunk-10"><img src="figure/unnamed-chunk-10-15.png" alt="plot of chunk unnamed-chunk-10"><img src="figure/unnamed-chunk-10-16.png" alt="plot of chunk unnamed-chunk-10"></p>
-
-<pre><code class="r">saveRDS(list(sce=sce,dec=dec,df_redDim=df_redDim),&quot;post_redDim_all_genes.rds&quot;)
-=======
 df_redDim[1:5,]
 </code></pre>
 
@@ -2196,51 +1420,46 @@ df_redDim[1:5,]
 ## 3             3.458638              3               exCA1           exCA1
 ## 4             3.419129              3               exCA1           exCA1
 ## 5             3.345178              3               exCA1           exCA1
-##        PC1       PC2 my_TSNE1  my_TSNE2
-## 1 3.326051 -1.240640 20.36490 11.251871
-## 2 3.747268 -1.075909 20.71595  8.746333
-## 3 4.543743 -1.682305 22.36346  6.913302
-## 4 4.255275 -1.072497 22.65838  7.207592
-## 5 3.136629 -1.083864 20.61195  4.193879
+##        PC1       PC2   my_TSNE1  my_TSNE2
+## 1 3.326051 -1.240640 -7.3743153 -23.11479
+## 2 3.747268 -1.075909 -4.5854989 -22.91621
+## 3 4.543743 -1.682305 -2.2475151 -24.15181
+## 4 4.255275 -1.072497 -2.4908046 -24.51547
+## 5 3.136629 -1.083864 -0.1051864 -21.48583
 </code></pre>
 
 <pre><code class="r">ggplot_custom(DATA = df_redDim,X = &quot;my_TSNE1&quot;,Y = &quot;my_TSNE2&quot;,COL = &quot;part_cell_id&quot;,TYPE = &quot;cat&quot;)
 </code></pre>
 
-<p><img src="figure/unnamed-chunk-14-12.png" alt="plot of chunk unnamed-chunk-14"></p>
+<p><img src="figure/denoisepca-7.png" alt="plot of chunk denoisepca"></p>
 
 <pre><code class="r">ggplot_custom(DATA = df_redDim,X = &quot;my_TSNE1&quot;,Y = &quot;my_TSNE2&quot;,COL = &quot;log10_total_features&quot;,TYPE = &quot;cont&quot;)
 </code></pre>
 
-<p><img src="figure/unnamed-chunk-14-13.png" alt="plot of chunk unnamed-chunk-14"></p>
+<p><img src="figure/denoisepca-8.png" alt="plot of chunk denoisepca"></p>
 
 <pre><code class="r">ggplot_custom(DATA = df_redDim,X = &quot;my_TSNE1&quot;,Y = &quot;my_TSNE2&quot;,COL = &quot;paper_clusters&quot;,TYPE = &quot;cat&quot;)
 </code></pre>
 
-<p><img src="figure/unnamed-chunk-14-14.png" alt="plot of chunk unnamed-chunk-14"></p>
+<p><img src="figure/denoisepca-9.png" alt="plot of chunk denoisepca"></p>
 
 <pre><code class="r">ggplot_custom(DATA = df_redDim,X = &quot;my_TSNE1&quot;,Y = &quot;my_TSNE2&quot;,COL = &quot;paper_clusters_name&quot;,TYPE = &quot;cat&quot;)
 </code></pre>
 
-<p><img src="figure/unnamed-chunk-14-15.png" alt="plot of chunk unnamed-chunk-14"></p>
+<p><img src="figure/denoisepca-10.png" alt="plot of chunk denoisepca"></p>
 
 <pre><code class="r">ggplot_custom(DATA = df_redDim,X = &quot;my_TSNE1&quot;,Y = &quot;my_TSNE2&quot;,COL = &quot;paper_cell_type&quot;,TYPE = &quot;cat&quot;)
 </code></pre>
 
-<p><img src="figure/unnamed-chunk-14-16.png" alt="plot of chunk unnamed-chunk-14"></p>
+<p><img src="figure/denoisepca-11.png" alt="plot of chunk denoisepca"></p>
 
 <pre><code class="r">saveRDS(list(sce = sce,dec = dec,df_redDim = df_redDim),
-        file.path(data_dir,&quot;post_redDim_all_genes.rds&quot;))
->>>>>>> october
+        file.path(work_dir,&quot;post_redDim_all_genes.rds&quot;))
 # Note that this contains the results from PCA and TSNE with all genes
 # rds = readRDS(&quot;post_redDim_all_genes.rds&quot;); sce = rds$sce; dec = rds$dec; df_redDim = rds$df_redDim; rm(rds)
 </code></pre>
 
-<<<<<<< HEAD
-<p>Next we only select around top 1000 genes for the PCA and use the top 50 PCs for TSNE projection. </p>
-=======
 <p>We select around top 1000 genes for the PCA and use the top 50 PCs for TSNE projection. </p>
->>>>>>> october
 
 <pre><code class="r">library(svd)
 library(Rtsne)
@@ -2248,78 +1467,32 @@ library(Rtsne)
 summary(dec$bio)
 </code></pre>
 
-<<<<<<< HEAD
-<pre><code>##       Min.    1st Qu.     Median       Mean    3rd Qu.       Max. 
-## -0.4916337 -0.0026240 -0.0001725  0.0006085  0.0020533  1.5832092
-</code></pre>
-
-<pre><code class="r">summary(dec$FDR)
-</code></pre>
-
-<pre><code>##    Min. 1st Qu.  Median    Mean 3rd Qu.    Max. 
-##  0.0000  0.0000  1.0000  0.5654  1.0000  1.0000
-=======
 <pre><code>##      Min.   1st Qu.    Median      Mean   3rd Qu.      Max. 
 ## -0.022095  0.000137  0.003208  0.009682  0.008864  5.261563
->>>>>>> october
 </code></pre>
 
 <pre><code class="r">dec1 = dec
 dec1$bio[which(dec$bio &lt; 1e-5)] = 1e-5
 dec1$FDR[which(dec$FDR &lt; 1e-100)] = 1e-100
 
-<<<<<<< HEAD
-par(mfrow=c(2,2))
-smart_hist(log10(dec1$bio), breaks=40, main=&quot;&quot;)
-smart_hist(log10(dec1$FDR), breaks=40, main=&quot;&quot;)
-smoothScatter(log10(dec1$bio),log10(dec1$FDR),
-    xlab=&quot;log10(bio)&quot;,ylab=&quot;log10(FDR)&quot;)
-
-bio_thres = 1e-2 # 3e-2
-FDR_thres = 1e-10 # 1e-10
-summary(dec$FDR[dec$bio &gt; 0.01])
-</code></pre>
-
-<pre><code>##      Min.   1st Qu.    Median      Mean   3rd Qu.      Max. 
-## 0.0000000 0.0000000 0.0000000 0.0006628 0.0000000 0.2153132
-=======
 par(mfrow=c(1,2))
 hist(log10(dec1$bio),breaks=100,main=&quot;&quot;)
 hist(log10(dec1$FDR),breaks=100,main=&quot;&quot;)
 </code></pre>
 
-<p><img src="figure/unnamed-chunk-15-1.png" alt="plot of chunk unnamed-chunk-15"></p>
+<p><img src="figure/select_hvg-1.png" alt="plot of chunk select_hvg"></p>
 
 <pre><code class="r">summary(dec$FDR[dec$bio &gt; 0.01])
 </code></pre>
 
 <pre><code>##      Min.   1st Qu.    Median      Mean   3rd Qu.      Max. 
 ## 0.000e+00 0.000e+00 0.000e+00 1.356e-05 0.000e+00 2.618e-02
->>>>>>> october
 </code></pre>
 
 <pre><code class="r">summary(dec$FDR[dec$bio &gt; 0.03])
 </code></pre>
 
 <pre><code>##      Min.   1st Qu.    Median      Mean   3rd Qu.      Max. 
-<<<<<<< HEAD
-## 0.000e+00 0.000e+00 0.000e+00 2.651e-06 0.000e+00 5.794e-04
-</code></pre>
-
-<pre><code class="r">table(dec$FDR &lt; FDR_thres, dec$bio &gt; bio_thres)
-</code></pre>
-
-<pre><code>##        
-##         FALSE  TRUE
-##   FALSE 11377   108
-##   TRUE   3164  1017
-</code></pre>
-
-<pre><code class="r"># Thresholds tuned to get around 1000 genes
-
-# Subsetting genes based on FDR and biological residual thresholds
-w2kp = which(dec$FDR &lt; FDR_thres &amp; dec$bio &gt; bio_thres)
-=======
 ## 0.000e+00 0.000e+00 0.000e+00 5.310e-10 0.000e+00 3.248e-07
 </code></pre>
 
@@ -2352,24 +1525,11 @@ w2kp = which(dec$FDR &lt; FDR_thres &amp; dec$bio &gt; bio_thres)
 
 <pre><code class="r"># Subsetting genes based on FDR and biological residual thresholds
 w2kp = which(dec$FDR &lt; 1e-10 &amp; dec$bio &gt; 0.02)
->>>>>>> october
 sce_hvg = sce[w2kp,]
 sce_hvg
 </code></pre>
 
 <pre><code>## class: SingleCellExperiment 
-<<<<<<< HEAD
-## dim: 1017 13181 
-## metadata(1): log.exprs.offset
-## assays(2): counts logcounts
-## rownames(1017): AATK AC004158.3 ... ZSWIM6 ZNF704
-## rowData names(20): hgnc_symbol gene ... n_cells_counts
-##   pct_dropout_counts
-## colnames(13181): hHP1_AACACTATCTAC hHP1_CTACGCATCCAT ...
-##   PFC.CD_CACGCTCCCCTA PFC.CD_CGTCATTAGCAG
-## colData names(67): sample_name paper_clusters ...
-##   pct_counts_top_100_features_Ri PassQC
-=======
 ## dim: 1086 13181 
 ## metadata(1): log.exprs.offset
 ## assays(2): counts logcounts
@@ -2377,10 +1537,9 @@ sce_hvg
 ## rowData names(20): hgnc_symbol external_gene_name ...
 ##   n_cells_counts pct_dropout_counts
 ## colnames(13181): hHP1_AACACTATCTAC hHP1_CTACGCATCCAT ...
-##   PFC.CD_CACGCTCCCCTA PFC.CD_CGTCATTAGCAG
+##   PFC-CD_CACGCTCCCCTA PFC-CD_CGTCATTAGCAG
 ## colData names(66): sample_name part_cell_id ...
 ##   pct_counts_top_50_features_Ri pct_counts_top_100_features_Ri
->>>>>>> october
 ## reducedDimNames(2): PCA TSNE
 ## spikeNames(0):
 </code></pre>
@@ -2391,88 +1550,33 @@ edat = scale(edat)
 dim(edat)
 </code></pre>
 
-<<<<<<< HEAD
-<pre><code>## [1] 13181  1017
-=======
 <pre><code>## [1] 13181  1086
->>>>>>> october
 </code></pre>
 
 <pre><code class="r">edat[1:2,1:3]
 </code></pre>
 
-<<<<<<< HEAD
-<pre><code>##                         AATK AC004158.3      ABCA8
-## hHP1_AACACTATCTAC -0.3261509 -0.1782537 -0.2096049
-## hHP1_CTACGCATCCAT  0.1916862 -0.1782537 -0.2096049
-=======
 <pre><code>##                         AATK AC004158.3     ABLIM1
 ## hHP1_AACACTATCTAC -0.3259988 -0.1787744 -0.3700985
 ## hHP1_CTACGCATCCAT  0.1885733 -0.1787744 -0.3700985
->>>>>>> october
 </code></pre>
 
 <pre><code class="r"># Perform SVD on sce_hvg
 date()
 </code></pre>
 
-<<<<<<< HEAD
-<pre><code>## [1] &quot;Mon Nov  5 23:02:02 2018&quot;
-=======
-<pre><code>## [1] &quot;Tue Nov 13 13:09:18 2018&quot;
->>>>>>> october
+<pre><code>## [1] &quot;Tue Nov 20 11:10:40 2018&quot;
 </code></pre>
 
 <pre><code class="r">ppk = propack.svd(edat,neig=50)
 date()
 </code></pre>
 
-<<<<<<< HEAD
-<pre><code>## [1] &quot;Mon Nov  5 23:02:16 2018&quot;
-=======
-<pre><code>## [1] &quot;Tue Nov 13 13:09:43 2018&quot;
->>>>>>> october
+<pre><code>## [1] &quot;Tue Nov 20 11:11:02 2018&quot;
 </code></pre>
 
 <pre><code class="r">pca = t(ppk$d*t(ppk$u)) # calculates pc scores aka principal components
 
-<<<<<<< HEAD
-df_hvg = smart_df(pca)
-rownames(df_hvg) = NULL
-names(df_hvg) = paste0(&quot;HVG_PC&quot;,seq(ncol(df_hvg)))
-
-set.seed(100)
-date()
-</code></pre>
-
-<pre><code>## [1] &quot;Mon Nov  5 23:02:16 2018&quot;
-</code></pre>
-
-<pre><code class="r">tsne = Rtsne(pca,pca = FALSE)
-date()
-</code></pre>
-
-<pre><code>## [1] &quot;Mon Nov  5 23:05:30 2018&quot;
-</code></pre>
-
-<pre><code class="r">df_tsne = smart_df(tsne$Y)
-names(df_tsne) = paste0(&quot;HVG_TSNE&quot;,seq(ncol(df_tsne)))
-
-df_hvg = smart_df(colData(sce_hvg)[,c(&quot;sample_name&quot;,&quot;part_cell_id&quot;,
-    paste0(&quot;paper_TSNE&quot;,1:2),&quot;log10_total_features&quot;,&quot;paper_clusters&quot;,
-    &quot;paper_clusters_name&quot;,&quot;paper_cell_type&quot;)],df_hvg,df_tsne)
-
-all_vars = c(&quot;part_cell_id&quot;,&quot;log10_total_features&quot;,&quot;paper_clusters&quot;,
-    &quot;paper_clusters_name&quot;,&quot;paper_cell_type&quot;)
-for(one_var in all_vars){
-    print(ggplot_custom(DATA = df_hvg,
-        X = &quot;HVG_PC1&quot;,Y = &quot;HVG_PC2&quot;,COL = one_var))
-    print(ggplot_custom(DATA = df_hvg,
-        X = &quot;HVG_TSNE1&quot;,Y = &quot;HVG_TSNE2&quot;,COL = one_var))
-}
-
-reducedDims(sce_hvg) = SimpleList(PCA=pca, TSNE=tsne$Y)
-=======
 tmp_df = smart_df(pca[,1:2])
 names(tmp_df) = paste0(&quot;HVG_PC&quot;,seq(ncol(tmp_df)))
 
@@ -2481,43 +1585,24 @@ df_hvg = smart_df(colData(sce)[,c(&quot;sample_name&quot;,&quot;part_cell_id&quo
     &quot;paper_clusters_name&quot;,&quot;paper_cell_type&quot;)],tmp_df)
 rownames(df_hvg) = NULL
 
-ggplot_custom(DATA = df_hvg,X = &quot;HVG_PC1&quot;,Y = &quot;HVG_PC2&quot;,COL = &quot;part_cell_id&quot;,TYPE = &quot;cat&quot;)
-</code></pre>
+# ggplot_custom(DATA = df_hvg,X = &quot;HVG_PC1&quot;,Y = &quot;HVG_PC2&quot;,COL = &quot;part_cell_id&quot;,TYPE = &quot;cat&quot;)
+# ggplot_custom(DATA = df_hvg,X = &quot;HVG_PC1&quot;,Y = &quot;HVG_PC2&quot;,COL = &quot;log10_total_features&quot;,TYPE = &quot;cont&quot;)
+# ggplot_custom(DATA = df_hvg,X = &quot;HVG_PC1&quot;,Y = &quot;HVG_PC2&quot;,COL = &quot;paper_clusters&quot;,TYPE = &quot;cat&quot;)
+# ggplot_custom(DATA = df_hvg,X = &quot;HVG_PC1&quot;,Y = &quot;HVG_PC2&quot;,COL = &quot;paper_clusters_name&quot;,TYPE = &quot;cat&quot;)
+# ggplot_custom(DATA = df_hvg,X = &quot;HVG_PC1&quot;,Y = &quot;HVG_PC2&quot;,COL = &quot;paper_cell_type&quot;,TYPE = &quot;cat&quot;)
 
-<p><img src="figure/unnamed-chunk-15-2.png" alt="plot of chunk unnamed-chunk-15"></p>
-
-<pre><code class="r">ggplot_custom(DATA = df_hvg,X = &quot;HVG_PC1&quot;,Y = &quot;HVG_PC2&quot;,COL = &quot;log10_total_features&quot;,TYPE = &quot;cont&quot;)
-</code></pre>
-
-<p><img src="figure/unnamed-chunk-15-3.png" alt="plot of chunk unnamed-chunk-15"></p>
-
-<pre><code class="r">ggplot_custom(DATA = df_hvg,X = &quot;HVG_PC1&quot;,Y = &quot;HVG_PC2&quot;,COL = &quot;paper_clusters&quot;,TYPE = &quot;cat&quot;)
-</code></pre>
-
-<p><img src="figure/unnamed-chunk-15-4.png" alt="plot of chunk unnamed-chunk-15"></p>
-
-<pre><code class="r">ggplot_custom(DATA = df_hvg,X = &quot;HVG_PC1&quot;,Y = &quot;HVG_PC2&quot;,COL = &quot;paper_clusters_name&quot;,TYPE = &quot;cat&quot;)
-</code></pre>
-
-<p><img src="figure/unnamed-chunk-15-5.png" alt="plot of chunk unnamed-chunk-15"></p>
-
-<pre><code class="r">ggplot_custom(DATA = df_hvg,X = &quot;HVG_PC1&quot;,Y = &quot;HVG_PC2&quot;,COL = &quot;paper_cell_type&quot;,TYPE = &quot;cat&quot;)
-</code></pre>
-
-<p><img src="figure/unnamed-chunk-15-6.png" alt="plot of chunk unnamed-chunk-15"></p>
-
-<pre><code class="r">set.seed(100)
+set.seed(100)
 date()
 </code></pre>
 
-<pre><code>## [1] &quot;Tue Nov 13 13:09:50 2018&quot;
+<pre><code>## [1] &quot;Tue Nov 20 11:11:02 2018&quot;
 </code></pre>
 
 <pre><code class="r">tsne = Rtsne(pca, pca = FALSE)
 date()
 </code></pre>
 
-<pre><code>## [1] &quot;Tue Nov 13 13:18:13 2018&quot;
+<pre><code>## [1] &quot;Tue Nov 20 11:13:51 2018&quot;
 </code></pre>
 
 <pre><code class="r">tmp_df = smart_df(tsne$Y)
@@ -2527,46 +1612,33 @@ df_hvg = smart_df(df_hvg,tmp_df)
 ggplot_custom(DATA = df_hvg,X = &quot;HVG_TSNE1&quot;,Y = &quot;HVG_TSNE2&quot;,COL = &quot;part_cell_id&quot;,TYPE = &quot;cat&quot;)
 </code></pre>
 
-<p><img src="figure/unnamed-chunk-15-7.png" alt="plot of chunk unnamed-chunk-15"></p>
+<p><img src="figure/select_hvg-2.png" alt="plot of chunk select_hvg"></p>
 
 <pre><code class="r">ggplot_custom(DATA = df_hvg,X = &quot;HVG_TSNE1&quot;,Y = &quot;HVG_TSNE2&quot;,COL = &quot;log10_total_features&quot;,TYPE = &quot;cont&quot;)
 </code></pre>
 
-<p><img src="figure/unnamed-chunk-15-8.png" alt="plot of chunk unnamed-chunk-15"></p>
+<p><img src="figure/select_hvg-3.png" alt="plot of chunk select_hvg"></p>
 
 <pre><code class="r">ggplot_custom(DATA = df_hvg,X = &quot;HVG_TSNE1&quot;,Y = &quot;HVG_TSNE2&quot;,COL = &quot;paper_clusters&quot;,TYPE = &quot;cat&quot;)
 </code></pre>
 
-<p><img src="figure/unnamed-chunk-15-9.png" alt="plot of chunk unnamed-chunk-15"></p>
+<p><img src="figure/select_hvg-4.png" alt="plot of chunk select_hvg"></p>
 
 <pre><code class="r">ggplot_custom(DATA = df_hvg,X = &quot;HVG_TSNE1&quot;,Y = &quot;HVG_TSNE2&quot;,COL = &quot;paper_clusters_name&quot;,TYPE = &quot;cat&quot;)
 </code></pre>
 
-<p><img src="figure/unnamed-chunk-15-10.png" alt="plot of chunk unnamed-chunk-15"></p>
+<p><img src="figure/select_hvg-5.png" alt="plot of chunk select_hvg"></p>
 
 <pre><code class="r">ggplot_custom(DATA = df_hvg,X = &quot;HVG_TSNE1&quot;,Y = &quot;HVG_TSNE2&quot;,COL = &quot;paper_cell_type&quot;,TYPE = &quot;cat&quot;)
 </code></pre>
 
-<p><img src="figure/unnamed-chunk-15-11.png" alt="plot of chunk unnamed-chunk-15"></p>
+<p><img src="figure/select_hvg-6.png" alt="plot of chunk select_hvg"></p>
 
 <pre><code class="r">reducedDims(sce_hvg) = SimpleList(PCA=pca, TSNE=tsne$Y)
->>>>>>> october
 sce_hvg
 </code></pre>
 
 <pre><code>## class: SingleCellExperiment 
-<<<<<<< HEAD
-## dim: 1017 13181 
-## metadata(1): log.exprs.offset
-## assays(2): counts logcounts
-## rownames(1017): AATK AC004158.3 ... ZSWIM6 ZNF704
-## rowData names(20): hgnc_symbol gene ... n_cells_counts
-##   pct_dropout_counts
-## colnames(13181): hHP1_AACACTATCTAC hHP1_CTACGCATCCAT ...
-##   PFC.CD_CACGCTCCCCTA PFC.CD_CGTCATTAGCAG
-## colData names(67): sample_name paper_clusters ...
-##   pct_counts_top_100_features_Ri PassQC
-=======
 ## dim: 1086 13181 
 ## metadata(1): log.exprs.offset
 ## assays(2): counts logcounts
@@ -2574,269 +1646,520 @@ sce_hvg
 ## rowData names(20): hgnc_symbol external_gene_name ...
 ##   n_cells_counts pct_dropout_counts
 ## colnames(13181): hHP1_AACACTATCTAC hHP1_CTACGCATCCAT ...
-##   PFC.CD_CACGCTCCCCTA PFC.CD_CGTCATTAGCAG
+##   PFC-CD_CACGCTCCCCTA PFC-CD_CGTCATTAGCAG
 ## colData names(66): sample_name part_cell_id ...
 ##   pct_counts_top_50_features_Ri pct_counts_top_100_features_Ri
->>>>>>> october
 ## reducedDimNames(2): PCA TSNE
 ## spikeNames(0):
 </code></pre>
 
-<<<<<<< HEAD
-<pre><code class="r">saveRDS(list(sce_hvg=sce_hvg,df_hvg=df_hvg),&quot;post_redDim_HVG.rds&quot;)
+<pre><code class="r">saveRDS(sce_hvg,file.path(work_dir,&quot;post_HVG.rds&quot;))
 </code></pre>
 
-<p><img src="figure/unnamed-chunk-11-1.png" alt="plot of chunk unnamed-chunk-11"></p>
-
-=======
-<pre><code class="r">saveRDS(sce_hvg,file.path(data_dir,&quot;post_HVG.rds&quot;))
-</code></pre>
-
->>>>>>> october
 <h2>Clustering</h2>
 
 <h3>Kmeans</h3>
 
-<<<<<<< HEAD
-<p>Next we cluster the cells using a simple kmeans method on the top 50 PCs.</p>
+<p>Next we cluster the cells using a simple kmeans method on the top 50 PCs. We set the number of clusters to be 5 thru 15, to include the 12 cell types reported by [@habib2017massively]. </p>
 
-<pre><code class="r">all_num_clust = c(5:10,15:20,25:30)
+<pre><code class="r">all_num_clust = c(5:15)
 df_hvg = df_hvg[,!grepl(&quot;^KM_&quot;,names(df_hvg))]
+
 for(num_clust in all_num_clust){
     cat(paste0(&quot;KM with &quot;,num_clust,&quot; clusters.\n&quot;))
-    kmeans_out = kmeans(reducedDim(sce_hvg,&quot;PCA&quot;),centers = num_clust,
-        iter.max = 5e2,algorithm = &quot;MacQueen&quot;)
-    df_hvg = smart_df(df_hvg,VV = as.factor(kmeans_out$cluster))
-    names(df_hvg)[ncol(df_hvg)] = paste0(&quot;KM_&quot;,num_clust)
-    print(ggplot_custom(DATA = df_hvg,X = &quot;HVG_TSNE1&quot;,
-        Y = &quot;HVG_TSNE2&quot;,COL = paste0(&quot;KM_&quot;,num_clust)))
+    kmeans_out = kmeans(reducedDim(sce_hvg, &quot;PCA&quot;), 
+                    centers = num_clust, 
+                    iter.max = 1e8,nstart = 2500,
+                    algorithm = &quot;MacQueen&quot;)
+    km_label = paste0(&quot;KM_&quot;,num_clust)
+    df_hvg[[km_label]] = as.factor(kmeans_out$cluster)
+
+    print(smart_table(df_hvg$paper_cell_type,kmeans_out$cluster))
+    print(smart_table(df_hvg$paper_clusters_name,kmeans_out$cluster))
+    print(ggplot_custom(DATA = df_hvg,X = &quot;HVG_TSNE1&quot;,Y = &quot;HVG_TSNE2&quot;, 
+                        COL = km_label,TYPE = &quot;cat&quot;))
+
 }
 </code></pre>
 
 <pre><code>## KM with 5 clusters.
+##        
+##            1    2    3    4    5
+##   ASC   1572   25    3   59    0
+##   END      0    1    1  118    0
+##   exCA1    5    4    0  380    1
+##   exCA3    1    3    0  733    0
+##   exDG     0    3    0 1418    0
+##   exPFC   52   61    6 3218    4
+##   GABA     4    3    2 1636    1
+##   MG       9   23    2   36  211
+##   NSC      5    0    0    3  153
+##   ODC      6 2576    6   49    2
+##   OPC      2    5  542   29    0
+##   &lt;NA&gt;    11   17    0  109   71
+##         
+##             1    2    3    4    5
+##   ASC1   1023   14    2   39    0
+##   ASC2    549   11    1   20    0
+##   END       0    1    1  118    0
+##   exCA1     5    4    0  380    1
+##   exCA3     1    3    0  733    0
+##   exDG      0    3    0 1418    0
+##   exPFC1   37   36    6 2967    2
+##   exPFC2   15   25    0  251    2
+##   GABA1     1    3    1  868    1
+##   GABA2     3    0    1  768    0
+##   MG        9   23    2   36  211
+##   NSC       5    0    0    3  153
+##   ODC1      5 1445    4   28    2
+##   ODC2      1 1131    2   21    0
+##   OPC       2    5  542   29    0
+##   &lt;NA&gt;     11   17    0  109   71
 </code></pre>
 
-<p><img src="figure/unnamed-chunk-12-1.png" alt="plot of chunk unnamed-chunk-12"></p>
+<p><img src="figure/kmeans-1.png" alt="plot of chunk kmeans"></p>
 
 <pre><code>## KM with 6 clusters.
+##        
+##            1    2    3    4    5    6
+##   ASC      0    3   58   25 1573    0
+##   END      0    1  118    1    0    0
+##   exCA1    0    0  380    4    5    1
+##   exCA3    0    0  733    3    1    0
+##   exDG     0    0 1418    3    0    0
+##   exPFC    0    6 3220   61   52    2
+##   GABA     0    2 1636    3    4    1
+##   MG       0    1   30   13    7  230
+##   NSC    144    0    8    0    9    0
+##   ODC      0    6   49 2575    6    3
+##   OPC      0  540   29    7    2    0
+##   &lt;NA&gt;     1    0  112   17   12   66
+##         
+##             1    2    3    4    5    6
+##   ASC1      0    2   39   14 1023    0
+##   ASC2      0    1   19   11  550    0
+##   END       0    1  118    1    0    0
+##   exCA1     0    0  380    4    5    1
+##   exCA3     0    0  733    3    1    0
+##   exDG      0    0 1418    3    0    0
+##   exPFC1    0    6 2969   36   37    0
+##   exPFC2    0    0  251   25   15    2
+##   GABA1     0    1  868    3    1    1
+##   GABA2     0    1  768    0    3    0
+##   MG        0    1   30   13    7  230
+##   NSC     144    0    8    0    9    0
+##   ODC1      0    4   28 1444    5    3
+##   ODC2      0    2   21 1131    1    0
+##   OPC       0  540   29    7    2    0
+##   &lt;NA&gt;      1    0  112   17   12   66
 </code></pre>
 
-<p><img src="figure/unnamed-chunk-12-2.png" alt="plot of chunk unnamed-chunk-12"></p>
+<p><img src="figure/kmeans-2.png" alt="plot of chunk kmeans"></p>
 
 <pre><code>## KM with 7 clusters.
+##        
+##            1    2    3    4    5    6    7
+##   ASC      3   51    0 1573   25    7    0
+##   END      1  115    0    0    1    3    0
+##   exCA1    0  374    0    6    4    5    1
+##   exCA3    0  728    0    1    3    5    0
+##   exDG     0 1417    0    0    3    1    0
+##   exPFC    6 3167    0   52   61   53    2
+##   GABA     0  293    0    3    3 1346    1
+##   MG       1   30    0    7   13    0  230
+##   NSC      0    7  144   10    0    0    0
+##   ODC      6   42    0    6 2574    8    3
+##   OPC    541   25    0    2    5    5    0
+##   &lt;NA&gt;     0   59    1   12   17   53   66
+##         
+##             1    2    3    4    5    6    7
+##   ASC1      2   34    0 1023   14    5    0
+##   ASC2      1   17    0  550   11    2    0
+##   END       1  115    0    0    1    3    0
+##   exCA1     0  374    0    6    4    5    1
+##   exCA3     0  728    0    1    3    5    0
+##   exDG      0 1417    0    0    3    1    0
+##   exPFC1    6 2919    0   37   36   50    0
+##   exPFC2    0  248    0   15   25    3    2
+##   GABA1     0  277    0    1    3  592    1
+##   GABA2     0   16    0    2    0  754    0
+##   MG        1   30    0    7   13    0  230
+##   NSC       0    7  144   10    0    0    0
+##   ODC1      4   25    0    5 1444    3    3
+##   ODC2      2   17    0    1 1130    5    0
+##   OPC     541   25    0    2    5    5    0
+##   &lt;NA&gt;      0   59    1   12   17   53   66
 </code></pre>
 
-<p><img src="figure/unnamed-chunk-12-3.png" alt="plot of chunk unnamed-chunk-12"></p>
+<p><img src="figure/kmeans-3.png" alt="plot of chunk kmeans"></p>
 
 <pre><code>## KM with 8 clusters.
+##        
+##            1    2    3    4    5    6    7    8
+##   ASC      0    2 1572    3   42   15   25    0
+##   END      0    3    0    1    2  113    1    0
+##   exCA1    0    5    6    0   75  299    4    1
+##   exCA3    0    4    1    0  201  528    3    0
+##   exDG     0    0    0    0   16 1402    3    0
+##   exPFC    0   29   52    5 3137   57   59    2
+##   GABA     0 1172    3    0  452   15    3    1
+##   MG       0    0    7    1   20   11   13  229
+##   NSC    144    0    8    0    0    9    0    0
+##   ODC      0    7    6    6   28   14 2575    3
+##   OPC      0    3    2  541   23    4    5    0
+##   &lt;NA&gt;     1   54   12    0   16   42   17   66
+##         
+##             1    2    3    4    5    6    7    8
+##   ASC1      0    2 1024    2   27    9   14    0
+##   ASC2      0    0  548    1   15    6   11    0
+##   END       0    3    0    1    2  113    1    0
+##   exCA1     0    5    6    0   75  299    4    1
+##   exCA3     0    4    1    0  201  528    3    0
+##   exDG      0    0    0    0   16 1402    3    0
+##   exPFC1    0   26   37    5 2891   54   35    0
+##   exPFC2    0    3   15    0  246    3   24    2
+##   GABA1     0  432    1    0  425   12    3    1
+##   GABA2     0  740    2    0   27    3    0    0
+##   MG        0    0    7    1   20   11   13  229
+##   NSC     144    0    8    0    0    9    0    0
+##   ODC1      0    2    5    4   18    7 1445    3
+##   ODC2      0    5    1    2   10    7 1130    0
+##   OPC       0    3    2  541   23    4    5    0
+##   &lt;NA&gt;      1   54   12    0   16   42   17   66
 </code></pre>
 
-<p><img src="figure/unnamed-chunk-12-4.png" alt="plot of chunk unnamed-chunk-12"></p>
+<p><img src="figure/kmeans-4.png" alt="plot of chunk kmeans"></p>
 
 <pre><code>## KM with 9 clusters.
+##        
+##            1    2    3    4    5    6    7    8    9
+##   ASC     23    0   15   42    4 1570    0    3    2
+##   END      1    0  113    2    0    0    0    1    3
+##   exCA1    6    1  298   75    0    5    0    0    5
+##   exCA3    3    0  528  201    0    1    0    0    4
+##   exDG     3    0 1402   16    0    0    0    0    0
+##   exPFC   59    2   56 3135    6   48    0    5   30
+##   GABA     3    1   15  454    0    3    0    0 1170
+##   MG      13  228   11   20    1    7    0    1    0
+##   NSC      0    0    9    0    0    8  144    0    0
+##   ODC   1682    3   11   26  900    5    0    6    6
+##   OPC      6    0    4   23    5    2    0  535    3
+##   &lt;NA&gt;    18   66   41   16    0   12    1    0   54
+##         
+##             1    2    3    4    5    6    7    8    9
+##   ASC1     13    0    9   27    2 1023    0    2    2
+##   ASC2     10    0    6   15    2  547    0    1    0
+##   END       1    0  113    2    0    0    0    1    3
+##   exCA1     6    1  298   75    0    5    0    0    5
+##   exCA3     3    0  528  201    0    1    0    0    4
+##   exDG      3    0 1402   16    0    0    0    0    0
+##   exPFC1   35    0   54 2889    3   35    0    5   27
+##   exPFC2   24    2    2  246    3   13    0    0    3
+##   GABA1     3    1   12  427    0    1    0    0  430
+##   GABA2     0    0    3   27    0    2    0    0  740
+##   MG       13  228   11   20    1    7    0    1    0
+##   NSC       0    0    9    0    0    8  144    0    0
+##   ODC1    743    3    5   17  706    5    0    4    1
+##   ODC2    939    0    6    9  194    0    0    2    5
+##   OPC       6    0    4   23    5    2    0  535    3
+##   &lt;NA&gt;     18   66   41   16    0   12    1    0   54
 </code></pre>
 
-<p><img src="figure/unnamed-chunk-12-5.png" alt="plot of chunk unnamed-chunk-12"></p>
+<p><img src="figure/kmeans-5.png" alt="plot of chunk kmeans"></p>
 
 <pre><code>## KM with 10 clusters.
+##        
+##            1    2    3    4    5    6    7    8    9   10
+##   ASC      0 1570    0   23   15    3    2    0   42    4
+##   END      0    0    0    1  113    1    3    0    2    0
+##   exCA1    0    5    0    6  298    0    6    0   75    0
+##   exCA3    0    1    0    3  528    0    4    0  201    0
+##   exDG     0    0    0    3 1402    0    0    0   16    0
+##   exPFC    0   48    0   59   56    5   29    2 3136    6
+##   GABA     1    3    0    3   15    0 1172    0  452    0
+##   MG       0   11    0   14   11    1    0  223   20    1
+##   NSC      0    8  144    0    9    0    0    0    0    0
+##   ODC      0    6    0 1681   11    6    6    2   25  902
+##   OPC      0    2    0    6    4  535    3    0   23    5
+##   &lt;NA&gt;    68   13    0   17   39    0   53    2   16    0
+##         
+##             1    2    3    4    5    6    7    8    9   10
+##   ASC1      0 1023    0   13    9    2    2    0   27    2
+##   ASC2      0  547    0   10    6    1    0    0   15    2
+##   END       0    0    0    1  113    1    3    0    2    0
+##   exCA1     0    5    0    6  298    0    6    0   75    0
+##   exCA3     0    1    0    3  528    0    4    0  201    0
+##   exDG      0    0    0    3 1402    0    0    0   16    0
+##   exPFC1    0   35    0   35   54    5   26    0 2890    3
+##   exPFC2    0   13    0   24    2    0    3    2  246    3
+##   GABA1     1    1    0    3   12    0  432    0  425    0
+##   GABA2     0    2    0    0    3    0  740    0   27    0
+##   MG        0   11    0   14   11    1    0  223   20    1
+##   NSC       0    8  144    0    9    0    0    0    0    0
+##   ODC1      0    5    0  742    5    4    2    2   16  708
+##   ODC2      0    1    0  939    6    2    4    0    9  194
+##   OPC       0    2    0    6    4  535    3    0   23    5
+##   &lt;NA&gt;     68   13    0   17   39    0   53    2   16    0
 </code></pre>
 
-<p><img src="figure/unnamed-chunk-12-6.png" alt="plot of chunk unnamed-chunk-12"></p>
+<p><img src="figure/kmeans-6.png" alt="plot of chunk kmeans"></p>
+
+<pre><code>## KM with 11 clusters.
+##        
+##            1    2    3    4    5    6    7    8    9   10   11
+##   ASC    518    0   12    5   19 1067    0    1   36    0    1
+##   END      0    0  112    0    1    1    0    3    2    0    1
+##   exCA1    0    0  297    0    5    7    0    7   74    0    0
+##   exCA3    0    0  528    0    3    2    0    4  200    0    0
+##   exDG     0    0 1402    0    3    0    0    0   16    0    0
+##   exPFC   10    0   55    6   54   46    0   32 3131    2    5
+##   GABA     0    0   15    0    3    4    1 1169  454    0    0
+##   MG       2    0   11    1   14    9    0    0   20  222    2
+##   NSC      2  144    8    0    0    7    0    0    0    0    0
+##   ODC      0    0   11  896 1686    7    0    6   25    2    6
+##   OPC      1    0    4    5    6    2    0    3   23    0  534
+##   &lt;NA&gt;     2    0   33    0   17    9   69   59   16    2    1
+##         
+##             1    2    3    4    5    6    7    8    9   10   11
+##   ASC1    190    0    6    3   10  843    0    1   25    0    0
+##   ASC2    328    0    6    2    9  224    0    0   11    0    1
+##   END       0    0  112    0    1    1    0    3    2    0    1
+##   exCA1     0    0  297    0    5    7    0    7   74    0    0
+##   exCA3     0    0  528    0    3    2    0    4  200    0    0
+##   exDG      0    0 1402    0    3    0    0    0   16    0    0
+##   exPFC1    6    0   53    3   31   36    0   29 2885    0    5
+##   exPFC2    4    0    2    3   23   10    0    3  246    2    0
+##   GABA1     0    0   12    0    3    1    1  430  427    0    0
+##   GABA2     0    0    3    0    0    3    0  739   27    0    0
+##   MG        2    0   11    1   14    9    0    0   20  222    2
+##   NSC       2  144    8    0    0    7    0    0    0    0    0
+##   ODC1      0    0    5  704  745    6    0    2   16    2    4
+##   ODC2      0    0    6  192  941    1    0    4    9    0    2
+##   OPC       1    0    4    5    6    2    0    3   23    0  534
+##   &lt;NA&gt;      2    0   33    0   17    9   69   59   16    2    1
+</code></pre>
+
+<p><img src="figure/kmeans-7.png" alt="plot of chunk kmeans"></p>
+
+<pre><code>## KM with 12 clusters.
+##        
+##            1    2    3    4    5    6    7    8    9   10   11   12
+##   ASC      0   11    2   18   34    0 1066    0  518    3    6    1
+##   END      0  105    3    1    2    0    1    0    0    7    0    1
+##   exCA1    0  179    5    5   76    0    7    0    0  118    0    0
+##   exCA3    0   23    4    3   76    0    1    0    0  630    0    0
+##   exDG     0 1380    0    3   15    0    0    0    0   23    0    0
+##   exPFC    0   38   20   54 3107    0   46    2   10   53    6    5
+##   GABA     0    4 1154    3  443    1    4    0    0   37    0    0
+##   MG       0    9    0   14   18    0    9  223    2    4    1    1
+##   NSC    144    7    0    0    0    0    7    0    2    1    0    0
+##   ODC      0   10    5 1676   26    0    7    2    0    1  906    6
+##   OPC      0    5    3    5   20    0    3    0    1    2    6  533
+##   &lt;NA&gt;     0   40   46   17   17   68   10    2    2    5    0    1
+##         
+##             1    2    3    4    5    6    7    8    9   10   11   12
+##   ASC1      0    6    1   10   24    0  841    0  191    2    3    0
+##   ASC2      0    5    1    8   10    0  225    0  327    1    3    1
+##   END       0  105    3    1    2    0    1    0    0    7    0    1
+##   exCA1     0  179    5    5   76    0    7    0    0  118    0    0
+##   exCA3     0   23    4    3   76    0    1    0    0  630    0    0
+##   exDG      0 1380    0    3   15    0    0    0    0   23    0    0
+##   exPFC1    0   36   17   31 2865    0   36    0    6   49    3    5
+##   exPFC2    0    2    3   23  242    0   10    2    4    4    3    0
+##   GABA1     0    3  414    3  419    1    1    0    0   33    0    0
+##   GABA2     0    1  740    0   24    0    3    0    0    4    0    0
+##   MG        0    9    0   14   18    0    9  223    2    4    1    1
+##   NSC     144    7    0    0    0    0    7    0    2    1    0    0
+##   ODC1      0    5    1  737   17    0    6    2    0    0  712    4
+##   ODC2      0    5    4  939    9    0    1    0    0    1  194    2
+##   OPC       0    5    3    5   20    0    3    0    1    2    6  533
+##   &lt;NA&gt;      0   40   46   17   17   68   10    2    2    5    0    1
+</code></pre>
+
+<p><img src="figure/kmeans-8.png" alt="plot of chunk kmeans"></p>
+
+<pre><code>## KM with 13 clusters.
+##        
+##            1    2    3    4    5    6    7    8    9   10   11   12   13
+##   ASC      2    1  519   35    5    0    4    0   11    0    4   16 1062
+##   END      3    1    0    2    0    0    0    0  105    0    7    1    1
+##   exCA1    5    0    0   76    0    0    0    0  177    0  118    8    6
+##   exCA3    4    0    0   76    0    0    0    0   23    0  630    3    1
+##   exDG     0    0    0   15    0    0    0    0 1379    0   23    4    0
+##   exPFC   19    5   10 3108   11    2    6    0   37    0   53   48   42
+##   GABA  1153    0    0  442    0    0    0    0    4    1   37    5    4
+##   MG       0    2    2   16    1  220    1    0   10    0    4   16    9
+##   NSC      0    0    2    0    0    0    0  145    6    0    1    0    7
+##   ODC      5    6    0   24  720    1  688    0    8    0    1 1181    5
+##   OPC      3  534    1   20    0    0    5    0    5    0    2    6    2
+##   &lt;NA&gt;    46    1    2   17    3    2    0    0   40   68    5   14   10
+##         
+##             1    2    3    4    5    6    7    8    9   10   11   12   13
+##   ASC1      1    0  191   25    4    0    1    0    6    0    2    8  840
+##   ASC2      1    1  328   10    1    0    3    0    5    0    2    8  222
+##   END       3    1    0    2    0    0    0    0  105    0    7    1    1
+##   exCA1     5    0    0   76    0    0    0    0  177    0  118    8    6
+##   exCA3     4    0    0   76    0    0    0    0   23    0  630    3    1
+##   exDG      0    0    0   15    0    0    0    0 1379    0   23    4    0
+##   exPFC1   16    5    6 2866    1    0    3    0   35    0   49   35   32
+##   exPFC2    3    0    4  242   10    2    3    0    2    0    4   13   10
+##   GABA1   413    0    0  418    0    0    0    0    3    1   33    5    1
+##   GABA2   740    0    0   24    0    0    0    0    1    0    4    0    3
+##   MG        0    2    2   16    1  220    1    0   10    0    4   16    9
+##   NSC       0    0    2    0    0    0    0  145    6    0    1    0    7
+##   ODC1      1    4    0   17  172    1  624    0    3    0    0  658    4
+##   ODC2      4    2    0    7  548    0   64    0    5    0    1  523    1
+##   OPC       3  534    1   20    0    0    5    0    5    0    2    6    2
+##   &lt;NA&gt;     46    1    2   17    3    2    0    0   40   68    5   14   10
+</code></pre>
+
+<p><img src="figure/kmeans-9.png" alt="plot of chunk kmeans"></p>
+
+<pre><code>## KM with 14 clusters.
+##        
+##            1    2    3    4    5    6    7    8    9   10   11   12   13
+##   ASC      2    4    1   13  368    0    0   10  771    5    0  451   34
+##   END      7    0    3    1    0    0    0  105    1    0    0    0    2
+##   exCA1  118    0    4    8    0    0    0  177    6    0    0    1   76
+##   exCA3  630    0    4    3    0    0    0   23    1    0    0    0   76
+##   exDG    23    0    0    4    0    0    0 1379    0    0    0    0   15
+##   exPFC   53    6   19   43    7    1    0   37   44   12    0    7 3107
+##   GABA    37    0 1153    5    0    0    1    4    6    0    0    0  440
+##   MG       4    1    0   16    1  219    0   10    9    1    0    2   16
+##   NSC      1    0    0    0    5    0    0    7    3    0  144    1    0
+##   ODC      1  687    6 1182    0    1    0    8    5  719    0    0   25
+##   OPC      2    5    3    6    1    0    0    5    3    0    0    1   20
+##   &lt;NA&gt;     5    0   46   14    2    2   68   39   11    3    0    1   17
+##        
+##           14
+##   ASC      0
+##   END      1
+##   exCA1    0
+##   exCA3    0
+##   exDG     0
+##   exPFC    5
+##   GABA     0
+##   MG       2
+##   NSC      0
+##   ODC      5
+##   OPC    532
+##   &lt;NA&gt;     0
+##         
+##             1    2    3    4    5    6    7    8    9   10   11   12   13
+##   ASC1      1    1    1    8   28    0    0    5  580    4    0  426   24
+##   ASC2      1    3    0    5  340    0    0    5  191    1    0   25   10
+##   END       7    0    3    1    0    0    0  105    1    0    0    0    2
+##   exCA1   118    0    4    8    0    0    0  177    6    0    0    1   76
+##   exCA3   630    0    4    3    0    0    0   23    1    0    0    0   76
+##   exDG     23    0    0    4    0    0    0 1379    0    0    0    0   15
+##   exPFC1   49    3   16   33    4    0    0   35   32    1    0    5 2865
+##   exPFC2    4    3    3   10    3    1    0    2   12   11    0    2  242
+##   GABA1    33    0  413    5    0    0    1    3    3    0    0    0  416
+##   GABA2     4    0  740    0    0    0    0    1    3    0    0    0   24
+##   MG        4    1    0   16    1  219    0   10    9    1    0    2   16
+##   NSC       1    0    0    0    5    0    0    7    3    0  144    1    0
+##   ODC1      0  623    1  660    0    1    0    3    5  171    0    0   17
+##   ODC2      1   64    5  522    0    0    0    5    0  548    0    0    8
+##   OPC       2    5    3    6    1    0    0    5    3    0    0    1   20
+##   &lt;NA&gt;      5    0   46   14    2    2   68   39   11    3    0    1   17
+##         
+##            14
+##   ASC1      0
+##   ASC2      0
+##   END       1
+##   exCA1     0
+##   exCA3     0
+##   exDG      0
+##   exPFC1    5
+##   exPFC2    0
+##   GABA1     0
+##   GABA2     0
+##   MG        2
+##   NSC       0
+##   ODC1      3
+##   ODC2      2
+##   OPC     532
+##   &lt;NA&gt;      0
+</code></pre>
+
+<p><img src="figure/kmeans-10.png" alt="plot of chunk kmeans"></p>
 
 <pre><code>## KM with 15 clusters.
+##        
+##            1    2    3    4    5    6    7    8    9   10   11   12   13
+##   ASC      0    1  349    0   10    0    4   33    5  788    2    0    0
+##   END      0    3    0    0  104    0    0    2    0    1    8    0    1
+##   exCA1    0    4    0    0  173    0    0   73    0    6  125    0    0
+##   exCA3    0    4    0    0   22    0    0   74    0    1  633    0    0
+##   exDG     0    0    0    0 1380    0    0   15    0    0   22    0    0
+##   exPFC    2   18    5    0   37    5    5 3107   13   46   53    0    0
+##   GABA     0 1153    0    1    4    0    0  440    0    6   37    0    0
+##   MG     219    0    1    0   10    2    1   16    1    9    4    0    0
+##   NSC      0    0    3    0    7    0    0    0    0    5    1  144    0
+##   ODC      1    5    0    0    8    2  676   25  727    6    1    0    3
+##   OPC      0    3    1    0    5  520    5   20    0    2    2    0   15
+##   &lt;NA&gt;     2   46    2   68   39    0    0   17    3   11    5    0    0
+##        
+##           14   15
+##   ASC     13  454
+##   END      1    0
+##   exCA1    8    1
+##   exCA3    3    0
+##   exDG     4    0
+##   exPFC   43    7
+##   GABA     5    0
+##   MG      16    2
+##   NSC      0    1
+##   ODC   1185    0
+##   OPC      4    1
+##   &lt;NA&gt;    14    1
+##         
+##             1    2    3    4    5    6    7    8    9   10   11   12   13
+##   ASC1      0    1   27    0    5    0    1   24    4  579    1    0    0
+##   ASC2      0    0  322    0    5    0    3    9    1  209    1    0    0
+##   END       0    3    0    0  104    0    0    2    0    1    8    0    1
+##   exCA1     0    4    0    0  173    0    0   73    0    6  125    0    0
+##   exCA3     0    4    0    0   22    0    0   74    0    1  633    0    0
+##   exDG      0    0    0    0 1380    0    0   15    0    0   22    0    0
+##   exPFC1    0   15    2    0   35    5    3 2865    1   35   49    0    0
+##   exPFC2    2    3    3    0    2    0    2  242   12   11    4    0    0
+##   GABA1     0  413    0    1    3    0    0  416    0    3   33    0    0
+##   GABA2     0  740    0    0    1    0    0   24    0    3    4    0    0
+##   MG      219    0    1    0   10    2    1   16    1    9    4    0    0
+##   NSC       0    0    3    0    7    0    0    0    0    5    1  144    0
+##   ODC1      1    1    0    0    3    1  613   17  181    5    0    0    2
+##   ODC2      0    4    0    0    5    1   63    8  546    1    1    0    1
+##   OPC       0    3    1    0    5  520    5   20    0    2    2    0   15
+##   &lt;NA&gt;      2   46    2   68   39    0    0   17    3   11    5    0    0
+##         
+##            14   15
+##   ASC1      8  428
+##   ASC2      5   26
+##   END       1    0
+##   exCA1     8    1
+##   exCA3     3    0
+##   exDG      4    0
+##   exPFC1   33    5
+##   exPFC2   10    2
+##   GABA1     5    0
+##   GABA2     0    0
+##   MG       16    2
+##   NSC       0    1
+##   ODC1    660    0
+##   ODC2    525    0
+##   OPC       4    1
+##   &lt;NA&gt;     14    1
 </code></pre>
 
-<p><img src="figure/unnamed-chunk-12-7.png" alt="plot of chunk unnamed-chunk-12"></p>
+<p><img src="figure/kmeans-11.png" alt="plot of chunk kmeans"></p>
 
-<pre><code>## KM with 16 clusters.
-</code></pre>
-
-<p><img src="figure/unnamed-chunk-12-8.png" alt="plot of chunk unnamed-chunk-12"></p>
-
-<pre><code>## KM with 17 clusters.
-</code></pre>
-
-<p><img src="figure/unnamed-chunk-12-9.png" alt="plot of chunk unnamed-chunk-12"></p>
-
-<pre><code>## KM with 18 clusters.
-</code></pre>
-
-<p><img src="figure/unnamed-chunk-12-10.png" alt="plot of chunk unnamed-chunk-12"></p>
-
-<pre><code>## KM with 19 clusters.
-</code></pre>
-
-<p><img src="figure/unnamed-chunk-12-11.png" alt="plot of chunk unnamed-chunk-12"></p>
-
-<pre><code>## KM with 20 clusters.
-</code></pre>
-
-<p><img src="figure/unnamed-chunk-12-12.png" alt="plot of chunk unnamed-chunk-12"></p>
-
-<pre><code>## KM with 25 clusters.
-</code></pre>
-
-<p><img src="figure/unnamed-chunk-12-13.png" alt="plot of chunk unnamed-chunk-12"></p>
-
-<pre><code>## KM with 26 clusters.
-</code></pre>
-
-<p><img src="figure/unnamed-chunk-12-14.png" alt="plot of chunk unnamed-chunk-12"></p>
-
-<pre><code>## KM with 27 clusters.
-</code></pre>
-
-<p><img src="figure/unnamed-chunk-12-15.png" alt="plot of chunk unnamed-chunk-12"></p>
-
-<pre><code>## KM with 28 clusters.
-</code></pre>
-
-<p><img src="figure/unnamed-chunk-12-16.png" alt="plot of chunk unnamed-chunk-12"></p>
-
-<pre><code>## KM with 29 clusters.
-</code></pre>
-
-<p><img src="figure/unnamed-chunk-12-17.png" alt="plot of chunk unnamed-chunk-12"></p>
-
-<pre><code>## KM with 30 clusters.
-</code></pre>
-
-<p><img src="figure/unnamed-chunk-12-18.png" alt="plot of chunk unnamed-chunk-12"></p>
-
-<pre><code class="r">saveRDS(list(sce_hvg=sce_hvg,df_hvg=df_hvg),&quot;post_HVG_kmeans.rds&quot;)
-=======
-<p>Next we cluster the cells using a simple kmeans method on the top 50 PCs. We set the number of clusters to be 12, to match with the 12 cell types reported by [@habib2017massively]. </p>
-
-<pre><code class="r">kmeans_50_pcs = kmeans(reducedDim(sce_hvg, &quot;PCA&quot;), 
-                    centers = 12, iter.max=1e8,nstart = 2500,
-                    algorithm=&quot;MacQueen&quot;)
-names(kmeans_50_pcs)
-</code></pre>
-
-<pre><code>## [1] &quot;cluster&quot;      &quot;centers&quot;      &quot;totss&quot;        &quot;withinss&quot;    
-## [5] &quot;tot.withinss&quot; &quot;betweenss&quot;    &quot;size&quot;         &quot;iter&quot;        
-## [9] &quot;ifault&quot;
-</code></pre>
-
-<pre><code class="r">dim(kmeans_50_pcs$centers)
-</code></pre>
-
-<pre><code>## [1] 12 50
-</code></pre>
-
-<pre><code class="r">df_hvg$cluster_kmean = as.factor(kmeans_50_pcs$cluster)
-ggplot_custom(DATA = df_hvg,X = &quot;HVG_TSNE1&quot;,Y = &quot;HVG_TSNE2&quot;,COL = &quot;cluster_kmean&quot;,TYPE = &quot;cat&quot;)
-</code></pre>
-
-<p><img src="figure/unnamed-chunk-16-1.png" alt="plot of chunk unnamed-chunk-16"></p>
-
-<pre><code class="r">smart_table(df_hvg[,c(&quot;paper_clusters&quot;,&quot;cluster_kmean&quot;)])
-</code></pre>
-
-<pre><code>##               cluster_kmean
-## paper_clusters    1    2    3    4    5    6    7    8    9   10   11   12
-##             1     3   17   36   49 2865    6    5    0   36    0   31    0
-##             2     3    3   10    4  242    4    0    2    2    0   23    0
-##             3     0    5    7  118   76    0    0    0  179    0    5    0
-##             4     0    4    1  630   76    0    0    0   23    0    3    0
-##             5     0  414    1   33  419    0    0    0    3    0    3    1
-##             6     0  740    3    4   24    0    0    0    1    0    0    0
-##             7     0    0    0   23   15    0    0    0 1380    0    3    0
-##             8     2    1  841    2   24  191    0    0    6    0   11    0
-##             9     2    1  225    1   10  327    1    0    5    0    9    0
-##             10  710    1    6    0   17    0    4    2    5    0  739    0
-##             11  193    4    1    1    9    0    2    0    5    0  940    0
-##             12    5    3    3    2   20    1  533    0    5    0    6    0
-##             13    1    0    9    4   18    2    2  221   10    0   14    0
-##             14    0    0    7    1    0    2    0    0    7  144    0    0
-##             15    0    3    1    7    2    0    1    0  105    0    1    0
-##             16    0    1    2    1    6    1    1    0    2    0    1   68
-##             17    0   39    0    0    5    0    0    0   30    0    0    0
-##             18    0    0    0    0    0    0    0    0    0    0    0    0
-##             19    0    6    8    4    6    1    0    2    8    0   16    0
-</code></pre>
-
-<pre><code class="r">smart_table(df_hvg[,c(&quot;paper_clusters_name&quot;,&quot;cluster_kmean&quot;)])
-</code></pre>
-
-<pre><code>##                    cluster_kmean
-## paper_clusters_name    1    2    3    4    5    6    7    8    9   10   11
-##              ASC1      2    1  841    2   24  191    0    0    6    0   11
-##              ASC2      2    1  225    1   10  327    1    0    5    0    9
-##              END       0    3    1    7    2    0    1    0  105    0    1
-##              exCA1     0    5    7  118   76    0    0    0  179    0    5
-##              exCA3     0    4    1  630   76    0    0    0   23    0    3
-##              exDG      0    0    0   23   15    0    0    0 1380    0    3
-##              exPFC1    3   17   36   49 2865    6    5    0   36    0   31
-##              exPFC2    3    3   10    4  242    4    0    2    2    0   23
-##              GABA1     0  414    1   33  419    0    0    0    3    0    3
-##              GABA2     0  740    3    4   24    0    0    0    1    0    0
-##              MG        1    0    9    4   18    2    2  221   10    0   14
-##              NSC       0    0    7    1    0    2    0    0    7  144    0
-##              ODC1    710    1    6    0   17    0    4    2    5    0  739
-##              ODC2    193    4    1    1    9    0    2    0    5    0  940
-##              OPC       5    3    3    2   20    1  533    0    5    0    6
-##              &lt;NA&gt;      0   46   10    5   17    2    1    2   40    0   17
-##                    cluster_kmean
-## paper_clusters_name   12
-##              ASC1      0
-##              ASC2      0
-##              END       0
-##              exCA1     0
-##              exCA3     0
-##              exDG      0
-##              exPFC1    0
-##              exPFC2    0
-##              GABA1     1
-##              GABA2     0
-##              MG        0
-##              NSC       0
-##              ODC1      0
-##              ODC2      0
-##              OPC       0
-##              &lt;NA&gt;     68
-</code></pre>
-
-<pre><code class="r">smart_table(df_hvg[,c(&quot;paper_cell_type&quot;,&quot;cluster_kmean&quot;)])
-</code></pre>
-
-<pre><code>##                cluster_kmean
-## paper_cell_type    1    2    3    4    5    6    7    8    9   10   11
-##           ASC      4    2 1066    3   34  518    1    0   11    0   20
-##           END      0    3    1    7    2    0    1    0  105    0    1
-##           exCA1    0    5    7  118   76    0    0    0  179    0    5
-##           exCA3    0    4    1  630   76    0    0    0   23    0    3
-##           exDG     0    0    0   23   15    0    0    0 1380    0    3
-##           exPFC    6   20   46   53 3107   10    5    2   38    0   54
-##           GABA     0 1154    4   37  443    0    0    0    4    0    3
-##           MG       1    0    9    4   18    2    2  221   10    0   14
-##           NSC      0    0    7    1    0    2    0    0    7  144    0
-##           ODC    903    5    7    1   26    0    6    2   10    0 1679
-##           OPC      5    3    3    2   20    1  533    0    5    0    6
-##           &lt;NA&gt;     0   46   10    5   17    2    1    2   40    0   17
-##                cluster_kmean
-## paper_cell_type   12
-##           ASC      0
-##           END      0
-##           exCA1    0
-##           exCA3    0
-##           exDG     0
-##           exPFC    0
-##           GABA     1
-##           MG       0
-##           NSC      0
-##           ODC      0
-##           OPC      0
-##           &lt;NA&gt;    68
-</code></pre>
-
-<pre><code class="r">saveRDS(list(sce_hvg=sce_hvg,df_hvg=df_hvg),file.path(data_dir,&quot;post_kmeans.rds&quot;))
->>>>>>> october
+<pre><code class="r">saveRDS(list(sce_hvg=sce_hvg,df_hvg=df_hvg,all_num_clust=all_num_clust),
+        file.path(work_dir,&quot;post_kmeans.rds&quot;))
 </code></pre>
 
 <h3>SC3</h3>
 
-<p>Next seek to cluster cells using another method SC3. The code used here is based on <a href="https://bioconductor.org/packages/devel/bioc/vignettes/SC3/inst/doc/SC3.html#run-sc3">SC3 mannual</a>. By default, when there are more than 5000 genes, SC3 will </p>
+<p>Next seek to cluster cells using another method SC3. The code used here is based on <a href="https://bioconductor.org/packages/devel/bioc/vignettes/SC3/inst/doc/SC3.html#run-sc3">SC3 manual</a>. By default, when there are more than 5000 genes, SC3 will </p>
 
 <blockquote>
 <p>selects a subset of cells uniformly at random (5,000), and obtains clusters from this subset. The inferred labels can be used to train a Support Vector Machine (SVM), which is employed to assign labels to the remaining cells.</p>
@@ -2844,16 +2167,6 @@ ggplot_custom(DATA = df_hvg,X = &quot;HVG_TSNE1&quot;,Y = &quot;HVG_TSNE2&quot;,
 
 <p>By default, SC3 filter genes to select those with dropout percentage between 10 and 90%. </p>
 
-<<<<<<< HEAD
-<pre><code class="r">summary(rowData(sce_hvg)$pct_dropout_counts)
-</code></pre>
-
-<pre><code>##    Min. 1st Qu.  Median    Mean 3rd Qu.    Max. 
-##   30.56   91.38   94.81   92.87   97.03   99.32
-</code></pre>
-
-<pre><code class="r">table(rowData(sce_hvg)$pct_dropout_counts &lt; 90)
-=======
 <pre><code class="r">summary(rowData(sce)$pct_dropout_counts)
 </code></pre>
 
@@ -2862,59 +2175,10 @@ ggplot_custom(DATA = df_hvg,X = &quot;HVG_TSNE1&quot;,Y = &quot;HVG_TSNE2&quot;,
 </code></pre>
 
 <pre><code class="r">table(rowData(sce)$pct_dropout_counts &lt; 90)
->>>>>>> october
 </code></pre>
 
 <pre><code>## 
 ## FALSE  TRUE 
-<<<<<<< HEAD
-##   814   203
-</code></pre>
-
-<pre><code class="r">library(SC3)
-rowData(sce_hvg)$feature_symbol = rowData(sce_hvg)$gene
-date()
-</code></pre>
-
-<pre><code>## [1] &quot;Mon Nov  5 23:06:18 2018&quot;
-</code></pre>
-
-<pre><code class="r">all_ks = c(5,10,15)
-sce_hvg = sc3(sce_hvg,gene_filter=FALSE,ks = all_ks,
-    biology = TRUE,n_cores = num_cores,rand_seed = 100,
-    svm_num_cells = 2000)
-</code></pre>
-
-<pre><code>## Setting SC3 parameters...
-</code></pre>
-
-<pre><code>## Your dataset contains more than 2000 cells. Adjusting the nstart parameter of kmeans to 50 for faster performance...
-</code></pre>
-
-<pre><code>## Defining training cells for SVM using svm_num_cells parameter...
-</code></pre>
-
-<pre><code>## Calculating distances between the cells...
-</code></pre>
-
-<pre><code>## Performing transformations and calculating eigenvectors...
-</code></pre>
-
-<pre><code>## Performing k-means clustering...
-</code></pre>
-
-<pre><code>## Calculating consensus matrix...
-</code></pre>
-
-<pre><code>## Calculating biology...
-</code></pre>
-
-<pre><code class="r">warnings()
-date()
-</code></pre>
-
-<pre><code>## [1] &quot;Tue Nov  6 00:51:13 2018&quot;
-=======
 ##  9189  1418
 </code></pre>
 
@@ -2925,19 +2189,19 @@ rowData(sce_hvg)$feature_symbol = rowData(sce_hvg)$external_gene_name
 date()
 </code></pre>
 
-<pre><code>## [1] &quot;Tue Nov 13 01:55:44 2018&quot;
+<pre><code>## [1] &quot;Tue Nov 20 13:53:59 2018&quot;
 </code></pre>
 
 <pre><code class="r">all_ks = c(10,12)
-sce_hvg = sc3(sce_hvg,gene_filter=FALSE,
-            n_cores = 1,ks = all_ks,biology = TRUE, 
-            rand_seed = 100)
+sce_hvg = sc3(sce_hvg,gene_filter = FALSE,
+            n_cores = num_cores,ks = all_ks,biology = TRUE, 
+            rand_seed = 100,svm_num_cells = 2000)
 </code></pre>
 
 <pre><code class="r">date()
 </code></pre>
 
-<pre><code>## [1] &quot;Tue Nov 13 05:02:15 2018&quot;
+<pre><code>## [1] &quot;Tue Nov 20 20:56:19 2018&quot;
 </code></pre>
 
 <pre><code class="r">dim(colData(sce_hvg))
@@ -3035,155 +2299,78 @@ sce_hvg = sc3(sce_hvg,gene_filter=FALSE,
 ## [70] &quot;sc3_12_log2_outlier_score&quot;
 </code></pre>
 
-<pre><code class="r">table(colData(sce_hvg)$sc3_12_clusters, useNA=&quot;ifany&quot;)
-</code></pre>
-
-<pre><code>## 
-##    1    2    3    4    5    6    7    8    9   10   11   12 &lt;NA&gt; 
-##  967  264  588   33  644  358  521  529  256  473  336   31 8181
-</code></pre>
-
-<pre><code class="r">table(colData(sce_hvg)$sc3_10_clusters, useNA=&quot;ifany&quot;)
-</code></pre>
-
-<pre><code>## 
-##    1    2    3    4    5    6    7    8    9   10 &lt;NA&gt; 
-##  630 1036  382  945  314  453  228   36  588  388 8181
->>>>>>> october
-</code></pre>
-
 <pre><code class="r"># Run SVM and predict labels of all other cells
 date()
 </code></pre>
 
-<<<<<<< HEAD
-<pre><code>## [1] &quot;Tue Nov  6 00:51:13 2018&quot;
-</code></pre>
-
-<pre><code class="r">sce_hvg = sc3_run_svm(sce_hvg,ks = all_ks)
-date()
-</code></pre>
-
-<pre><code>## [1] &quot;Tue Nov  6 00:53:01 2018&quot;
-</code></pre>
-
-<pre><code class="r">saveRDS(list(sce_hvg=sce_hvg,all_ks=all_ks),&quot;post_HVG_sc3.rds&quot;)
-
-# Combine older results with SC3 results and plot HVG_TSNE vs. SC3 results
-for(one_ks in all_ks){
-    df_hvg$VV = as.factor(colData(sce_hvg)[,paste0(&quot;sc3_&quot;,one_ks,&quot;_clusters&quot;)])
-    names(df_hvg)[names(df_hvg) == &quot;VV&quot;] = paste0(&quot;SC3_&quot;,one_ks)
-    print(ggplot_custom(DATA = df_hvg,X = &quot;HVG_TSNE1&quot;,
-        Y = &quot;HVG_TSNE2&quot;,COL = paste0(&quot;SC3_&quot;,one_ks)))
-}
-</code></pre>
-
-<p><img src="figure/unnamed-chunk-13-1.png" alt="plot of chunk unnamed-chunk-13"><img src="figure/unnamed-chunk-13-2.png" alt="plot of chunk unnamed-chunk-13"><img src="figure/unnamed-chunk-13-3.png" alt="plot of chunk unnamed-chunk-13"></p>
-
-<pre><code class="r"># SC3 Plotting
-all_vars = c(&quot;part_cell_id&quot;,&quot;log10_total_features&quot;,&quot;paper_clusters&quot;,
-    &quot;paper_clusters_name&quot;,&quot;paper_cell_type&quot;)
-for(one_ks in all_ks){
-    # one_ks = all_ks[1]
-    cat(paste0(&quot;Num Clusters = &quot;,one_ks,&quot;\n&quot;))
-    plotPCA(sce_hvg,
-        colour_by = paste0(&quot;sc3_&quot;,one_ks,&quot;_clusters&quot;), 
-        size_by = paste0(&quot;sc3_&quot;,one_ks,&quot;_log2_outlier_score&quot;))
-
-    sc3_plot_consensus(sce_hvg,k = one_ks,
-        show_pdata = c(all_vars,
-        paste0(&quot;sc3_&quot;,one_ks,&quot;_clusters&quot;), 
-        paste0(&quot;sc3_&quot;,one_ks,&quot;_log2_outlier_score&quot;)))
-
-    # sc3_plot_silhouette(sce_hvg, k = one_ks)
-
-    sc3_plot_expression(sce_hvg, k = one_ks,
-        show_pdata = c(all_vars,
-        paste0(&quot;sc3_&quot;,one_ks,&quot;_clusters&quot;), 
-        paste0(&quot;sc3_&quot;,one_ks,&quot;_log2_outlier_score&quot;)))
-
-    sc3_plot_cluster_stability(sce_hvg, k = one_ks)
-
-    #sc3_plot_de_genes(sce_hvg, k = one_ks, 
-    #   show_pdata = c(all_vars,
-    #   paste0(&quot;sc3_&quot;,one_ks,&quot;_clusters&quot;), 
-    #   paste0(&quot;sc3_&quot;,one_ks,&quot;_log2_outlier_score&quot;)))
-
-    sc3_plot_markers(sce_hvg, k = one_ks, 
-        show_pdata = c(all_vars,
-        paste0(&quot;sc3_&quot;,one_ks,&quot;_clusters&quot;), 
-        paste0(&quot;sc3_&quot;,one_ks,&quot;_log2_outlier_score&quot;)))
-
-}
-</code></pre>
-
-<pre><code>## Num Clusters = 5
-</code></pre>
-
-<p><img src="figure/unnamed-chunk-13-4.png" alt="plot of chunk unnamed-chunk-13"><img src="figure/unnamed-chunk-13-5.png" alt="plot of chunk unnamed-chunk-13"><img src="figure/unnamed-chunk-13-6.png" alt="plot of chunk unnamed-chunk-13"></p>
-
-<pre><code>## Num Clusters = 10
-</code></pre>
-
-<p><img src="figure/unnamed-chunk-13-7.png" alt="plot of chunk unnamed-chunk-13"><img src="figure/unnamed-chunk-13-8.png" alt="plot of chunk unnamed-chunk-13"><img src="figure/unnamed-chunk-13-9.png" alt="plot of chunk unnamed-chunk-13"></p>
-
-<pre><code>## Num Clusters = 15
-</code></pre>
-
-<p><img src="figure/unnamed-chunk-13-10.png" alt="plot of chunk unnamed-chunk-13"><img src="figure/unnamed-chunk-13-11.png" alt="plot of chunk unnamed-chunk-13"><img src="figure/unnamed-chunk-13-12.png" alt="plot of chunk unnamed-chunk-13"></p>
-
-<p>Finally we save the sce object, sce_hvg object, and the clustering results.</p>
-
-<pre><code class="r">saveRDS(sce,&quot;final_sce.rds&quot;)
-saveRDS(sce_hvg,&quot;final_sce_hvg.rds&quot;)
-saveRDS(df_hvg,&quot;final_hvg_clust.rds&quot;)
-=======
-<pre><code>## [1] &quot;Tue Nov 13 05:02:15 2018&quot;
+<pre><code>## [1] &quot;Tue Nov 20 20:56:19 2018&quot;
 </code></pre>
 
 <pre><code class="r">sce_hvg = sc3_run_svm(sce_hvg, ks = all_ks)
 date()
 </code></pre>
 
-<pre><code>## [1] &quot;Tue Nov 13 05:06:30 2018&quot;
+<pre><code>## [1] &quot;Tue Nov 20 20:59:00 2018&quot;
 </code></pre>
 
-<pre><code class="r">table(colData(sce_hvg)$sc3_12_clusters, useNA=&quot;ifany&quot;)
+<p>Next we compare the clustering results from SC3 and the reported cell types.</p>
+
+<pre><code class="r">for(one_ks in all_ks){
+    sc3_label = paste0(&quot;sc3_&quot;,one_ks,&quot;_clusters&quot;)
+    df_hvg[[sc3_label]] = as.factor(colData(sce_hvg)[,sc3_label])
+
+    print(smart_table(df_hvg$paper_cell_type, df_hvg[[sc3_label]]))
+
+    print(ggplot_custom(DATA = df_hvg,X = &quot;HVG_TSNE1&quot;,Y = &quot;HVG_TSNE2&quot;, 
+                        COL = sc3_label,TYPE = &quot;cat&quot;))
+}
 </code></pre>
 
-<pre><code>## 
-##    1    2    3    4    5    6    7    8    9   10   11   12 
-## 2661  998 1153   73 1065 1347  534 1556  833 1323 1177  461
+<pre><code>##        
+##            1    2    3    4    5    6    7    8    9   10
+##   ASC     30    1    7    1    0    2   13  276 1319   10
+##   END      1    3    5   11    1   11   86    1    1    0
+##   exCA1   59   18  107  128    1    8   48    6    7    8
+##   exCA3   97   27  227  353    0    1   20    3    3    6
+##   exDG    18    1   14   11    2  214 1156    3    0    2
+##   exPFC 2076   37  170   12    4    8   39   59  176  760
+##   GABA   195  175  939    5    0    0    6    1   52  273
+##   MG      12  180    6    0    1    4    5   20    9   44
+##   NSC      0  121    1    0    0    1    4    1    7   26
+##   ODC     18    7    5    1    0    0  399 2187   11   11
+##   OPC     11  460    8    1    0    2    4    9    6   77
+##   &lt;NA&gt;    17   65   12    8    0    2    9   18   18   59
 </code></pre>
 
-<pre><code class="r">table(colData(sce_hvg)$sc3_10_clusters, useNA=&quot;ifany&quot;)
+<p><img src="figures/post_sc3-1.png" alt="plot of chunk post_sc3"></p>
+
+<pre><code>##        
+##            1    2    3    4    5    6    7    8    9   10   11   12
+##   ASC     30   10    0    0    5    1    2  262    3   12 1328    6
+##   END      2    4    1    0   24    1    3   84    0    0    1    0
+##   exCA1   62   47    2    2  217    6    7   33    0    8    6    0
+##   exCA3   93   77    1    0  546    4    1    5    2    6    2    0
+##   exDG    19    4    1    0  221   10    2 1158    4    2    0    0
+##   exPFC 2178   40   13    8   53   22  154   34    6  767   46   20
+##   GABA   229    5   26  142   17   48  911    1    3  259    4    1
+##   MG      15   17    1  176    8    2    0    3    0    6   12   41
+##   NSC      0    0    0  122    2    0    0    4    0    0    7   26
+##   ODC     17 1525    6    1    3    1    2   10  143  260   14  657
+##   OPC     16    4  462    1    2    1    4    5    0    8   72    3
+##   &lt;NA&gt;    12   11    2   64   11    2   14   10    0   56   12   14
 </code></pre>
 
-<pre><code>## 
-##    1    2    3    4    5    6    7    8    9   10 
-## 1643 1678 2073 1531 1926  982  945  401  631 1371
-</code></pre>
+<p><img src="figures/post_sc3-2.png" alt="plot of chunk post_sc3"></p>
 
-<pre><code class="r">sum(table(colData(sce_hvg)$sc3_12_clusters))
-</code></pre>
-
-<pre><code>## [1] 13181
-</code></pre>
-
-<pre><code class="r">sum(table(colData(sce_hvg)$sc3_10_clusters))
-</code></pre>
-
-<pre><code>## [1] 13181
-</code></pre>
-
-<pre><code class="r">saveRDS(list(sce_hvg=sce_hvg,all_ks=all_ks),file.path(data_dir,&quot;post_sc3.rds&quot;))
+<pre><code class="r">saveRDS(list(sce_hvg=sce_hvg,df_hvg=df_hvg,all_ks=all_ks),
+        file.path(work_dir,&quot;post_sc3.rds&quot;))
 </code></pre>
 
 <h2>Compare our kmeans to SC3 and to DrocNc clustering</h2>
 
 <p>We obtainted the cell type and clustering resutls from [@habib2017massively]. Supplementary Table 10: supplement nmeth.4407-S10.xlsx file. Here we compare the cell type reported by Habib et al. (2017) with ours. Habib et al. (2017) identified genes with high variation by fitting a gamma distribution on the relation between mean and coefficient of variation and chose the number of PCs based on &quot;the largest eigen value gap&quot;. It was not clear what is the number of PCs used. Then they used these top PCs to perform tSNE anlaysis and clustering using a graph based method. </p>
 
-<pre><code class="r">tmp_lab = smart_RT(file.path(data_dir,&quot;cluster_num_label.txt&quot;), 
+<pre><code class="r">tmp_lab = smart_RT(file.path(work_dir,&quot;cluster_num_label.txt&quot;), 
                     sep = &quot;\t&quot;,header = TRUE)
 tmp_lab
 </code></pre>
@@ -3209,7 +2396,7 @@ tmp_lab
 <pre><code class="r">tmp_lab = name_change(tmp_lab,&quot;Name&quot;,&quot;Cluster.Name&quot;)
 tmp_lab = name_change(tmp_lab,&quot;Name.1&quot;,&quot;Cell_Type&quot;)
 
-tmp_res = smart_RT(file.path(data_dir,&quot;paper_cluster_res.txt&quot;), 
+tmp_res = smart_RT(file.path(work_dir,&quot;paper_cluster_res.txt&quot;), 
                     sep = &quot;\t&quot;,header = TRUE,comment.char = &quot;&quot;)
 dim(tmp_res); tmp_res[1:5,]
 </code></pre>
@@ -3238,14 +2425,29 @@ summary(tmp_res$nGenes)
 ##   201.0   337.0   529.0   658.4   826.0  4249.0
 </code></pre>
 
-<pre><code class="r">hist(tmp_res$nGenes, breaks=50, col=&quot;gray&quot;, main=&quot;&quot;, 
-        xlab=&quot;number of genes per cell&quot;)
+<pre><code class="r">smart_hist(tmp_res$nGenes,breaks=50,main=&quot;&quot;,xlab=&quot;number of genes per cell&quot;)
 </code></pre>
 
-<p><img src="figure/unnamed-chunk-19-1.png" alt="plot of chunk unnamed-chunk-19"></p>
+<p><img src="figure/unnamed-chunk-11-1.png" alt="plot of chunk unnamed-chunk-11"></p>
 
 <pre><code class="r">df_hvg$Cell.ID = colnames(sce_hvg)
 
+smart_table(df_hvg$Cell.ID %in% tmp_res$Cell.ID)
+</code></pre>
+
+<pre><code>## 
+##  TRUE 
+## 13181
+</code></pre>
+
+<pre><code class="r">tmp_res$Cell.ID[!(tmp_res$Cell.ID %in% df_hvg$Cell.ID)][1:5]
+</code></pre>
+
+<pre><code>## [1] &quot;PFC2-A2_GTTGAGGAGCGT&quot; &quot;PFC2-A2_CAAATGCCTGTC&quot; &quot;PFC2-A2_GGTTTGGCCCTN&quot;
+## [4] &quot;PFC2-A2_ACCAGGCTTCGA&quot; &quot;PFC2-A1_TCCGTTCTTCGT&quot;
+</code></pre>
+
+<pre><code class="r">tmp_res$Cell.ID = gsub(&quot;-&quot;,&quot;.&quot;,tmp_res$Cell.ID)
 table(df_hvg$Cell.ID %in% tmp_res$Cell.ID)
 </code></pre>
 
@@ -3254,62 +2456,54 @@ table(df_hvg$Cell.ID %in% tmp_res$Cell.ID)
 ##  7812  5369
 </code></pre>
 
-<pre><code class="r">tmp_res$Cell.ID[!(tmp_res$Cell.ID %in% df_hvg$Cell.ID)][1:5]
-</code></pre>
-
-<pre><code>## [1] &quot;PFC2-A2_GTATGTCCGTAA&quot; &quot;PFC2-A2_GCCACTTTGGAT&quot; &quot;PFC2-A2_CAGTCATACAGA&quot;
-## [4] &quot;PFC2-A2_TCCATAATTACG&quot; &quot;PFC2-A2_CCAGTAAAGGCT&quot;
-</code></pre>
-
-<pre><code class="r">tmp_res$Cell.ID = gsub(&quot;-&quot;,&quot;.&quot;,tmp_res$Cell.ID)
-table(df_hvg$Cell.ID %in% tmp_res$Cell.ID)
-</code></pre>
-
-<pre><code>## 
-##  TRUE 
-## 13181
-</code></pre>
-
 <pre><code class="r"># Merge and compare
 all_clust_res = smart_merge(df_hvg,tmp_res)
-sc3_res = smart_df(colData(sce_hvg)[,c(&quot;sc3_12_clusters&quot;,&quot;sc3_10_clusters&quot;)])
-    sc3_res$sc3_12_clusters = as.factor(sc3_res$sc3_12_clusters)
-    sc3_res$sc3_10_clusters = as.factor(sc3_res$sc3_10_clusters)
+sc3_res = smart_df(colData(sce_hvg)[,paste0(&quot;sc3_&quot;,all_ks,&quot;_clusters&quot;)])
+for(ks in all_ks){
+    sc3_label = paste0(&quot;sc3_&quot;,ks,&quot;_clusters&quot;)
+    sc3_res[,sc3_label] = as.factor(sc3_res[,sc3_label])
+}
 sc3_res$Cell.ID = colnames(sce_hvg)
 all_clust_res = smart_merge(all_clust_res, sc3_res)
 dim(all_clust_res)
 </code></pre>
 
-<pre><code>## [1] 13181    21
+<pre><code>## [1] 5369   31
 </code></pre>
 
 <pre><code class="r">all_clust_res[1:5,]
 </code></pre>
 
-<pre><code>##            Cell.ID      sample_name part_cell_id paper_TSNE1 paper_TSNE2
-## 1 hCc_AAAAAGCTACAA hCc_AAAAAGCTACAA          hCc    2.804881   -1.888592
-## 2 hCc_AAACAGGTGAGG hCc_AAACAGGTGAGG          hCc   16.965708   -6.768078
-## 3 hCc_AAACCCTTTACA hCc_AAACCCTTTACA          hCc   17.828567   -2.514648
-## 4 hCc_AAACGTGACGGA hCc_AAACGTGACGGA          hCc   14.756007   -4.965194
-## 5 hCc_AAAGAACTCGCG hCc_AAAGAACTCGCG          hCc   -1.552130    3.860966
-##   log10_total_features paper_clusters paper_clusters_name paper_cell_type
-## 1             2.866287              1              exPFC1           exPFC
-## 2             3.170262              5               GABA1            GABA
-## 3             3.044540              5               GABA1            GABA
-## 4             2.849419              5               GABA1            GABA
-## 5             2.716838              1              exPFC1           exPFC
-##     HVG_PC1   HVG_PC2 HVG_TSNE1 HVG_TSNE2 cluster_kmean Cluster.Name
-## 1 -3.809914 -1.148090 -2.187161   6.73116             5       exPFC1
-## 2 -3.041883 -1.756074 -9.694212  20.80422             2        GABA1
-## 3 -4.335472 -1.149693 -8.337080  18.17996             5        GABA1
-## 4 -3.614090 -1.958961 -7.108089  15.58051             5        GABA1
-## 5 -4.001498 -2.066558  8.811629  10.19255             5       exPFC1
-##   nGenes nTranscripts Cluster.ID Cell_Type sc3_12_clusters sc3_10_clusters
-## 1    736         1034          1     exPFC               1               5
-## 2   1480         2391          5      GABA               2               5
-## 3   1107         1757          5      GABA               1               6
-## 4    708          935          5      GABA               5               6
-## 5    520          673          1     exPFC               1               4
+<pre><code>##            Cell.ID sc3_10_clusters sc3_12_clusters      sample_name
+## 1 hCc_AAAAAGCTACAA               1               1 hCc_AAAAAGCTACAA
+## 2 hCc_AAACAGGTGAGG               3               7 hCc_AAACAGGTGAGG
+## 3 hCc_AAACCCTTTACA               3               1 hCc_AAACCCTTTACA
+## 4 hCc_AAACGTGACGGA               1               1 hCc_AAACGTGACGGA
+## 5 hCc_AAAGAACTCGCG               1               1 hCc_AAAGAACTCGCG
+##   part_cell_id paper_TSNE1 paper_TSNE2 log10_total_features paper_clusters
+## 1          hCc    2.804881   -1.888592             2.866287              1
+## 2          hCc   16.965708   -6.768078             3.170262              5
+## 3          hCc   17.828567   -2.514648             3.044540              5
+## 4          hCc   14.756007   -4.965194             2.849419              5
+## 5          hCc   -1.552130    3.860966             2.716838              1
+##   paper_clusters_name paper_cell_type   HVG_PC1   HVG_PC2  HVG_TSNE1
+## 1              exPFC1           exPFC -3.809914 -1.148090 -11.373592
+## 2               GABA1            GABA -3.041883 -1.756074  12.935674
+## 3               GABA1            GABA -4.335472 -1.149693  10.774738
+## 4               GABA1            GABA -3.614090 -1.958961   9.624738
+## 5              exPFC1           exPFC -4.001498 -2.066558  -4.033538
+##   HVG_TSNE2 KM_5 KM_6 KM_7 KM_8 KM_9 KM_10 KM_11 KM_12 KM_13 KM_14 KM_15
+## 1 -15.96256    4    3    2    5    4     9     9     5     4    13     8
+## 2 -12.62196    4    3    6    2    9     7     8     3     1     3     2
+## 3 -11.35783    4    3    2    5    4     9     9     5     4    13     8
+## 4 -10.86205    4    3    2    5    4     9     9     5     4    13     8
+## 5 -13.48197    4    3    2    5    4     9     9     5     4    13     8
+##   Cluster.Name nGenes nTranscripts Cluster.ID Cell_Type
+## 1       exPFC1    736         1034          1     exPFC
+## 2        GABA1   1480         2391          5      GABA
+## 3        GABA1   1107         1757          5      GABA
+## 4        GABA1    708          935          5      GABA
+## 5       exPFC1    520          673          1     exPFC
 </code></pre>
 
 <pre><code class="r">smart_table(all_clust_res[,c(&quot;Cell_Type&quot;,&quot;Cluster.ID&quot;)])
@@ -3317,183 +2511,354 @@ dim(all_clust_res)
 
 <pre><code>##          Cluster.ID
 ## Cell_Type    1    2    3    4    5    6    7    8    9   10   11   12   13
-##     ASC      0    0    0    0    0    0    0 1078  581    0    0    0    0
+##     ASC      0    0    0    0    0    0    0  380   82    0    0    0    0
 ##     END      0    0    0    0    0    0    0    0    0    0    0    0    0
-##     exCA1    0    0  390    0    0    0    0    0    0    0    0    0    0
-##     exCA3    0    0    0  737    0    0    0    0    0    0    0    0    0
-##     exDG     0    0    0    0    0    0 1421    0    0    0    0    0    0
-##     exPFC 3048  293    0    0    0    0    0    0    0    0    0    0    0
-##     GABA     0    0    0    0  874  772    0    0    0    0    0    0    0
-##     MG       0    0    0    0    0    0    0    0    0    0    0    0  281
-##     NSC      0    0    0    0    0    0    0    0    0    0    0    0    0
-##     ODC      0    0    0    0    0    0    0    0    0 1484 1155    0    0
-##     OPC      0    0    0    0    0    0    0    0    0    0    0  578    0
+##     exCA1    0    0   90    0    0    0    0    0    0    0    0    0    0
+##     exCA3    0    0    0  200    0    0    0    0    0    0    0    0    0
+##     exDG     0    0    0    0    0    0   64    0    0    0    0    0    0
+##     exPFC 2479  262    0    0    0    0    0    0    0    0    0    0    0
+##     GABA     0    0    0    0  629  469    0    0    0    0    0    0    0
+##     MG       0    0    0    0    0    0    0    0    0    0    0    0   60
+##     ODC      0    0    0    0    0    0    0    0    0  192  190    0    0
+##     OPC      0    0    0    0    0    0    0    0    0    0    0  181    0
 ##     &lt;NA&gt;     0    0    0    0    0    0    0    0    0    0    0    0    0
 ##          Cluster.ID
-## Cell_Type   14   15   16   18
-##     ASC      0    0    0    0
-##     END      0   83    0    0
-##     exCA1    0    0    0    0
-##     exCA3    0    0    0    0
-##     exDG     0    0    0    0
-##     exPFC    0    0    0    0
-##     GABA     0    0    0    0
-##     MG       0    0    0    0
-##     NSC    161    0    0    0
-##     ODC      0    0    0    0
-##     OPC      0    0    0    0
-##     &lt;NA&gt;     0    0   74  171
+## Cell_Type   15   16   18
+##     ASC      0    0    0
+##     END     18    0    0
+##     exCA1    0    0    0
+##     exCA3    0    0    0
+##     exDG     0    0    0
+##     exPFC    0    0    0
+##     GABA     0    0    0
+##     MG       0    0    0
+##     ODC      0    0    0
+##     OPC      0    0    0
+##     &lt;NA&gt;     0   50   23
 </code></pre>
 
-<pre><code class="r">smart_table(all_clust_res[,c(&quot;Cell_Type&quot;,&quot;cluster_kmean&quot;)])
+<pre><code class="r">for(num_clust in all_num_clust){
+    km_label = paste0(&quot;KM_&quot;,num_clust)
+    print(smart_table(all_clust_res[,c(&quot;Cell_Type&quot;,km_label)]))
+    t2 = melt(smart_table(all_clust_res[,c(&quot;Cell_Type&quot;,km_label)]))
+    colnames(t2)[2] = &quot;cluster&quot;
+    print(summary(t2$value))
+    print(gg.heatmap(t2,paste0(&quot;kmeans &quot;,num_clust,&quot; clusters&quot;)))
+}
 </code></pre>
 
-<pre><code>##          cluster_kmean
+<pre><code>##          KM_5
+## Cell_Type    1    2    3    4    5
+##     ASC    412    9    1   40    0
+##     END      0    0    0    4   14
+##     exCA1    1    1    0   88    0
+##     exCA3    0    0    0  200    0
+##     exDG     0    0    0   64    0
+##     exPFC   17   29    4 2690    1
+##     GABA     3    1    1 1093    0
+##     MG       5    7    0   18   30
+##     ODC      2  343    1   35    1
+##     OPC      0    1  158   22    0
+##     &lt;NA&gt;     2    6    0   64    1
+##    Min. 1st Qu.  Median    Mean 3rd Qu.    Max. 
+##    0.00    0.00    1.00   97.62   20.00 2690.00
+</code></pre>
+
+<p><img src="figure/unnamed-chunk-11-2.png" alt="plot of chunk unnamed-chunk-11"></p>
+
+<pre><code>##          KM_6
+## Cell_Type    1    2    3    4    5    6
+##     ASC      0    1   39    9  413    0
+##     END      0    0    5    0    0   13
+##     exCA1    0    0   88    1    1    0
+##     exCA3    0    0  200    0    0    0
+##     exDG     0    0   64    0    0    0
+##     exPFC    0    4 2690   29   17    1
+##     GABA     0    1 1093    1    3    0
+##     MG       0    0   15    4    4   37
+##     ODC      0    1   35  343    2    1
+##     OPC      0  158   22    1    0    0
+##     &lt;NA&gt;     0    0   64    5    2    2
+##    Min. 1st Qu.  Median    Mean 3rd Qu.    Max. 
+##    0.00    0.00    1.00   81.35   12.00 2690.00
+</code></pre>
+
+<p><img src="figure/unnamed-chunk-11-3.png" alt="plot of chunk unnamed-chunk-11"></p>
+
+<pre><code>##          KM_7
+## Cell_Type    1    2    3    4    5    6    7
+##     ASC      1   32    0  413    9    7    0
+##     END      0    5    0    0    0    0   13
+##     exCA1    0   86    0    1    1    2    0
+##     exCA3    0  197    0    0    0    3    0
+##     exDG     0   63    0    0    0    1    0
+##     exPFC    4 2648    0   17   29   42    1
+##     GABA     0  224    0    2    1  871    0
+##     MG       0   15    0    4    4    0   37
+##     ODC      1   28    0    2  343    7    1
+##     OPC    157   20    0    0    1    3    0
+##     &lt;NA&gt;     0   29    0    2    5   35    2
+##    Min. 1st Qu.  Median    Mean 3rd Qu.    Max. 
+##    0.00    0.00    1.00   69.73   13.00 2648.00
+</code></pre>
+
+<p><img src="figure/unnamed-chunk-11-4.png" alt="plot of chunk unnamed-chunk-11"></p>
+
+<pre><code>##          KM_8
+## Cell_Type    1    2    3    4    5    6    7    8
+##     ASC      0    2  413    1   34    3    9    0
+##     END      0    0    0    0    4    1    0   13
+##     exCA1    0    2    1    0   53   33    1    0
+##     exCA3    0    2    0    0  117   81    0    0
+##     exDG     0    0    0    0    6   58    0    0
+##     exPFC    0   22   17    4 2642   28   27    1
+##     GABA     0  726    2    0  366    3    1    0
+##     MG       0    0    4    0   14    1    4   37
+##     ODC      0    6    2    1   26    2  344    1
+##     OPC      0    2    0  157   20    1    1    0
+##     &lt;NA&gt;     0   35    2    0    9   20    5    2
+##    Min. 1st Qu.  Median    Mean 3rd Qu.    Max. 
+##    0.00    0.00    1.00   61.01   13.25 2642.00
+</code></pre>
+
+<p><img src="figure/unnamed-chunk-11-5.png" alt="plot of chunk unnamed-chunk-11"></p>
+
+<pre><code>##          KM_9
+## Cell_Type    1    2    3    4    5    6    7    8    9
+##     ASC      9    0    3   34    0  413    0    1    2
+##     END      0   13    1    4    0    0    0    0    0
+##     exCA1    1    0   33   53    0    1    0    0    2
+##     exCA3    0    0   81  117    0    0    0    0    2
+##     exDG     0    0   58    6    0    0    0    0    0
+##     exPFC   30    1   27 2641    0   16    0    4   22
+##     GABA     1    0    3  367    0    2    0    0  725
+##     MG       4   37    1   14    0    4    0    0    0
+##     ODC    313    1    2   24   34    2    0    1    5
+##     OPC      1    0    1   20    0    0    0  157    2
+##     &lt;NA&gt;     6    2   19    9    0    2    0    0   35
+##    Min. 1st Qu.  Median    Mean 3rd Qu.    Max. 
+##    0.00    0.00    1.00   54.23    9.00 2641.00
+</code></pre>
+
+<p><img src="figure/unnamed-chunk-11-6.png" alt="plot of chunk unnamed-chunk-11"></p>
+
+<pre><code>##          KM_10
+## Cell_Type    1    2    3    4    5    6    7    8    9   10
+##     ASC      0  413    0    9    3    1    2    0   34    0
+##     END     13    0    0    0    1    0    0    0    4    0
+##     exCA1    0    1    0    1   33    0    2    0   53    0
+##     exCA3    0    0    0    0   81    0    2    0  117    0
+##     exDG     0    0    0    0   58    0    0    0    6    0
+##     exPFC    0   16    0   30   27    4   22    1 2641    0
+##     GABA     0    2    0    1    3    0  726    0  366    0
+##     MG       0    5    0    5    1    0    0   35   14    0
+##     ODC      0    2    0  313    2    1    6    1   23   34
+##     OPC      0    0    0    1    1  157    2    0   20    0
+##     &lt;NA&gt;     0    2    0    7   19    0   35    1    9    0
+##    Min. 1st Qu.  Median    Mean 3rd Qu.    Max. 
+##    0.00    0.00    0.50   48.81    6.00 2641.00
+</code></pre>
+
+<p><img src="figure/unnamed-chunk-11-7.png" alt="plot of chunk unnamed-chunk-11"></p>
+
+<pre><code>##          KM_11
+## Cell_Type    1    2    3    4    5    6    7    8    9   10   11
+##     ASC     35    0    1    1    8  386    0    1   30    0    0
+##     END      0    0    1    0    0    0   13    0    4    0    0
+##     exCA1    0    0   33    0    1    1    0    2   53    0    0
+##     exCA3    0    0   81    0    0    0    0    2  117    0    0
+##     exDG     0    0   58    0    0    0    0    0    6    0    0
+##     exPFC    1    0   26    0   27   19    0   24 2639    1    4
+##     GABA     0    0    3    0    1    3    0  724  367    0    0
+##     MG       0    0    1    0    5    5    0    0   14   35    0
+##     ODC      0    0    2   33  314    2    0    6   23    1    1
+##     OPC      0    0    1    0    1    1    0    2   20    0  156
+##     &lt;NA&gt;     0    0   14    0    7    2    0   40    9    1    0
+##    Min. 1st Qu.  Median    Mean 3rd Qu.    Max. 
+##    0.00    0.00    0.00   44.37    5.00 2639.00
+</code></pre>
+
+<p><img src="figure/unnamed-chunk-11-8.png" alt="plot of chunk unnamed-chunk-11"></p>
+
+<pre><code>##          KM_12
 ## Cell_Type    1    2    3    4    5    6    7    8    9   10   11   12
-##     ASC      4    2 1066    3   34  518    1    0   11    0   20    0
-##     END      0    1    2    1    6    1    1    0    2    0    1   68
-##     exCA1    0    5    7  118   76    0    0    0  179    0    5    0
-##     exCA3    0    4    1  630   76    0    0    0   23    0    3    0
-##     exDG     0    0    0   23   15    0    0    0 1380    0    3    0
-##     exPFC    6   20   46   53 3107   10    5    2   38    0   54    0
-##     GABA     0 1154    4   37  443    0    0    0    4    0    3    1
-##     MG       1    0    9    4   18    2    2  221   10    0   14    0
-##     NSC      0    0    7    1    0    2    0    0    7  144    0    0
-##     ODC    903    5    7    1   26    0    6    2   10    0 1679    0
-##     OPC      5    3    3    2   20    1  533    0    5    0    6    0
-##     &lt;NA&gt;     0   48    9   11   13    1    1    2  143    0   17    0
+##     ASC      0    1    2    8   28    0  386    0   35    1    1    0
+##     END      0    1    0    0    4   13    0    0    0    0    0    0
+##     exCA1    0   12    1    1   44    0    1    0    0   31    0    0
+##     exCA3    0    7    2    0   49    0    0    0    0  142    0    0
+##     exDG     0   53    0    0    6    0    0    0    0    5    0    0
+##     exPFC    0   16   14   27 2621    0   19    1    1   38    0    4
+##     GABA     0    0  710    1  373    0    3    0    0   11    0    0
+##     MG       0    1    0    5   13    0    5   35    0    1    0    0
+##     ODC      0    2    5  312   24    0    2    1    0    0   35    1
+##     OPC      0    2    2    1   17    0    2    0    0    2    0  155
+##     &lt;NA&gt;     0   21   31    7   10    0    2    1    0    1    0    0
+##    Min. 1st Qu.  Median    Mean 3rd Qu.    Max. 
+##    0.00    0.00    0.50   40.67    5.25 2621.00
 </code></pre>
 
-<pre><code class="r">smart_table(all_clust_res[,c(&quot;Cell_Type&quot;,&quot;sc3_12_clusters&quot;)])
+<p><img src="figure/unnamed-chunk-11-9.png" alt="plot of chunk unnamed-chunk-11"></p>
+
+<pre><code>##          KM_13
+## Cell_Type    1    2    3    4    5    6    7    8    9   10   11   12   13
+##     ASC      2    0   35   29    1    0    1    0    1    0    2    7  384
+##     END      0    0    0    4    0    0    0    0    1   13    0    0    0
+##     exCA1    1    0    0   44    0    0    0    0   12    0   31    1    1
+##     exCA3    2    0    0   49    0    0    0    0    7    0  142    0    0
+##     exDG     0    0    0    6    0    0    0    0   53    0    5    0    0
+##     exPFC   13    4    1 2622    6    1    0    0   16    0   38   25   15
+##     GABA   710    0    0  372    0    0    0    0    0    0   11    2    3
+##     MG       0    0    0   11    0   34    0    0    1    0    1    8    5
+##     ODC      5    1    0   23   68    1   22    0    2    0    0  259    1
+##     OPC      2  156    0   17    0    0    0    0    2    0    2    1    1
+##     &lt;NA&gt;    31    0    0   10    0    1    0    0   21    0    1    7    2
+##    Min. 1st Qu.  Median    Mean 3rd Qu.    Max. 
+##    0.00    0.00    0.00   37.55    5.50 2622.00
 </code></pre>
 
-<pre><code>##          sc3_12_clusters
-## Cell_Type    1    2    3    4    5    6    7    8    9   10   11   12
-##     ASC     23   12    4    2  612   10   10  964    2   12    2    6
-##     END      7    2    1   36    4    2    0    2    8    1    2   18
-##     exCA1   86    9  157    9    9   19    4    3    1    7   85    1
-##     exCA3  100    6  376    3    4    5    3    1    1    3  235    0
-##     exDG    21    2  527   10    2  853    0    1    0    1    4    0
-##     exPFC 2211  566   26    5   39   21   15   46   10  368   30    4
-##     GABA   154  346    2    4  375    0    2    5  251   82    2  423
-##     MG      14    2    3    2    1   88    5   14  129   11    8    4
-##     NSC      1    0    1    0    4   55    0    6   94    0    0    0
-##     ODC     14    8    4    0    0   10  486  506    5  808  798    0
-##     OPC     10    5    2    0    4  216    0    2  327    4    4    4
-##     &lt;NA&gt;    20   40   50    2   11   68    9    6    5   26    7    1
+<p><img src="figure/unnamed-chunk-11-10.png" alt="plot of chunk unnamed-chunk-11"></p>
+
+<pre><code>##          KM_14
+## Cell_Type    1    2    3    4    5    6    7    8    9   10   11   12   13
+##     ASC      0    1    1    7   21    0    0    1  330    1    0   72   28
+##     END      0    0    0    0    0    0   13    1    0    0    0    0    4
+##     exCA1   31    0    1    1    0    0    0   12    1    0    0    0   44
+##     exCA3  142    0    2    0    0    0    0    7    0    0    0    0   49
+##     exDG     5    0    0    0    0    0    0   53    0    0    0    0    6
+##     exPFC   38    0   13   22    1    1    0   16   19    6    0    0 2621
+##     GABA    11    0  710    2    0    0    0    0    5    0    0    0  370
+##     MG       1    0    0    8    0   33    0    1    6    0    0    0   11
+##     ODC      0   22    5  259    0    1    0    2    2   68    0    0   23
+##     OPC      2    0    2    1    0    0    0    2    3    0    0    0   17
+##     &lt;NA&gt;     1    0   31    7    0    1    0   21    2    0    0    0   10
+##          KM_14
+## Cell_Type   14
+##     ASC      0
+##     END      0
+##     exCA1    0
+##     exCA3    0
+##     exDG     0
+##     exPFC    4
+##     GABA     0
+##     MG       0
+##     ODC      0
+##     OPC    154
+##     &lt;NA&gt;     0
+##    Min. 1st Qu.  Median    Mean 3rd Qu.    Max. 
+##    0.00    0.00    0.00   34.86    5.00 2621.00
 </code></pre>
 
-<pre><code class="r">smart_table(all_clust_res[,c(&quot;Cell_Type&quot;,&quot;sc3_10_clusters&quot;)])
+<p><img src="figure/unnamed-chunk-11-11.png" alt="plot of chunk unnamed-chunk-11"></p>
+
+<pre><code>##          KM_15
+## Cell_Type    1    2    3    4    5    6    7    8    9   10   11   12   13
+##     ASC      0    1   15    0    1    0    1   27    1  338    0    0    0
+##     END      0    0    0   13    1    0    0    4    0    0    0    0    0
+##     exCA1    0    1    0    0   12    0    0   42    0    1   33    0    0
+##     exCA3    0    2    0    0    7    0    0   48    0    0  143    0    0
+##     exDG     0    0    0    0   53    0    0    6    0    0    5    0    0
+##     exPFC    1   12    1    0   16    4    0 2621    6   20   38    0    0
+##     GABA     0  710    0    0    0    0    0  370    0    5   11    0    0
+##     MG      33    0    0    0    1    0    0   11    0    6    1    0    0
+##     ODC      1    5    0    0    2    0   21   23   66    2    0    0    0
+##     OPC      0    2    0    0    2  155    0   17    0    2    2    0    0
+##     &lt;NA&gt;     1   31    0    0   21    0    0   10    0    2    1    0    0
+##          KM_15
+## Cell_Type   14   15
+##     ASC      7   71
+##     END      0    0
+##     exCA1    1    0
+##     exCA3    0    0
+##     exDG     0    0
+##     exPFC   22    0
+##     GABA     2    0
+##     MG       8    0
+##     ODC    262    0
+##     OPC      1    0
+##     &lt;NA&gt;     7    0
+##    Min. 1st Qu.  Median    Mean 3rd Qu.    Max. 
+##    0.00    0.00    0.00   32.54    4.00 2621.00
+</code></pre>
+
+<p><img src="figure/unnamed-chunk-11-12.png" alt="plot of chunk unnamed-chunk-11"></p>
+
+<pre><code class="r">for(ks in all_ks){
+    sc3_label = paste0(&quot;sc3_&quot;,ks,&quot;_clusters&quot;)
+    print(smart_table(all_clust_res[,c(&quot;Cell_Type&quot;,sc3_label)]))
+    t2 = melt(smart_table(all_clust_res[,c(&quot;Cell_Type&quot;,sc3_label)]))
+    colnames(t2)[2] = &quot;cluster&quot;
+    print(summary(t2$value))
+    print(gg.heatmap(t2,paste0(&quot;sc3 &quot;,ks,&quot; clusters&quot;)))
+}
 </code></pre>
 
 <pre><code>##          sc3_10_clusters
 ## Cell_Type    1    2    3    4    5    6    7    8    9   10
-##     ASC   1551   17   24   10   21    6    8    7    5   10
-##     END      1    2    6    8    4    4    0   18   37    3
-##     exCA1    4  174    6   24   40    7    7    0   11  117
-##     exCA3    0  385    2   22   60    8    6    1    3  250
-##     exDG     0   14    2    3   13    1    2    0  519  867
-##     exPFC   50   59   43  847 1378  381  540    6    7   30
-##     GABA     3   11    1   39  357  538  333  357    1    6
-##     MG       9    9  100  136    9    4    2    3    4    5
-##     NSC      9    2   54   93    0    0    0    0    1    2
-##     ODC      5  980 1601   13   10    5    8    7    2    8
-##     OPC      4    0  224  326   12    3    4    1    2    2
-##     &lt;NA&gt;     7   25   10   10   22   25   35    1   39   71
+##     ASC     21    0    4    0    0    1    1   83  343    9
+##     END      3   12    0    1    0    0    0    0    0    2
+##     exCA1   37    5   23    5    0    1    7    1    3    8
+##     exCA3   67    8   63   48    0    1    6    0    1    6
+##     exDG     6    0    0    2    0   10   44    0    0    2
+##     exPFC 1630   22  119    3    3    6   24   26  149  759
+##     GABA   143  100  526    3    0    0    3    0   51  272
+##     MG       7   31    1    0    0    1    0    8    3    9
+##     ODC     16    2    3    0    0    0   53  295    2   11
+##     OPC     10  127    5    1    0    1    2    1    3   31
+##     &lt;NA&gt;    10    4    4    0    0    0    4    5    9   37
+##    Min. 1st Qu.  Median    Mean 3rd Qu.    Max. 
+##    0.00    0.00    3.00   48.81   15.00 1630.00
 </code></pre>
 
-<pre><code class="r">t2 = melt(smart_table(all_clust_res[,c(&quot;Cell_Type&quot;,&quot;cluster_kmean&quot;)]))
-colnames(t2)[2] = &quot;cluster&quot;
-summary(t2$value)
+<p><img src="figure/unnamed-chunk-11-13.png" alt="plot of chunk unnamed-chunk-11"></p>
+
+<pre><code>##          sc3_12_clusters
+## Cell_Type    1    2    3    4    5    6    7    8    9   10   11   12
+##     ASC     22    4    0    0    0    1    2   78    0    9  344    2
+##     END      3    0    0   13    0    0    0    0    0    0    0    2
+##     exCA1   40    7    1    0   26    1    2    4    0    8    1    0
+##     exCA3   64   15    0    0  108    2    1    3    1    6    0    0
+##     exDG     5    0    0    0   12    0    0   45    0    2    0    0
+##     exPFC 1705   20    8    2   32   16  148   18    3  762   18    9
+##     GABA   171    2   20   76    6   35  525    1    1  258    3    0
+##     MG       9    7    0   27    2    0    0    0    0    3    5    7
+##     ODC     15  191    0    1    2    1    1    3   25   37    1  105
+##     OPC     12    1  129    1    1    0    3    2    0    8   23    1
+##     &lt;NA&gt;     7    3    1    3    1    0   10    4    0   39    3    2
+##    Min. 1st Qu.  Median    Mean 3rd Qu.    Max. 
+##    0.00    0.00    2.00   40.67   12.25 1705.00
 </code></pre>
 
-<pre><code>##    Min. 1st Qu.  Median    Mean 3rd Qu.    Max. 
-##    0.00    0.00    2.00   91.53   11.50 3107.00
-</code></pre>
-
-<pre><code class="r">gg.heatmap(t2, &quot;kmeans 12 clusters&quot;)
-</code></pre>
-
-<p><img src="figure/unnamed-chunk-19-2.png" alt="plot of chunk unnamed-chunk-19"></p>
-
-<pre><code class="r">t2 = melt(smart_table(all_clust_res[,c(&quot;Cell_Type&quot;,&quot;sc3_12_clusters&quot;)]))
-colnames(t2)[2] = &quot;cluster&quot;
-summary(t2$value)
-</code></pre>
-
-<pre><code>##    Min. 1st Qu.  Median    Mean 3rd Qu.    Max. 
-##    0.00    2.00    5.50   91.53   27.00 2211.00
-</code></pre>
-
-<pre><code class="r">gg.heatmap(t2, &quot;sc3 12 clusters&quot;)
-</code></pre>
-
-<p><img src="figure/unnamed-chunk-19-3.png" alt="plot of chunk unnamed-chunk-19"></p>
-
-<pre><code class="r">t2 = melt(smart_table(all_clust_res[,c(&quot;Cell_Type&quot;,&quot;sc3_10_clusters&quot;)]))
-colnames(t2)[2] = &quot;cluster&quot;
-summary(t2$value)
-</code></pre>
-
-<pre><code>##    Min. 1st Qu.  Median    Mean 3rd Qu.    Max. 
-##     0.0     3.0     8.0   109.8    39.0  1601.0
-</code></pre>
-
-<pre><code class="r">gg.heatmap(t2, &quot;sc3 10 clusters&quot;)
-</code></pre>
-
-<p><img src="figure/unnamed-chunk-19-4.png" alt="plot of chunk unnamed-chunk-19"></p>
+<p><img src="figure/unnamed-chunk-11-14.png" alt="plot of chunk unnamed-chunk-11"></p>
 
 <p>We plot our TSNE colored by our clustering results. </p>
 
-<pre><code class="r">ggplot_custom(DATA = all_clust_res,X = &quot;HVG_TSNE1&quot;,Y = &quot;HVG_TSNE2&quot;,COL = &quot;Cell_Type&quot;,TYPE = &quot;cat&quot;)
+<pre><code class="r">all_vars = c(&quot;Cell_Type&quot;,paste0(&quot;KM_&quot;,all_num_clust),
+            paste0(&quot;sc3_&quot;,all_ks,&quot;_clusters&quot;))
+for(one_var in all_vars){
+    print(ggplot_custom(DATA = all_clust_res,X = &quot;HVG_TSNE1&quot;,
+        Y = &quot;HVG_TSNE2&quot;,COL = one_var,TYPE = &quot;cat&quot;))
+}
 </code></pre>
 
-<p><img src="figure/unnamed-chunk-20-1.png" alt="plot of chunk unnamed-chunk-20"></p>
-
-<pre><code class="r">ggplot_custom(DATA = all_clust_res,X = &quot;HVG_TSNE1&quot;,Y = &quot;HVG_TSNE2&quot;,COL = &quot;cluster_kmean&quot;,TYPE = &quot;cat&quot;)
-</code></pre>
-
-<p><img src="figure/unnamed-chunk-20-2.png" alt="plot of chunk unnamed-chunk-20"></p>
-
-<pre><code class="r">ggplot_custom(DATA = all_clust_res,X = &quot;HVG_TSNE1&quot;,Y = &quot;HVG_TSNE2&quot;,COL = &quot;sc3_10_clusters&quot;,TYPE = &quot;cat&quot;)
-</code></pre>
-
-<p><img src="figure/unnamed-chunk-20-3.png" alt="plot of chunk unnamed-chunk-20"></p>
-
-<pre><code class="r">ggplot_custom(DATA = all_clust_res,X = &quot;HVG_TSNE1&quot;,Y = &quot;HVG_TSNE2&quot;,COL = &quot;sc3_12_clusters&quot;,TYPE = &quot;cat&quot;)
-</code></pre>
-
-<p><img src="figure/unnamed-chunk-20-4.png" alt="plot of chunk unnamed-chunk-20"></p>
+<p><img src="figure/unnamed-chunk-12-1.png" alt="plot of chunk unnamed-chunk-12"><img src="figure/unnamed-chunk-12-2.png" alt="plot of chunk unnamed-chunk-12"><img src="figure/unnamed-chunk-12-3.png" alt="plot of chunk unnamed-chunk-12"><img src="figure/unnamed-chunk-12-4.png" alt="plot of chunk unnamed-chunk-12"><img src="figure/unnamed-chunk-12-5.png" alt="plot of chunk unnamed-chunk-12"><img src="figure/unnamed-chunk-12-6.png" alt="plot of chunk unnamed-chunk-12"><img src="figure/unnamed-chunk-12-7.png" alt="plot of chunk unnamed-chunk-12"><img src="figure/unnamed-chunk-12-8.png" alt="plot of chunk unnamed-chunk-12"><img src="figure/unnamed-chunk-12-9.png" alt="plot of chunk unnamed-chunk-12"><img src="figure/unnamed-chunk-12-10.png" alt="plot of chunk unnamed-chunk-12"><img src="figure/unnamed-chunk-12-11.png" alt="plot of chunk unnamed-chunk-12"><img src="figure/unnamed-chunk-12-12.png" alt="plot of chunk unnamed-chunk-12"><img src="figure/unnamed-chunk-12-13.png" alt="plot of chunk unnamed-chunk-12"><img src="figure/unnamed-chunk-12-14.png" alt="plot of chunk unnamed-chunk-12"></p>
 
 <p>Next we plot the TSNE by Habib et al. (2017). and colored by our clustering results. </p>
 
-<pre><code class="r">ggplot_custom(DATA = all_clust_res,X = &quot;paper_TSNE1&quot;,Y = &quot;paper_TSNE2&quot;,COL = &quot;Cell_Type&quot;,TYPE = &quot;cat&quot;)
+<pre><code class="r">all_vars = c(&quot;Cell_Type&quot;,paste0(&quot;KM_&quot;,all_num_clust),
+            paste0(&quot;sc3_&quot;,all_ks,&quot;_clusters&quot;))
+for(one_var in all_vars){
+    print(ggplot_custom(DATA = all_clust_res,X = &quot;paper_TSNE1&quot;,
+        Y = &quot;paper_TSNE2&quot;,COL = one_var,TYPE = &quot;cat&quot;))
+}
 </code></pre>
 
-<p><img src="figure/unnamed-chunk-21-1.png" alt="plot of chunk unnamed-chunk-21"></p>
-
-<pre><code class="r">ggplot_custom(DATA = all_clust_res,X = &quot;paper_TSNE1&quot;,Y = &quot;paper_TSNE2&quot;,COL = &quot;cluster_kmean&quot;,TYPE = &quot;cat&quot;)
-</code></pre>
-
-<p><img src="figure/unnamed-chunk-21-2.png" alt="plot of chunk unnamed-chunk-21"></p>
-
-<pre><code class="r">ggplot_custom(DATA = all_clust_res,X = &quot;paper_TSNE1&quot;,Y = &quot;paper_TSNE2&quot;,COL = &quot;sc3_10_clusters&quot;,TYPE = &quot;cat&quot;)
-</code></pre>
-
-<p><img src="figure/unnamed-chunk-21-3.png" alt="plot of chunk unnamed-chunk-21"></p>
-
-<pre><code class="r">ggplot_custom(DATA = all_clust_res,X = &quot;paper_TSNE1&quot;,Y = &quot;paper_TSNE2&quot;,COL = &quot;sc3_12_clusters&quot;,TYPE = &quot;cat&quot;)
-</code></pre>
-
-<p><img src="figure/unnamed-chunk-21-4.png" alt="plot of chunk unnamed-chunk-21"></p>
+<p><img src="figure/unnamed-chunk-13-1.png" alt="plot of chunk unnamed-chunk-13"><img src="figure/unnamed-chunk-13-2.png" alt="plot of chunk unnamed-chunk-13"><img src="figure/unnamed-chunk-13-3.png" alt="plot of chunk unnamed-chunk-13"><img src="figure/unnamed-chunk-13-4.png" alt="plot of chunk unnamed-chunk-13"><img src="figure/unnamed-chunk-13-5.png" alt="plot of chunk unnamed-chunk-13"><img src="figure/unnamed-chunk-13-6.png" alt="plot of chunk unnamed-chunk-13"><img src="figure/unnamed-chunk-13-7.png" alt="plot of chunk unnamed-chunk-13"><img src="figure/unnamed-chunk-13-8.png" alt="plot of chunk unnamed-chunk-13"><img src="figure/unnamed-chunk-13-9.png" alt="plot of chunk unnamed-chunk-13"><img src="figure/unnamed-chunk-13-10.png" alt="plot of chunk unnamed-chunk-13"><img src="figure/unnamed-chunk-13-11.png" alt="plot of chunk unnamed-chunk-13"><img src="figure/unnamed-chunk-13-12.png" alt="plot of chunk unnamed-chunk-13"><img src="figure/unnamed-chunk-13-13.png" alt="plot of chunk unnamed-chunk-13"><img src="figure/unnamed-chunk-13-14.png" alt="plot of chunk unnamed-chunk-13"></p>
 
 <p>Finally we save the sce object and the clustering results</p>
 
-<pre><code class="r">saveRDS(sce,file.path(data_dir,&quot;sce.rds&quot;))
-saveRDS(sce_hvg,file.path(data_dir,&quot;sce_hvg.rds&quot;))
-saveRDS(all_clust_res,file.path(data_dir,&quot;all_clust_res.rds&quot;))
->>>>>>> october
+<pre><code class="r">saveRDS(sce,file.path(work_dir,&quot;sce.rds&quot;))
+saveRDS(sce_hvg,file.path(work_dir,&quot;sce_hvg.rds&quot;))
+saveRDS(all_clust_res,file.path(work_dir,&quot;all_clust_res.rds&quot;))
 </code></pre>
 
 <h1>Session information</h1>
@@ -3503,11 +2868,7 @@ saveRDS(all_clust_res,file.path(data_dir,&quot;all_clust_res.rds&quot;))
 
 <pre><code>## R version 3.5.1 (2018-07-02)
 ## Platform: x86_64-pc-linux-gnu (64-bit)
-<<<<<<< HEAD
-## Running under: Red Hat Enterprise Linux Server 7.5 (Maipo)
-=======
 ## Running under: Red Hat Enterprise Linux Server 7.6 (Maipo)
->>>>>>> october
 ## 
 ## Matrix products: default
 ## BLAS: /nas/longleaf/home/pllittle/downloads/R-3.5.1/lib64/R/lib/libRblas.so
@@ -3526,47 +2887,47 @@ saveRDS(all_clust_res,file.path(data_dir,&quot;all_clust_res.rds&quot;))
 ## [8] methods   base     
 ## 
 ## other attached packages:
-<<<<<<< HEAD
-##  [1] SC3_1.8.0                   Rtsne_0.13                 
-##  [3] svd_0.4.1                   data.table_1.11.4          
-##  [5] limma_3.36.3                scran_1.8.4                
-##  [7] scater_1.8.4                ggplot2_3.0.0              
-##  [9] biomaRt_2.36.1              DropletUtils_1.0.3         
-## [11] SingleCellExperiment_1.2.0  SummarizedExperiment_1.10.1
-## [13] DelayedArray_0.6.5          BiocParallel_1.14.2        
-## [15] matrixStats_0.54.0          Biobase_2.40.0             
-## [17] GenomicRanges_1.32.6        GenomeInfoDb_1.16.0        
-## [19] IRanges_2.14.11             S4Vectors_0.18.3           
-## [21] BiocGenerics_0.26.0         rmarkdown_1.10             
-## [23] markdown_0.8                knitr_1.20                 
+##  [1] SC3_1.8.0                   Rtsne_0.15                 
+##  [3] svd_0.4.1                   limma_3.36.5               
+##  [5] scran_1.8.4                 scater_1.8.4               
+##  [7] ggplot2_3.1.0               biomaRt_2.36.1             
+##  [9] DropletUtils_1.0.3          SingleCellExperiment_1.2.0 
+## [11] SummarizedExperiment_1.10.1 DelayedArray_0.6.6         
+## [13] BiocParallel_1.14.2         matrixStats_0.54.0         
+## [15] Biobase_2.40.0              GenomicRanges_1.32.7       
+## [17] GenomeInfoDb_1.16.0         IRanges_2.14.12            
+## [19] S4Vectors_0.18.3            BiocGenerics_0.26.0        
+## [21] data.table_1.11.8           BiocInstaller_1.30.0       
+## [23] rmarkdown_1.10              markdown_0.8               
+## [25] knitr_1.20                 
 ## 
 ## loaded via a namespace (and not attached):
 ##   [1] ggbeeswarm_0.6.0         colorspace_1.3-2        
 ##   [3] rjson_0.2.20             class_7.3-14            
 ##   [5] dynamicTreeCut_1.63-1    rprojroot_1.3-2         
-##   [7] XVector_0.20.0           DT_0.4                  
+##   [7] XVector_0.20.0           DT_0.5                  
 ##   [9] bit64_0.9-7              mvtnorm_1.0-8           
 ##  [11] AnnotationDbi_1.42.1     codetools_0.2-15        
-##  [13] tximport_1.8.0           doParallel_1.0.11       
-##  [15] robustbase_0.93-2        cluster_2.0.7-1         
-##  [17] pheatmap_1.0.10          shinydashboard_0.7.0    
-##  [19] shiny_1.1.0              rrcov_1.4-4             
+##  [13] tximport_1.8.0           doParallel_1.0.14       
+##  [15] robustbase_0.93-3        cluster_2.0.7-1         
+##  [17] pheatmap_1.0.10          shinydashboard_0.7.1    
+##  [19] shiny_1.2.0              rrcov_1.4-7             
 ##  [21] compiler_3.5.1           httr_1.3.1              
 ##  [23] backports_1.1.2          assertthat_0.2.0        
-##  [25] Matrix_1.2-14            lazyeval_0.2.1          
-##  [27] later_0.7.3              htmltools_0.3.6         
+##  [25] Matrix_1.2-15            lazyeval_0.2.1          
+##  [27] later_0.7.5              htmltools_0.3.6         
 ##  [29] prettyunits_1.0.2        tools_3.5.1             
 ##  [31] bindrcpp_0.2.2           igraph_1.2.2            
 ##  [33] gtable_0.2.0             glue_1.3.0              
 ##  [35] GenomeInfoDbData_1.1.0   reshape2_1.4.3          
-##  [37] dplyr_0.7.6              doRNG_1.7.1             
-##  [39] Rcpp_0.12.18             gdata_2.18.0            
+##  [37] dplyr_0.7.8              doRNG_1.7.1             
+##  [39] Rcpp_1.0.0               gdata_2.18.0            
 ##  [41] iterators_1.0.10         DelayedMatrixStats_1.2.0
-##  [43] stringr_1.3.1            mime_0.5                
+##  [43] stringr_1.3.1            mime_0.6                
 ##  [45] irlba_2.3.2              rngtools_1.3.1          
 ##  [47] gtools_3.8.1             WriteXLS_4.0.0          
 ##  [49] statmod_1.4.30           XML_3.98-1.16           
-##  [51] DEoptimR_1.0-8           edgeR_3.22.3            
+##  [51] DEoptimR_1.0-8           edgeR_3.22.5            
 ##  [53] zlibbioc_1.26.0          scales_1.0.0            
 ##  [55] hms_0.4.2                promises_1.0.1          
 ##  [57] rhdf5_2.24.0             RColorBrewer_1.1-2      
@@ -3575,83 +2936,26 @@ saveRDS(all_clust_res,file.path(data_dir,&quot;all_clust_res.rds&quot;))
 ##  [63] RSQLite_2.1.1            highr_0.7               
 ##  [65] pcaPP_1.9-73             foreach_1.4.4           
 ##  [67] e1071_1.7-0              caTools_1.17.1.1        
-##  [69] bibtex_0.4.2             rlang_0.2.2             
+##  [69] bibtex_0.4.2             rlang_0.3.0.1           
 ##  [71] pkgconfig_2.0.2          bitops_1.0-6            
-##  [73] evaluate_0.11            lattice_0.20-35         
+##  [73] evaluate_0.12            lattice_0.20-38         
 ##  [75] ROCR_1.0-7               purrr_0.2.5             
 ##  [77] Rhdf5lib_1.2.1           bindr_0.1.1             
-##  [79] htmlwidgets_1.2          labeling_0.3            
-##  [81] bit_1.1-14               tidyselect_0.2.4        
+##  [79] htmlwidgets_1.3          labeling_0.3            
+##  [81] bit_1.1-14               tidyselect_0.2.5        
 ##  [83] plyr_1.8.4               magrittr_1.5            
-##  [85] R6_2.2.2                 gplots_3.0.1            
+##  [85] R6_2.3.0                 gplots_3.0.1            
 ##  [87] DBI_1.0.0                pillar_1.3.0            
 ##  [89] withr_2.1.2              RCurl_1.95-4.11         
 ##  [91] tibble_1.4.2             crayon_1.3.4            
 ##  [93] KernSmooth_2.23-15       viridis_0.5.1           
 ##  [95] progress_1.2.0           locfit_1.5-9.1          
 ##  [97] grid_3.5.1               blob_1.1.1              
-##  [99] FNN_1.1.2.1              digest_0.6.16           
+##  [99] FNN_1.1.2.1              digest_0.6.18           
 ## [101] xtable_1.8-3             httpuv_1.4.5            
 ## [103] munsell_0.5.0            registry_0.5            
 ## [105] beeswarm_0.2.3           viridisLite_0.3.0       
 ## [107] vipor_0.4.5
-=======
-##  [1] Rtsne_0.13                  svd_0.4.1                  
-##  [3] limma_3.36.3                scran_1.8.4                
-##  [5] scater_1.8.4                ggplot2_3.0.0              
-##  [7] biomaRt_2.36.1              DropletUtils_1.0.3         
-##  [9] SingleCellExperiment_1.2.0  SummarizedExperiment_1.10.1
-## [11] DelayedArray_0.6.5          BiocParallel_1.14.2        
-## [13] matrixStats_0.54.0          Biobase_2.40.0             
-## [15] GenomicRanges_1.32.6        GenomeInfoDb_1.16.0        
-## [17] IRanges_2.14.11             S4Vectors_0.18.3           
-## [19] BiocGenerics_0.26.0         data.table_1.11.4          
-## [21] rmarkdown_1.10              markdown_0.8               
-## [23] knitr_1.20                 
-## 
-## loaded via a namespace (and not attached):
-##  [1] bitops_1.0-6             bit64_0.9-7             
-##  [3] progress_1.2.0           httr_1.3.1              
-##  [5] rprojroot_1.3-2          dynamicTreeCut_1.63-1   
-##  [7] tools_3.5.1              backports_1.1.2         
-##  [9] irlba_2.3.2              R6_2.2.2                
-## [11] DT_0.4                   KernSmooth_2.23-15      
-## [13] vipor_0.4.5              DBI_1.0.0               
-## [15] lazyeval_0.2.1           colorspace_1.3-2        
-## [17] withr_2.1.2              tidyselect_0.2.4        
-## [19] gridExtra_2.3            prettyunits_1.0.2       
-## [21] bit_1.1-14               compiler_3.5.1          
-## [23] labeling_0.3             scales_1.0.0            
-## [25] stringr_1.3.1            digest_0.6.16           
-## [27] XVector_0.20.0           pkgconfig_2.0.2         
-## [29] htmltools_0.3.6          highr_0.7               
-## [31] htmlwidgets_1.2          rlang_0.2.2             
-## [33] RSQLite_2.1.1            FNN_1.1.2.1             
-## [35] shiny_1.1.0              DelayedMatrixStats_1.2.0
-## [37] bindr_0.1.1              dplyr_0.7.6             
-## [39] RCurl_1.95-4.11          magrittr_1.5            
-## [41] GenomeInfoDbData_1.1.0   Matrix_1.2-14           
-## [43] Rcpp_0.12.18             ggbeeswarm_0.6.0        
-## [45] munsell_0.5.0            Rhdf5lib_1.2.1          
-## [47] viridis_0.5.1            stringi_1.2.4           
-## [49] edgeR_3.22.3             zlibbioc_1.26.0         
-## [51] rhdf5_2.24.0             plyr_1.8.4              
-## [53] grid_3.5.1               blob_1.1.1              
-## [55] promises_1.0.1           shinydashboard_0.7.0    
-## [57] crayon_1.3.4             lattice_0.20-35         
-## [59] hms_0.4.2                locfit_1.5-9.1          
-## [61] pillar_1.3.0             igraph_1.2.2            
-## [63] rjson_0.2.20             reshape2_1.4.3          
-## [65] XML_3.98-1.16            glue_1.3.0              
-## [67] evaluate_0.11            httpuv_1.4.5            
-## [69] gtable_0.2.0             purrr_0.2.5             
-## [71] assertthat_0.2.0         mime_0.5                
-## [73] xtable_1.8-3             later_0.7.3             
-## [75] viridisLite_0.3.0        tibble_1.4.2            
-## [77] AnnotationDbi_1.42.1     beeswarm_0.2.3          
-## [79] memoise_1.1.0            tximport_1.8.0          
-## [81] bindrcpp_0.2.2           statmod_1.4.30
->>>>>>> october
 </code></pre>
 
 <h1>Reference</h1>
