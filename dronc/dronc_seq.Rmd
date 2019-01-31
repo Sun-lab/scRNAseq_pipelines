@@ -111,7 +111,7 @@ map_clust_name = smart_df(Habib_clusters = as.factor(seq(19)),
 	Habib_clusters_name = c("exPFC1","exPFC2","exCA1","exCA3",
 		"GABA1","GABA2","exDG","ASC1","ASC2","ODC1","ODC2",
 		"OPC","MG","NSC","END",rep(NA,4)),
-	Habib_cell_type = c("exPFC","exPFC","exCA","exCA",
+	Habib_cell_type = c("exPFC","exPFC","exCA1","exCA3",
 		"GABA","GABA","exDG","ASC","ASC","ODC","ODC","OPC",
 		"MG","NSC","END",rep(NA,4)))
 clust = smart_merge(clust,map_clust_name)
@@ -151,11 +151,8 @@ We will extract annotation information based on gene names. Since the existing c
 ```{r annotation, warning = FALSE, message = FALSE}
 anno_file = file.path(work_dir,"gene.annotation_dronc.rds")
 if( file.exists(anno_file) ){
-
 	gene_anno = readRDS(anno_file)
-
 } else{
-
 	ensembl = useEnsembl(biomart="ensembl",GRCh=37,
 		dataset="hsapiens_gene_ensembl")
 
@@ -168,7 +165,6 @@ if( file.exists(anno_file) ){
 		values = rownames(sce),
 		mart = ensembl)
 	saveRDS(gene_anno, file=anno_file)
-	
 }
 
 dim(sce); dim(gene_anno)
@@ -310,7 +306,7 @@ smoothScatter(sce$pct_counts_Ri,sce$pct_counts_Mt,
 
 From the QC results, we will filter on the metrics by identifying outliers using `isOutlier`.  Note that the cells assigned to cluster 18 by [@habib2017massively] will all be excluded.
 
-```{r}
+```{r qc_outlier}
 libsize_drop = isOutlier(sce$total_counts,nmads = 3,type = "lower",log = TRUE)
 feature_drop = isOutlier(sce$total_features_by_counts,nmads = 3,
                          type = "lower",log = TRUE)
@@ -429,10 +425,10 @@ dim(sce)
 sce = normalize(sce) 
 ```
 
-## Dimension Reduction
+# Dimension Reduction
 For dimension reduction, such as calculating PCA or performing TSNE, we should start by identifying a subset of genes with high level of biological signal relative to background (technical) noise. These genes are referred to as **HVGs** (highly variable genes). The ```decomposeVar``` function from ```R/cran``` is designed for this task. 
 
-```{r hgv, warning = FALSE,message = FALSE,fig.dim = c(5,5)}
+```{r hgv, warning = FALSE,message = FALSE,fig.dim = c(8,4)}
 new_trend = makeTechTrend(x=sce)
 fit = trendVar(sce, use.spikes=FALSE, loess.args=list(span=0.05))
 
@@ -453,7 +449,7 @@ plotExpression(sce, features=rownames(top_dec)[1:10])
 
 When performing PCA, we can use all the genes or just those genes with high signal-to-noise ratio (HGVs). TSNE analysis is usually based on the top PCs rather than the original gene expression data. We first perform PCA using **all the genes** and the function ```denoisePCA``` can automatically select the PCs based on modeling of technical noise.
 
-```{r denoisepca, fig.dim = c(7,7)}
+```{r denoisepca, fig.dim = c(5,5)}
 date()
 sce = denoisePCA(sce,technical=new_trend,approx=TRUE) # Using the Poisson trend fit
 date()
@@ -502,17 +498,11 @@ ggplot_custom(DATA = df_redDim,X = "my_TSNE1",Y = "my_TSNE2",
               COL = "Habib_clusters_name",TYPE = "cat")
 ggplot_custom(DATA = df_redDim,X = "my_TSNE1",Y = "my_TSNE2",
               COL = "Habib_cell_type",TYPE = "cat")
-
-saveRDS(list(sce = sce,dec = dec,df_redDim = df_redDim),
-		file.path(dronc_dir,"post_redDim_all_genes.rds"))
 ```
 
-We select around top 1,000 genes (based on FDR and biological residual thresholds) for the PCA and use the top 50 PCs for TSNE projection. When calculating PCs, we use log-transformed normalized gene expression data: ```log2(norm_express+1)```.
+We select around top 1,000 genes (based on FDR and biological residual thresholds) as **HVGs** (highly variable genes).
 
-```{r select_hvg, warning = FALSE,message = FALSE,fig.dim = c(5,5)}
-library(svd)
-library(Rtsne)
-
+```{r select_hvg, warning = FALSE,message = FALSE,fig.dim = c(8,4)}
 summary(dec$bio)
 dec1 = dec
 dec1$bio[which(dec$bio < 1e-5)] = 1e-5
@@ -536,6 +526,12 @@ edat = t(as.matrix(logcounts(sce_hvg)))
 edat = scale(edat)
 dim(edat)
 edat[1:2,1:3]
+```
+
+Perform PCA and use the top 50 PCs for TSNE projection. When calculating PCs, we use log-transformed normalized gene expression data: ```log2(norm_express+1)```.
+```{r analysis_hvg, warning = FALSE,message = FALSE,fig.dim = c(5,5)}
+library(svd)
+library(Rtsne)
 
 date()
 ppk = propack.svd(edat,neig=50)
@@ -572,16 +568,15 @@ ggplot_custom(DATA = df_hvg,X = "HVG_TSNE1",Y = "HVG_TSNE2",
 
 reducedDims(sce_hvg) = SimpleList(PCA=pca, TSNE=tsne$Y)
 sce_hvg
-saveRDS(sce_hvg,file.path(dronc_dir,"post_HVG.rds"))
 ```
 
-## Clustering
+# Clustering
 
-### Kmeans
+## Kmeans
 Next we cluster the cells using a simple kmeans method on the top 50 PCs. We set the number of clusters to be 5 thru 15, to include the 12 cell types reported by [@habib2017massively]. 
 ```{r kmeans, warning = FALSE,message = FALSE,fig.dim = c(6,6)}
 
-all_num_clust = c(5:15)
+all_num_clust = c(11:15)
 df_hvg = df_hvg[,!grepl("^KM_",names(df_hvg))]
 
 for(num_clust in all_num_clust){
@@ -591,18 +586,10 @@ for(num_clust in all_num_clust){
 	                    algorithm = "MacQueen")
 	km_label = paste0("KM_",num_clust)
 	df_hvg[[km_label]] = as.factor(kmeans_out$cluster)
-
-	print(smart_table(df_hvg$Habib_cell_type,kmeans_out$cluster))
-	print(smart_table(df_hvg$Habib_clusters_name,kmeans_out$cluster))
-	print(ggplot_custom(DATA = df_hvg,X = "HVG_TSNE1",Y = "HVG_TSNE2", 
-						COL = km_label,TYPE = "cat"))
 }
-
-saveRDS(list(sce_hvg=sce_hvg,df_hvg=df_hvg,all_num_clust=all_num_clust),
-		file.path(dronc_dir,"post_kmeans.rds"))
 ```
 
-### SC3
+## SC3
 Next seek to cluster cells using another method SC3. The code used here is based on [SC3 manual](https://bioconductor.org/packages/devel/bioc/vignettes/SC3/inst/doc/SC3.html#run-sc3). By default, when there are more than 5000 genes, SC3 will 
 
 > selects a subset of cells uniformly at random (5,000), and obtains clusters from this subset. The inferred labels can be used to train a Support Vector Machine (SVM), which is employed to assign labels to the remaining cells.
@@ -640,15 +627,7 @@ Next we compare the clustering results from SC3 and the reported cell types.
 for(one_ks in all_ks){
 	sc3_label = paste0("sc3_",one_ks,"_clusters")
 	df_hvg[[sc3_label]] = as.factor(colData(sce_hvg)[,sc3_label])
-
-	print(smart_table(df_hvg$Habib_cell_type, df_hvg[[sc3_label]]))
-
-	print(ggplot_custom(DATA = df_hvg,X = "HVG_TSNE1",Y = "HVG_TSNE2", 
-						COL = sc3_label,TYPE = "cat"))
 }
-
-saveRDS(list(sce_hvg=sce_hvg,df_hvg=df_hvg,all_ks=all_ks),
-		file.path(dronc_dir,"post_sc3.rds"))
 ```
 
 
@@ -656,15 +635,15 @@ saveRDS(list(sce_hvg=sce_hvg,df_hvg=df_hvg,all_ks=all_ks),
 
 We obtainted the cell type and clustering resutls from [@habib2017massively]. Supplementary Table 10: supplement nmeth.4407-S10.xlsx file. Here we compare the cell type reported by Habib et al. (2017) with ours. Habib et al. (2017) identified genes with high variation by fitting a gamma distribution on the relation between mean and coefficient of variation and chose the number of PCs based on "the largest eigen value gap". It was not clear what is the number of PCs used. Then they used these top PCs to perform tSNE anlaysis and clustering using a graph based method. 
 
-```{r compare_kmeans_vs_Habib, fig.dim = c(7,7)}
+```{r compare_kmeans_vs_Habib, fig.dim = c(5,4)}
 tmp_lab = smart_RT(file.path(work_dir,"cluster_num_label.txt"), 
-					sep = "\t",header = TRUE)
+                   sep = "\t",header = TRUE)
 tmp_lab
 tmp_lab = name_change(tmp_lab,"Name","Cluster.Name")
 tmp_lab = name_change(tmp_lab,"Name.1","Cell_Type")
 
 tmp_res = smart_RT(file.path(work_dir,"paper_cluster_res.txt"), 
-					sep = "\t",header = TRUE,comment.char = "")
+                   sep = "\t",header = TRUE,comment.char = "")
 dim(tmp_res); tmp_res[1:5,]
 tmp_res = name_change(tmp_res,"X.Genes","nGenes")
 tmp_res = name_change(tmp_res,"X.Transcripts","nTranscripts")
@@ -673,13 +652,9 @@ tmp_res = smart_merge(tmp_res, tmp_lab[,c("Cluster.Name","Cell_Type")],
 					all.x=TRUE)
 
 summary(tmp_res$nGenes)
-smart_hist(tmp_res$nGenes,breaks=50,main="",xlab="number of genes per cell")
 df_hvg$Cell.ID = colnames(sce_hvg)
 
 smart_table(df_hvg$Cell.ID %in% tmp_res$Cell.ID)
-tmp_res$Cell.ID[!(tmp_res$Cell.ID %in% df_hvg$Cell.ID)][1:5]
-tmp_res$Cell.ID = gsub("-",".",tmp_res$Cell.ID)
-table(df_hvg$Cell.ID %in% tmp_res$Cell.ID)
 
 # Merge and compare
 all_clust_res = smart_merge(df_hvg,tmp_res)
@@ -694,12 +669,12 @@ dim(all_clust_res)
 all_clust_res[1:5,]
 
 smart_table(all_clust_res[,c("Cell_Type","Cluster.ID")])
+
 for(num_clust in all_num_clust){
 	km_label = paste0("KM_",num_clust)
 	print(smart_table(all_clust_res[,c("Cell_Type",km_label)]))
 	t2 = melt(smart_table(all_clust_res[,c("Cell_Type",km_label)]))
 	colnames(t2)[2] = "cluster"
-	print(summary(t2$value))
 	print(gg.heatmap(t2,paste0("kmeans ",num_clust," clusters")))
 }
 
@@ -708,30 +683,29 @@ for(ks in all_ks){
 	print(smart_table(all_clust_res[,c("Cell_Type",sc3_label)]))
 	t2 = melt(smart_table(all_clust_res[,c("Cell_Type",sc3_label)]))
 	colnames(t2)[2] = "cluster"
-	print(summary(t2$value))
 	print(gg.heatmap(t2,paste0("sc3 ",ks," clusters")))
 }
 
 ```
 
 We plot our TSNE colored by our clustering results. 
-```{r tsne_my_cluster, fig.dim = c(7,7)}
-all_vars = c("Cell_Type",paste0("KM_",all_num_clust),
-			paste0("sc3_",all_ks,"_clusters"))
+```{r tsne_my_cluster, fig.dim = c(5,5)}
+all_vars = c("Cell_Type", paste0("KM_",all_num_clust), 
+             paste0("sc3_",all_ks,"_clusters"))
 for(one_var in all_vars){
-	print(ggplot_custom(DATA = all_clust_res,X = "HVG_TSNE1",
-		Y = "HVG_TSNE2",COL = one_var,TYPE = "cat"))
+	print(ggplot_custom(DATA = all_clust_res,X = "HVG_TSNE1",Y = "HVG_TSNE2",
+	                    COL = one_var,TYPE = "cat"))
 }
 ```
 
 Next we plot the TSNE reported by [@habib2017massively], colored by our clustering results. 
 
-```{r fig.dim = c(7,7)}
+```{r fig.dim = c(5,5)}
 all_vars = c("Cell_Type",paste0("KM_",all_num_clust),
-			paste0("sc3_",all_ks,"_clusters"))
+             paste0("sc3_",all_ks,"_clusters"))
 for(one_var in all_vars){
-	print(ggplot_custom(DATA = all_clust_res,X = "Habib_TSNE1",
-		Y = "Habib_TSNE2",COL = one_var,TYPE = "cat"))
+	print(ggplot_custom(DATA = all_clust_res,X="Habib_TSNE1",Y="Habib_TSNE2",
+	                    COL = one_var,TYPE = "cat"))
 }
 ```
 

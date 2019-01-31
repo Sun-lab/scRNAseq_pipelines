@@ -18,7 +18,11 @@ Type 'demo()' for some demos, 'help()' for on-line help, or
 Type 'q()' to quit R.
 
 > 
-> setwd("~/research/GitHub/scRNAseq_pipelines/dronc/")
+> repo_dir  = "~/research/GitHub/scRNAseq_pipelines"
+> work_dir  = file.path(repo_dir,"dronc")
+> 
+> dronc_dir = "~/research/scRNAseq/data/GTEx_droncseq_hip_pcf"
+> setwd(dronc_dir)
 > 
 > # ------------------------------------------------------------------
 > # here are the cell types 
@@ -40,7 +44,7 @@ Type 'q()' to quit R.
 > # load clustering results 
 > # ------------------------------------------------------------------
 > 
-> sce = readRDS("sce.rds")
+> sce      = readRDS("sce.rds")
 > clusters = readRDS("all_clust_res.rds")
 > 
 > dim(sce)
@@ -111,173 +115,177 @@ The following objects are masked from ‘package:base’:
 
     aperm, apply
 
-[1] 11281 14948
+[1] 10607 13181
 Warning messages:
 1: package ‘GenomicRanges’ was built under R version 3.5.1 
 2: package ‘DelayedArray’ was built under R version 3.5.1 
 > dim(colData(sce))
-[1] 14948    59
+[1] 13181    66
 > 
 > dim(clusters)
-[1] 14948    15
+[1] 13181    25
 > clusters[1:2,]
-           Cell.ID       X1         X2 log10_total_features part_cell_id
-1 hCc_AAAAAGCTACAA 10.45171 -10.518555             2.866287          hCc
-2 hCc_AAACAGGTGAGG 25.89349   1.301999             3.170262          hCc
-  cluster_kmean Cluster.Name nGenes nTranscripts Cluster.ID Cell_Type
-1            10       exPFC1    736         1034          1     exPFC
-2             3        GABA1   1480         2391          5      GABA
-  sc3_12_clusters sc3_10_clusters    tSNE_1    tSNE_2
-1               5               1  2.804881 -1.888592
-2               8               1 16.965708 -6.768078
+           Cell.ID sc3_10_clusters sc3_12_clusters      sample_name
+1 hCc_AAAAAGCTACAA               3               1 hCc_AAAAAGCTACAA
+2 hCc_AAACAGGTGAGG               1               1 hCc_AAACAGGTGAGG
+  part_cell_id Habib_TSNE1 Habib_TSNE2 log10_total_features Habib_clusters
+1          hCc    2.804881   -1.888592             2.866287              1
+2          hCc   16.965708   -6.768078             3.170262              5
+  Habib_clusters_name Habib_cell_type   HVG_PC1   HVG_PC2 HVG_TSNE1 HVG_TSNE2
+1              exPFC1           exPFC -3.809914 -1.148090 -2.054991  6.697855
+2               GABA1            GABA -3.041883 -1.756074 -9.557901 20.722796
+  KM_11 KM_12 KM_13 KM_14 KM_15 Cluster.Name nGenes nTranscripts Cluster.ID
+1     7     2     5    14     9       exPFC1    736         1034          1
+2     5     7    10     9     8        GABA1   1480         2391          5
+  Cell_Type
+1     exPFC
+2      GABA
 > 
 > t1 = table(clusters$part_cell_id, clusters$Cell_Type)
 > t2 = table(clusters$part_cell_id, clusters$Cluster.ID)
 > t1
               
                ASC END exCA1 exCA3 exDG exPFC GABA  MG NSC ODC OPC
-  hCc           48   1     2     3    1   473  166   6   0  22  37
-  hCd           60   8     2     6    1   470  174   6   0  26  26
-  hCe           48   3     6     3    1   447  163   2   0  18  17
-  hCf           50   4     6     4    1   467  167   3   0  26  25
-  hHP1          74  14    40    51   25    29   47  21   0 111  19
-  hHP2          43  11    17    41   19    17   31   8   0  80   5
-  hHP2a         15   2     8    16    5    16   20   4   0  25   2
-  hHP2b         22   3     6    35    8    14   21   4   0  23   1
-  hHP2c         16   3     9    25    3    10    9   3   0   9   1
-  hHP3b          3   0     0    12    1     3   13   0   0   1   2
-  HP2-A        154   6    64    57   95    30   56  13  24 134  29
-  HP2-B        111   5    70    56  118    18   72   6  24 120  19
-  HP3-A        124  26    46    94   47    14   34  63   7 371  77
-  HP3-B        132  29    40   127   41    13   39  63   6 372  68
-  HP3-B-united 158  39    50   149   54    15   49  86   9 451  81
-  humanPFCa     59   4     0     2    0   432  172   5   0  26  32
-  humanPFCb     45   4     1     3    1   393  128   4   0  34  20
-  PFC-CD        70  17     2     7    0   504  179   7   0  47  37
-  PFC2-A1      203  23    12    21  281     9   55  34  35 364  49
-  PFC2-A2      176  22    19    12  245    10   48  22  31 307  52
-  PFC2-A3      220  20    13    11  289    12   48  25  37 327  74
-  PFC2-A5       78  10     8    10  217     5   24   4  28  71  11
+  hCc           48   1     2     3    1   473  164   6   0  22  37
+  hCd           60   2     2     6    1   465  174   6   0  26  25
+  hCe           47   0     5     3    1   440  162   2   0  17  17
+  hCf           48   2     5     4    1   459  166   3   0  25  25
+  hHP1          67   5    36    50   24    27   44  18   0 104  16
+  hHP2          38   2    16    41   18    15   30   8   0  71   4
+  hHP2a         13   1     8    16    5    16   18   3   0  25   2
+  hHP2b         20   1     6    35    8    13   21   3   0  22   1
+  hHP2c         15   0     9    25    3    10    8   2   0   9   1
+  hHP3b          3   0     0    12    1     3   13   0   0   1   1
+  HP2-A        108   0    62    56   90    25   45   6  12  92  15
+  HP2-B         90   0    66    56  110    12   61   5  20  85  11
+  HP3-A        118   5    44    91   41    13   26  42   5 326  55
+  HP3-B        122   5    35   126   40    11   33  41   4 321  57
+  HP3-B-united 148   9    44   148   52    14   39  52   5 391  63
+  humanPFCa     58   1     0     2    0   428  170   5   0  26  32
+  humanPFCb     45   3     1     3    1   392  128   4   0  34  20
+  PFC-CD        70   6     2     7    0   497  178   7   0  46  33
+  PFC2-A1      162  15    12    20  277     8   52  25  28 339  41
+  PFC2-A2      135  10    18    12  242     7   44  17  27 281  44
+  PFC2-A3      175   9    13    11  289     8   47  22  34 307  67
+  PFC2-A5       69   6     4    10  216     5   23   4  26  69  11
 > t2
               
                  1   2   3   4   5   6   7   8   9  10  11  12  13  14  15  16
-  hCc          466   7   2   3  99  67   1  40   8  13   9  37   6   0   1  20
-  hCd          463   7   2   6 104  70   1  45  15  17   9  26   6   0   8  28
-  hCe          342 105   6   3  84  79   1  40   8  13   5  17   2   0   3  22
-  hCf          354 113   6   4 102  65   1  36  14  18   8  25   3   0   4  24
-  hHP1          17  12  40  51  23  24  25  69   5  43  68  19  21   0  14   0
-  hHP2          11   6  17  41  19  12  19  36   7  37  43   5   8   0  11   1
-  hHP2a         16   0   8  16  13   7   5  12   3  10  15   2   4   0   2   0
-  hHP2b         12   2   6  35   8  13   8  18   4  10  13   1   4   0   3   0
-  hHP2c          8   2   9  25   5   4   3  14   2   6   3   1   3   0   3   1
-  hHP3b          3   0   0  12   7   6   1   2   1   1   0   2   0   0   0   1
-  HP2-A         27   3  64  57  34  22  95  99  55  50  84  29  13  24   6   4
-  HP2-B         13   5  70  56  45  27 118  65  46  50  70  19   6  24   5   4
-  HP3-A         11   3  46  94   6  28  47 112  12 242 129  77  63   7  26   2
-  HP3-B         10   3  40 127  12  27  41 110  22 250 122  68  63   6  29   2
-  HP3-B-united  12   3  50 149  16  33  54 133  25 303 148  81  86   9  39   2
-  humanPFCa    427   5   0   2 104  68   0  53   6  16  10  32   5   0   4  17
-  humanPFCb    389   4   1   3  67  61   1  35  10  20  14  20   4   0   4  24
-  PFC-CD       494  10   2   7 106  73   0  55  15  31  16  37   7   0  17  44
-  PFC2-A1        7   2  12  21  14  41 281  66 137 202 162  49  34  35  23   0
-  PFC2-A2        9   1  19  12  12  36 245  57 119 175 132  52  22  31  22   1
-  PFC2-A3        8   4  13  11   8  40 289  79 141 185 142  74  25  37  20   2
-  PFC2-A5        5   0   8  10   4  20 217  28  50  26  45  11   4  28  10   1
+  hCc          466   7   2   3  98  66   1  40   8  13   9  37   6   0   1   9
+  hCd          458   7   2   6 104  70   1  45  15  17   9  25   6   0   2  10
+  hCe          335 105   5   3  83  79   1  39   8  13   4  17   2   0   0   5
+  hCf          346 113   5   4 102  64   1  34  14  17   8  25   3   0   2   7
+  hHP1          16  11  36  50  22  22  24  62   5  37  67  16  18   0   5   0
+  hHP2           9   6  16  41  19  11  18  31   7  33  38   4   8   0   2   0
+  hHP2a         16   0   8  16  11   7   5  11   2  10  15   2   3   0   1   0
+  hHP2b         11   2   6  35   8  13   8  16   4   9  13   1   3   0   1   0
+  hHP2c          8   2   9  25   5   3   3  13   2   6   3   1   2   0   0   0
+  hHP3b          3   0   0  12   7   6   1   2   1   1   0   1   0   0   0   0
+  HP2-A         22   3  62  56  30  15  90  71  37  32  60  15   6  12   0   1
+  HP2-B          9   3  66  56  39  22 110  52  38  34  51  11   5  20   0   1
+  HP3-A         10   3  44  91   6  20  41 106  12 204 122  55  42   5   5   0
+  HP3-B          8   3  35 126  12  21  40 105  17 205 116  57  41   4   5   1
+  HP3-B-united  11   3  44 148  14  25  52 127  21 251 140  63  52   5   9   1
+  humanPFCa    423   5   0   2 103  67   0  52   6  16  10  32   5   0   1  10
+  humanPFCb    388   4   1   3  67  61   1  35  10  20  14  20   4   0   3   9
+  PFC-CD       487  10   2   7 106  72   0  55  15  30  16  33   7   0   6  19
+  PFC2-A1        6   2  12  20  14  38 277  55 107 185 154  41  25  28  15   0
+  PFC2-A2        6   1  18  12  12  32 242  42  93 154 127  44  17  27  10   1
+  PFC2-A3        5   3  13  11   8  39 289  60 115 173 134  67  22  34   9   0
+  PFC2-A5        5   0   4  10   4  19 216  25  44  24  45  11   4  26   6   0
               
-                17  18
-  hCc            0   1
-  hCd            0   5
-  hCe            0   3
-  hCf            0   2
-  hHP1          32  23
-  hHP2          27  15
-  hHP2a         26   3
-  hHP2b         18   7
-  hHP2c         15   9
-  hHP3b          5   4
-  HP2-A          0  51
-  HP2-B          0  51
-  HP3-A          0 107
-  HP3-B          0  82
-  HP3-B-united   0  89
-  humanPFCa      0   3
-  humanPFCb      0   2
-  PFC-CD         0   4
-  PFC2-A1        0   6
-  PFC2-A2        0   8
-  PFC2-A3        0   7
-  PFC2-A5        0   6
+                18
+  hCc            1
+  hCd            3
+  hCe            3
+  hCf            2
+  hHP1           5
+  hHP2           3
+  hHP2a          1
+  hHP2b          0
+  hHP2c          1
+  hHP3b          1
+  HP2-A         16
+  HP2-B         18
+  HP3-A         34
+  HP3-B         30
+  HP3-B-united  33
+  humanPFCa      2
+  humanPFCb      1
+  PFC-CD         4
+  PFC2-A1        3
+  PFC2-A2        4
+  PFC2-A3        3
+  PFC2-A5        3
 > 
-> pdf("part_cell_id_vs_cell_type.pdf", width=5, height=5)
+> setwd(work_dir)
+> 
+> pdf("figure/part_cell_id_vs_cell_type.pdf", width=5, height=5)
 > heatmap(t1)
 > dev.off()
 null device 
           1 
 > 
 > # ------------------------------------------------------------------
-> # I cannot see lable of samples for each cell, based on supp. Fig 7
-> # and the part_cell_id, I assume those part_cell_id that have 
-> # large number of cells from exPFC and GABA. 
+> # We want to separate the clusters from PFC versus hippocampus. 
+> # The paper did not provide such label for each cell. 
+> # Based on supp. Fig 7d, and the part_cell_id, I identify the 
+> # following part_cell_id as cells from PFC. 
 > # ------------------------------------------------------------------
 > 
 > PFC = c("hCc", "hCd", "hCe", "hCf", "humanPFCa", "humanPFCb", "PFC-CD")
 > 
 > # ------------------------------------------------------------------
-> # for each cell type, find the largest cluster, except for ODC, use  
-> # the top 2 clusters
+> # Compare the results of kmeans 12 vs. 15 clusters, when 
+> # there are 12 clusters, they already capture cell type-specific
+> # infomration. 15 clusters further split clusters for a few 
+> # cell types. so we choose kmeans 12 clusters. 
+> # 
+> # For each cell type, find the largest cluster
 > # ------------------------------------------------------------------
 > 
-> t1 = table(clusters$cluster_kmean, clusters$Cell_Type)
+> t1 = table(clusters$KM_15, clusters$Cell_Type)
 > t1
     
       ASC  END exCA1 exCA3 exDG exPFC GABA   MG  NSC  ODC  OPC
-  1     3    0     0     0    0     6    1    3    0    6  631
-  2     5    0     2     1    0     9    1    6    0 1093    4
-  3     6    0     5     4    0    16 1045    3    0    3    0
-  4     1  237     0     0    0     5    1  279    0    0    0
-  5    27    3    10     4    3    67    3   25    0 1814    6
-  6  1790    3     6     0    1    51    2    8    8    6    3
-  7     3    1    20     4    2     9   47    1    0    1    1
-  8    28    1    71   545   86   378   99   11    1    6   15
-  9     0    0     0     0    0     0    0    0  180    0    0
-  10   35    9    88    94   16  2817  505   39    0   24   20
-  11   11    0   219    93 1345    43   11   14   12   12    4
-  12    0    0     0     0    0     0    0    0    0    0    0
-> clusts = apply(t1, 2, function(v){union(which(v > 1000), which.max(v))})
+  1   787    3     6     1    0    46    6    9    5    5    2
+  2     0    0     0     0    0     0    0    0  144    0    0
+  3   455    0     1     0    0     7    0    2    1    0    1
+  4     0   68     0     0    0     0    1    0    0    0    0
+  5    13    0     8     3    4    43    5   16    0 1172    4
+  6     4    0     0     0    0     5    0    1    0  676    5
+  7     0    0     0     0    0     5    0    2    0    2  520
+  8     1    1     4     4    0    18 1153    0    0    6    3
+  9    33    6    76    76   15  3107  440   16    0   25   20
+  10    2    1   118   630   23    53   37    4    1    1    2
+  11   10    1   177    23 1379    37    4   10    7    8    5
+  12    0    0     0     0    0     2    0  219    0    1    0
+  13    5    1     0     0    0    13    0    1    0  740    0
+  14    0    0     0     0    0     0    0    0    0    3   15
+  15  349    2     0     0    0     5    0    1    3    0    1
+> 
+> t1 = table(clusters$KM_12, clusters$Cell_Type)
+> t1
+    
+      ASC  END exCA1 exCA3 exDG exPFC GABA   MG  NSC  ODC  OPC
+  1   518    1     0     0    0    10    0    2    2    0    1
+  2    34    6    76    76   15  3107  443   18    0   26   20
+  3     3    1   118   630   23    53   37    4    1    1    2
+  4     0   68     0     0    0     0    1    0    0    0    0
+  5     5    0     0     0    0     6    0    1    0  893    5
+  6  1066    2     7     1    0    46    4    9    7    7    3
+  7     2    1     5     4    0    20 1154    0    0    5    3
+  8     1    1     0     0    0     5    0    1    0    6  533
+  9    11    2   179    23 1380    38    4    9    6   10    5
+  10    0    0     0     0    0     2    0  223    0    2    0
+  11    0    0     0     0    0     0    0    0  145    0    0
+  12   19    1     5     3    3    54    3   14    0 1689    6
+> 
+> clusters$cluster_kmean = clusters$KM_12
+> clusts = apply(t1, 2, function(v){which.max(v)})
 > clusts
-$ASC
-[1] 6
-
-$END
-[1] 4
-
-$exCA1
-[1] 11
-
-$exCA3
-[1] 8
-
-$exDG
-[1] 11
-
-$exPFC
-[1] 10
-
-$GABA
-[1] 3
-
-$MG
-[1] 4
-
-$NSC
-[1] 9
-
-$ODC
-[1] 2 5
-
-$OPC
-[1] 1
-
+  ASC   END exCA1 exCA3  exDG exPFC  GABA    MG   NSC   ODC   OPC 
+    6     4     9     3     9     2     7    10    11    12     8 
 > 
 > # ------------------------------------------------------------------
 > # align cells of sce object and cells of cluster results
@@ -285,20 +293,16 @@ $OPC
 > 
 > colData(sce)[1:2,1:3]
 DataFrame with 2 rows and 3 columns
-                  is_cell_control total_features_by_counts
-                        <logical>                <integer>
-hHP1_AACACTATCTAC           FALSE                     2471
-hHP1_CTACGCATCCAT           FALSE                     2841
-                  log10_total_features_by_counts
-                                       <numeric>
-hHP1_AACACTATCTAC               3.39304846641678
-hHP1_CTACGCATCCAT               3.45362407359145
+                        sample_name part_cell_id Habib_clusters
+                        <character>  <character>       <factor>
+hHP1_AACACTATCTAC hHP1_AACACTATCTAC         hHP1              4
+hHP1_CTACGCATCCAT hHP1_CTACGCATCCAT         hHP1              3
 > rownames(colData(sce))[1:2]
 [1] "hHP1_AACACTATCTAC" "hHP1_CTACGCATCCAT"
 > table(clusters$Cell.ID == rownames(colData(sce)))
 
 FALSE 
-14948 
+13181 
 > setequal(clusters$Cell.ID, rownames(colData(sce)))
 [1] TRUE
 > 
@@ -307,7 +311,7 @@ FALSE
 > table(clusters$Cell.ID == rownames(colData(sce)))
 
  TRUE 
-14948 
+13181 
 > 
 > # ------------------------------------------------------------------
 > # collect counts for each cell type
@@ -318,7 +322,7 @@ FALSE
  [1] "exCA3" "exCA1" "exPFC" "ASC"   "GABA"  "ODC"   "exDG"  "END"   "MG"   
 [10] "OPC"   "NSC"  
 attr(,"na.action")
-[1] 4
+[1] 8
 attr(,"class")
 [1] "omit"
 > 
@@ -347,79 +351,85 @@ attr(,"class")
 + }
 > 
 > dim(ct.matrx)
-[1] 11281    11
+[1] 10607    11
 > ct.matrx[1:2,1:3]
             exCA3 exCA1 exPFC
-ABHD3           4     2    61
-AC004893.11    11     1    45
+AC004893.11    12     1    54
+ABCA5         131    42  1094
 > 
 > dim(ct.matrx.PFC)
-[1] 11281    11
+[1] 10607    11
 > ct.matrx.PFC[1:2,1:3]
             exCA3 exCA1 exPFC
-ABHD3           0     0    61
-AC004893.11     0     0    45
+AC004893.11     0     0    54
+ABCA5           0     0  1083
 > 
 > summary(ct.matrx)
-     exCA3               exCA1              exPFC               ASC           
- Min.   :     0.00   Min.   :    0.00   Min.   :     0.0   Min.   :     0.00  
- 1st Qu.:    11.00   1st Qu.:    6.00   1st Qu.:    75.0   1st Qu.:    17.00  
- Median :    23.00   Median :   14.00   Median :   149.0   Median :    36.00  
- Mean   :    58.04   Mean   :   29.42   Mean   :   311.4   Mean   :    87.28  
- 3rd Qu.:    47.00   3rd Qu.:   28.00   3rd Qu.:   297.0   3rd Qu.:    72.00  
- Max.   :107661.00   Max.   :38989.00   Max.   :379194.0   Max.   :172760.00  
-      GABA                ODC                exDG               END          
- Min.   :     0.00   Min.   :     0.0   Min.   :     0.0   Min.   :    0.00  
- 1st Qu.:    24.00   1st Qu.:    18.0   1st Qu.:    28.0   1st Qu.:    3.00  
- Median :    49.00   Median :    44.0   Median :    60.0   Median :    9.00  
- Mean   :    97.92   Mean   :   117.2   Mean   :   132.4   Mean   :   21.68  
- 3rd Qu.:    96.00   3rd Qu.:    96.0   3rd Qu.:   123.0   3rd Qu.:   20.00  
- Max.   :113834.00   Max.   :172468.0   Max.   :193730.0   Max.   :16765.00  
+     exCA3               exCA1              exPFC               ASC          
+ Min.   :     0.00   Min.   :    0.00   Min.   :     0.0   Min.   :    0.00  
+ 1st Qu.:    14.00   1st Qu.:    6.00   1st Qu.:    98.0   1st Qu.:   10.00  
+ Median :    29.00   Median :   12.00   Median :   185.0   Median :   20.00  
+ Mean   :    70.63   Mean   :   23.68   Mean   :   381.2   Mean   :   49.44  
+ 3rd Qu.:    58.00   3rd Qu.:   23.00   3rd Qu.:   360.0   3rd Qu.:   40.00  
+ Max.   :117962.00   Max.   :28514.00   Max.   :460080.0   Max.   :97347.00  
+      GABA               ODC                 exDG               END          
+ Min.   :     0.0   Min.   :     0.00   Min.   :     0.0   Min.   :   0.000  
+ 1st Qu.:    31.0   1st Qu.:    11.00   1st Qu.:    33.0   1st Qu.:   0.000  
+ Median :    59.0   Median :    26.00   Median :    67.0   Median :   1.000  
+ Mean   :   115.4   Mean   :    71.64   Mean   :   146.2   Mean   :   4.108  
+ 3rd Qu.:   112.0   3rd Qu.:    57.00   3rd Qu.:   134.0   3rd Qu.:   4.000  
+ Max.   :127069.0   Max.   :116001.00   Max.   :205965.0   Max.   :6686.000  
        MG                 OPC                NSC          
  Min.   :    0.000   Min.   :    0.00   Min.   :    0.00  
  1st Qu.:    1.000   1st Qu.:    5.00   1st Qu.:    3.00  
- Median :    3.000   Median :   11.00   Median :    8.00  
- Mean   :    9.467   Mean   :   22.37   Mean   :   19.04  
- 3rd Qu.:    9.000   3rd Qu.:   22.00   3rd Qu.:   18.00  
- Max.   :14887.000   Max.   :19781.00   Max.   :20005.00  
+ Median :    3.000   Median :   10.00   Median :    7.00  
+ Mean   :    7.761   Mean   :   20.41   Mean   :   15.36  
+ 3rd Qu.:    7.000   3rd Qu.:   20.00   3rd Qu.:   14.00  
+ Max.   :12101.000   Max.   :17865.00   Max.   :15946.00  
 > summary(ct.matrx.PFC)
      exCA3              exCA1       exPFC               ASC          
- Min.   :   0.000   Min.   :0   Min.   :     0.0   Min.   :    0.00  
- 1st Qu.:   0.000   1st Qu.:0   1st Qu.:    74.0   1st Qu.:    2.00  
- Median :   0.000   Median :0   Median :   149.0   Median :    6.00  
- Mean   :   1.071   Mean   :0   Mean   :   309.5   Mean   :   13.63  
- 3rd Qu.:   1.000   3rd Qu.:0   3rd Qu.:   295.0   3rd Qu.:   12.00  
- Max.   :1382.000   Max.   :0   Max.   :376291.0   Max.   :25687.00  
-      GABA              ODC                exDG        END         
- Min.   :    0.0   Min.   :   0.000   Min.   :0   Min.   :   0.00  
- 1st Qu.:   14.0   1st Qu.:   1.000   1st Qu.:0   1st Qu.:   0.00  
- Median :   29.0   Median :   2.000   Median :0   Median :   1.00  
- Mean   :   57.9   Mean   :   6.261   Mean   :0   Mean   :   2.88  
- 3rd Qu.:   57.0   3rd Qu.:   6.000   3rd Qu.:0   3rd Qu.:   3.00  
- Max.   :66737.0   Max.   :8783.000   Max.   :0   Max.   :2263.00  
-       MG               OPC                NSC   
- Min.   :  0.000   Min.   :   0.000   Min.   :0  
- 1st Qu.:  0.000   1st Qu.:   1.000   1st Qu.:0  
- Median :  0.000   Median :   2.000   Median :0  
- Mean   :  0.261   Mean   :   5.304   Mean   :0  
- 3rd Qu.:  0.000   3rd Qu.:   5.000   3rd Qu.:0  
- Max.   :367.000   Max.   :5309.000   Max.   :0  
+ Min.   :  0.0000   Min.   :0   Min.   :     0.0   Min.   :    0.00  
+ 1st Qu.:  0.0000   1st Qu.:0   1st Qu.:    97.0   1st Qu.:    3.00  
+ Median :  0.0000   Median :0   Median :   183.0   Median :    7.00  
+ Mean   :  0.6332   Mean   :0   Mean   :   377.6   Mean   :   15.97  
+ 3rd Qu.:  1.0000   3rd Qu.:0   3rd Qu.:   357.0   3rd Qu.:   14.00  
+ Max.   :704.0000   Max.   :0   Max.   :454852.0   Max.   :27603.00  
+      GABA               ODC                exDG        END          
+ Min.   :    0.00   Min.   :   0.000   Min.   :0   Min.   :  0.0000  
+ 1st Qu.:   18.00   1st Qu.:   1.000   1st Qu.:0   1st Qu.:  0.0000  
+ Median :   35.00   Median :   2.000   Median :0   Median :  0.0000  
+ Mean   :   68.88   Mean   :   5.832   Mean   :0   Mean   :  0.4688  
+ 3rd Qu.:   67.00   3rd Qu.:   5.000   3rd Qu.:0   3rd Qu.:  0.0000  
+ Max.   :74802.00   Max.   :7912.000   Max.   :0   Max.   :431.0000  
+       MG                OPC                NSC   
+ Min.   :  0.0000   Min.   :   0.000   Min.   :0  
+ 1st Qu.:  0.0000   1st Qu.:   1.000   1st Qu.:0  
+ Median :  0.0000   Median :   3.000   Median :0  
+ Mean   :  0.6227   Mean   :   5.821   Mean   :0  
+ 3rd Qu.:  1.0000   3rd Qu.:   6.000   3rd Qu.:0  
+ Max.   :799.0000   Max.   :5654.000   Max.   :0  
 > 
 > dim(nCells)
 [1] 11  3
 > nCells
    Cell_Type nCells_All nCells_PFC
-1      exCA3        545         14
-2      exCA1        219          0
-3      exPFC       2817       2790
-4        ASC       1790        318
-5       GABA       1045        672
-6        ODC       2907        171
-7       exDG       1345          0
-8        END        237         34
-9         MG        279          9
-10       OPC        631        162
-11       NSC        180          0
+1      exCA3        630          8
+2      exCA1        179          0
+3      exPFC       3107       3072
+4        ASC       1066        326
+5       GABA       1154        758
+6        ODC       1689        153
+7       exDG       1380          0
+8        END         68          8
+9         MG        223         19
+10       OPC        533        165
+11       NSC        145          0
+> 
+> # ------------------------------------------------------------------
+> # save count data
+> # ------------------------------------------------------------------
+> 
+> setwd(work_dir)
 > 
 > ct.matrx = list(all=ct.matrx, PFC=ct.matrx.PFC)
 > saveRDS(ct.matrx, "ct_matrix.rds")
@@ -428,4 +438,4 @@ AC004893.11     0     0    45
 > q(save="no")
 > proc.time()
    user  system elapsed 
- 32.255  15.385  49.750 
+ 46.066  22.779  72.792 

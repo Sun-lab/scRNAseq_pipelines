@@ -1,5 +1,9 @@
 
-setwd("~/research/GitHub/scRNAseq_pipelines/dronc/")
+repo_dir  = "~/research/GitHub/scRNAseq_pipelines"
+work_dir  = file.path(repo_dir,"dronc")
+
+dronc_dir = "~/research/scRNAseq/data/GTEx_droncseq_hip_pcf"
+setwd(dronc_dir)
 
 # ------------------------------------------------------------------
 # here are the cell types 
@@ -21,7 +25,7 @@ setwd("~/research/GitHub/scRNAseq_pipelines/dronc/")
 # load clustering results 
 # ------------------------------------------------------------------
 
-sce = readRDS("sce.rds")
+sce      = readRDS("sce.rds")
 clusters = readRDS("all_clust_res.rds")
 
 dim(sce)
@@ -35,26 +39,38 @@ t2 = table(clusters$part_cell_id, clusters$Cluster.ID)
 t1
 t2
 
-pdf("part_cell_id_vs_cell_type.pdf", width=5, height=5)
+setwd(work_dir)
+
+pdf("figure/part_cell_id_vs_cell_type.pdf", width=5, height=5)
 heatmap(t1)
 dev.off()
 
 # ------------------------------------------------------------------
-# I cannot see lable of samples for each cell, based on supp. Fig 7
-# and the part_cell_id, I assume those part_cell_id that have 
-# large number of cells from exPFC and GABA. 
+# We want to separate the clusters from PFC versus hippocampus. 
+# The paper did not provide such label for each cell. 
+# Based on supp. Fig 7d, and the part_cell_id, I identify the 
+# following part_cell_id as cells from PFC. 
 # ------------------------------------------------------------------
 
 PFC = c("hCc", "hCd", "hCe", "hCf", "humanPFCa", "humanPFCb", "PFC-CD")
 
 # ------------------------------------------------------------------
-# for each cell type, find the largest cluster, except for ODC, use  
-# the top 2 clusters
+# Compare the results of kmeans 12 vs. 15 clusters, when 
+# there are 12 clusters, they already capture cell type-specific
+# infomration. 15 clusters further split clusters for a few 
+# cell types. so we choose kmeans 12 clusters. 
+# 
+# For each cell type, find the largest cluster
 # ------------------------------------------------------------------
 
-t1 = table(clusters$cluster_kmean, clusters$Cell_Type)
+t1 = table(clusters$KM_15, clusters$Cell_Type)
 t1
-clusts = apply(t1, 2, function(v){union(which(v > 1000), which.max(v))})
+
+t1 = table(clusters$KM_12, clusters$Cell_Type)
+t1
+
+clusters$cluster_kmean = clusters$KM_12
+clusts = apply(t1, 2, function(v){which.max(v)})
 clusts
 
 # ------------------------------------------------------------------
@@ -112,6 +128,12 @@ summary(ct.matrx.PFC)
 
 dim(nCells)
 nCells
+
+# ------------------------------------------------------------------
+# save count data
+# ------------------------------------------------------------------
+
+setwd(work_dir)
 
 ct.matrx = list(all=ct.matrx, PFC=ct.matrx.PFC)
 saveRDS(ct.matrx, "ct_matrix.rds")
