@@ -62,9 +62,6 @@ library(data.table)
 library(svd)
 library(Rtsne)
 library(SC3)
-
-# source("SOURCE.R")
-
 ```
 
 Before runing this R markdown, please first download the datafile human_MTG_gene_expression_matrices_2018-06-14.zip from  [here](http://celltypes.brain-map.org/api/v2/well_known_file_download/694416044) to your local computer, and unzip the file. Then in the following code chunk, set the working directory to be the directory of the unzipped folder. 
