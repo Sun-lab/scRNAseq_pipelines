@@ -282,10 +282,41 @@ null device
   12   19    1     5     3    3    54    3   14    0 1689    6
 > 
 > clusters$cluster_kmean = clusters$KM_12
-> clusts = apply(t1, 2, function(v){which.max(v)})
+> clusts = apply(t1, 2, function(v){union(which.max(v), which(v > 500))})
 > clusts
-  ASC   END exCA1 exCA3  exDG exPFC  GABA    MG   NSC   ODC   OPC 
-    6     4     9     3     9     2     7    10    11    12     8 
+$ASC
+[1] 6 1
+
+$END
+[1] 4
+
+$exCA1
+[1] 9
+
+$exCA3
+[1] 3
+
+$exDG
+[1] 9
+
+$exPFC
+[1] 2
+
+$GABA
+[1] 7
+
+$MG
+[1] 10
+
+$NSC
+[1] 11
+
+$ODC
+[1] 12  5
+
+$OPC
+[1] 8
+
 > 
 > # ------------------------------------------------------------------
 > # align cells of sce object and cells of cluster results
@@ -333,8 +364,6 @@ attr(,"class")
 > colnames(ct.matrx) = colnames(ct.matrx.PFC) = celltypes
 > rownames(ct.matrx) = rownames(ct.matrx.PFC) = rowData(sce)$external_gene_name
 > 
-> geneInfo = rowData(sce)
-> 
 > for(ct1 in celltypes){
 +   ct.cond    = clusters$Cell_Type == ct1
 +   clust.cond = clusters$cluster_kmean %in% clusts[[ct1]]
@@ -365,20 +394,20 @@ AC004893.11     0     0    54
 ABCA5           0     0  1083
 > 
 > summary(ct.matrx)
-     exCA3               exCA1              exPFC               ASC          
- Min.   :     0.00   Min.   :    0.00   Min.   :     0.0   Min.   :    0.00  
- 1st Qu.:    14.00   1st Qu.:    6.00   1st Qu.:    98.0   1st Qu.:   10.00  
- Median :    29.00   Median :   12.00   Median :   185.0   Median :   20.00  
- Mean   :    70.63   Mean   :   23.68   Mean   :   381.2   Mean   :   49.44  
- 3rd Qu.:    58.00   3rd Qu.:   23.00   3rd Qu.:   360.0   3rd Qu.:   40.00  
- Max.   :117962.00   Max.   :28514.00   Max.   :460080.0   Max.   :97347.00  
-      GABA               ODC                 exDG               END          
- Min.   :     0.0   Min.   :     0.00   Min.   :     0.0   Min.   :   0.000  
- 1st Qu.:    31.0   1st Qu.:    11.00   1st Qu.:    33.0   1st Qu.:   0.000  
- Median :    59.0   Median :    26.00   Median :    67.0   Median :   1.000  
- Mean   :   115.4   Mean   :    71.64   Mean   :   146.2   Mean   :   4.108  
- 3rd Qu.:   112.0   3rd Qu.:    57.00   3rd Qu.:   134.0   3rd Qu.:   4.000  
- Max.   :127069.0   Max.   :116001.00   Max.   :205965.0   Max.   :6686.000  
+     exCA3               exCA1              exPFC               ASC           
+ Min.   :     0.00   Min.   :    0.00   Min.   :     0.0   Min.   :     0.00  
+ 1st Qu.:    14.00   1st Qu.:    6.00   1st Qu.:    98.0   1st Qu.:    17.00  
+ Median :    29.00   Median :   12.00   Median :   185.0   Median :    34.00  
+ Mean   :    70.63   Mean   :   23.68   Mean   :   381.2   Mean   :    82.16  
+ 3rd Qu.:    58.00   3rd Qu.:   23.00   3rd Qu.:   360.0   3rd Qu.:    67.00  
+ Max.   :117962.00   Max.   :28514.00   Max.   :460080.0   Max.   :158523.00  
+      GABA               ODC                exDG               END          
+ Min.   :     0.0   Min.   :     0.0   Min.   :     0.0   Min.   :   0.000  
+ 1st Qu.:    31.0   1st Qu.:    18.0   1st Qu.:    33.0   1st Qu.:   0.000  
+ Median :    59.0   Median :    43.0   Median :    67.0   Median :   1.000  
+ Mean   :   115.4   Mean   :   112.4   Mean   :   146.2   Mean   :   4.108  
+ 3rd Qu.:   112.0   3rd Qu.:    92.0   3rd Qu.:   134.0   3rd Qu.:   4.000  
+ Max.   :127069.0   Max.   :160362.0   Max.   :205965.0   Max.   :6686.000  
        MG                 OPC                NSC          
  Min.   :    0.000   Min.   :    0.00   Min.   :    0.00  
  1st Qu.:    1.000   1st Qu.:    5.00   1st Qu.:    3.00  
@@ -387,20 +416,20 @@ ABCA5           0     0  1083
  3rd Qu.:    7.000   3rd Qu.:   20.00   3rd Qu.:   14.00  
  Max.   :12101.000   Max.   :17865.00   Max.   :15946.00  
 > summary(ct.matrx.PFC)
-     exCA3              exCA1       exPFC               ASC          
- Min.   :  0.0000   Min.   :0   Min.   :     0.0   Min.   :    0.00  
- 1st Qu.:  0.0000   1st Qu.:0   1st Qu.:    97.0   1st Qu.:    3.00  
- Median :  0.0000   Median :0   Median :   183.0   Median :    7.00  
- Mean   :  0.6332   Mean   :0   Mean   :   377.6   Mean   :   15.97  
- 3rd Qu.:  1.0000   3rd Qu.:0   3rd Qu.:   357.0   3rd Qu.:   14.00  
- Max.   :704.0000   Max.   :0   Max.   :454852.0   Max.   :27603.00  
+     exCA3              exCA1       exPFC               ASC         
+ Min.   :  0.0000   Min.   :0   Min.   :     0.0   Min.   :    0.0  
+ 1st Qu.:  0.0000   1st Qu.:0   1st Qu.:    97.0   1st Qu.:    3.0  
+ Median :  0.0000   Median :0   Median :   183.0   Median :    7.0  
+ Mean   :  0.6332   Mean   :0   Mean   :   377.6   Mean   :   16.6  
+ 3rd Qu.:  1.0000   3rd Qu.:0   3rd Qu.:   357.0   3rd Qu.:   14.0  
+ Max.   :704.0000   Max.   :0   Max.   :454852.0   Max.   :28486.0  
       GABA               ODC                exDG        END          
  Min.   :    0.00   Min.   :   0.000   Min.   :0   Min.   :  0.0000  
  1st Qu.:   18.00   1st Qu.:   1.000   1st Qu.:0   1st Qu.:  0.0000  
  Median :   35.00   Median :   2.000   Median :0   Median :  0.0000  
- Mean   :   68.88   Mean   :   5.832   Mean   :0   Mean   :  0.4688  
- 3rd Qu.:   67.00   3rd Qu.:   5.000   3rd Qu.:0   3rd Qu.:  0.0000  
- Max.   :74802.00   Max.   :7912.000   Max.   :0   Max.   :431.0000  
+ Mean   :   68.88   Mean   :   6.351   Mean   :0   Mean   :  0.4688  
+ 3rd Qu.:   67.00   3rd Qu.:   6.000   3rd Qu.:0   3rd Qu.:  0.0000  
+ Max.   :74802.00   Max.   :8477.000   Max.   :0   Max.   :431.0000  
        MG                OPC                NSC   
  Min.   :  0.0000   Min.   :   0.000   Min.   :0  
  1st Qu.:  0.0000   1st Qu.:   1.000   1st Qu.:0  
@@ -416,9 +445,9 @@ ABCA5           0     0  1083
 1      exCA3        630          8
 2      exCA1        179          0
 3      exPFC       3107       3072
-4        ASC       1066        326
+4        ASC       1584        339
 5       GABA       1154        758
-6        ODC       1689        153
+6        ODC       2582        167
 7       exDG       1380          0
 8        END         68          8
 9         MG        223         19
@@ -431,11 +460,68 @@ ABCA5           0     0  1083
 > 
 > setwd(work_dir)
 > 
-> ct.matrx = list(all=ct.matrx, PFC=ct.matrx.PFC)
-> saveRDS(ct.matrx, "ct_matrix.rds")
-> saveRDS(nCells, "ct_cells.rds")
+> geneInfo = as.data.frame(rowData(sce))
+> dim(geneInfo)
+[1] 10607    21
+> geneInfo[1:2,]
+  hgnc_symbol ensembl_gene_id external_gene_name chromosome_name start_position
+1             ENSG00000242687        AC004893.11               7       98610788
+2       ABCA5 ENSG00000154265              ABCA5              17       67240452
+  end_position strand_n
+1     98645863        1
+2     67323385       -1
+                                                                      description
+1                                                                                
+2 ATP-binding cassette, sub-family A (ABC1), member 5 [Source:HGNC Symbol;Acc:35]
+  percentage_gene_gc_content   gene_biotype is_feature_control
+1                      46.84      antisense              FALSE
+2                      34.61 protein_coding              FALSE
+  is_feature_control_Mt is_feature_control_Ri mean_counts log10_mean_counts
+1                 FALSE                 FALSE  0.01550491       0.006682028
+2                 FALSE                 FALSE  0.19875693       0.078731132
+  n_cells_by_counts pct_dropout_by_counts total_counts log10_total_counts
+1               216              98.55644          232           2.367356
+2              2327              84.44831         2974           3.473487
+  n_cells_counts pct_dropout_counts
+1            216           98.55644
+2           2327           84.44831
 > 
+> ct.matrx = list(all=ct.matrx, PFC=ct.matrx.PFC)
+> 
+> saveRDS(geneInfo, "gene_info_dronc.rds")
+> saveRDS(ct.matrx, "ct_matrix_dronc.rds")
+> saveRDS(nCells,   "ct_cells_dronc.rds")
+> 
+> sessionInfo()
+R version 3.5.0 (2018-04-23)
+Platform: x86_64-apple-darwin15.6.0 (64-bit)
+Running under: macOS  10.14.2
+
+Matrix products: default
+BLAS: /Library/Frameworks/R.framework/Versions/3.5/Resources/lib/libRblas.0.dylib
+LAPACK: /Library/Frameworks/R.framework/Versions/3.5/Resources/lib/libRlapack.dylib
+
+locale:
+[1] en_US.UTF-8/en_US.UTF-8/en_US.UTF-8/C/en_US.UTF-8/en_US.UTF-8
+
+attached base packages:
+[1] parallel  stats4    stats     graphics  grDevices utils     datasets 
+[8] methods   base     
+
+other attached packages:
+ [1] SingleCellExperiment_1.2.0  SummarizedExperiment_1.10.1
+ [3] DelayedArray_0.6.4          BiocParallel_1.14.2        
+ [5] matrixStats_0.54.0          Biobase_2.40.0             
+ [7] GenomicRanges_1.32.6        GenomeInfoDb_1.16.0        
+ [9] IRanges_2.14.10             S4Vectors_0.18.3           
+[11] BiocGenerics_0.26.0        
+
+loaded via a namespace (and not attached):
+ [1] lattice_0.20-35        bitops_1.0-6           grid_3.5.0            
+ [4] zlibbioc_1.26.0        XVector_0.20.0         Matrix_1.2-14         
+ [7] tools_3.5.0            RCurl_1.95-4.11        compiler_3.5.0        
+[10] GenomeInfoDbData_1.1.0
 > q(save="no")
 > proc.time()
    user  system elapsed 
- 46.066  22.779  72.792 
+ 28.564  12.765  41.398 

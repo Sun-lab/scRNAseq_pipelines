@@ -16,13 +16,15 @@ output:
     number_sections: true
 ---
 
-# Libraries
+# Introduction
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
 This workflow reanalyze the single nucleus RNA-seq data produced by [@habib2017massively], using DroNc-seq: massively parallel sNuc-seq with droplet technology. 
+
+## Libraries and directories
 
 We will first load a few libraries. Among them, 
 * ```DropletUtils``` provides functions for data from droplet technologies such as 10X Genomics. 
@@ -32,19 +34,19 @@ We will first load a few libraries. Among them,
 
 ```{r libraries, warning = FALSE, message = FALSE}
 bio_packs = c("SingleCellExperiment","DropletUtils","biomaRt",
-			"scater","scran","limma","org.Hs.eg.db","SC3")
+              "scater","scran","limma","org.Hs.eg.db","SC3")
 source("https://bioconductor.org/biocLite.R")
 for(pack1 in bio_packs){
-	if( !pack1 %in% installed.packages()[,"Package"]){
-		biocLite(pack1, suppressUpdates = TRUE)
-	}
+  if( !pack1 %in% installed.packages()[,"Package"]){
+    biocLite(pack1, suppressUpdates = TRUE)
+  }
 }
 
 cran_packs = c("data.table","svd","Rtsne","stringi","irlba")
 for(pack1 in cran_packs){
-	if( !pack1 %in% installed.packages()[,"Package"]){
-		install.packages(pack1)
-	}
+  if( !pack1 %in% installed.packages()[,"Package"]){
+    install.packages(pack1)
+  }
 }
 
 library(data.table)
@@ -107,13 +109,14 @@ clust$Habib_clusters = as.factor(clust$Habib_clusters)
 # Double check sample names
 all(col_dat$sample_name == clust$sample_name)
 
+cname = c("exPFC1","exPFC2","exCA1","exCA3","GABA1","GABA2","exDG",
+          "ASC1","ASC2","ODC1","ODC2","OPC","MG","NSC","END",rep(NA,4))
+ctype = c("exPFC","exPFC","exCA1","exCA3", "GABA","GABA","exDG","ASC",
+          "ASC","ODC","ODC","OPC","MG","NSC","END",rep(NA,4))
+
 map_clust_name = smart_df(Habib_clusters = as.factor(seq(19)),
-	Habib_clusters_name = c("exPFC1","exPFC2","exCA1","exCA3",
-		"GABA1","GABA2","exDG","ASC1","ASC2","ODC1","ODC2",
-		"OPC","MG","NSC","END",rep(NA,4)),
-	Habib_cell_type = c("exPFC","exPFC","exCA1","exCA3",
-		"GABA","GABA","exDG","ASC","ASC","ODC","ODC","OPC",
-		"MG","NSC","END",rep(NA,4)))
+                          Habib_clusters_name = cname,
+                          Habib_cell_type = ctype)
 clust = smart_merge(clust,map_clust_name)
 clust = clust[match(col_dat$sample_name,clust$sample_name),]
 clust[1:5,]
@@ -129,11 +132,11 @@ names(df_tsne) = c("sample_name",paste0("Habib_TSNE",1:2))
 table(df_tsne$sample_name == clust$sample_name)
 table(df_tsne$sample_name == clust$sample_name)
 is_match = (col_dat$sample_name == df_tsne$sample_name) & 
-	(df_tsne$sample_name == clust$sample_name); table(is_match)
+  (df_tsne$sample_name == clust$sample_name); table(is_match)
 
 col_dat = cbind(col_dat,
-				clust[,names(clust) != "sample_name"],
-				df_tsne[,names(df_tsne) != "sample_name"])
+                clust[,names(clust) != "sample_name"],
+                df_tsne[,names(df_tsne) != "sample_name"])
 col_dat[1:5,]
 
 sce = SingleCellExperiment(assays = list(counts = counts),colData = col_dat)
@@ -151,20 +154,20 @@ We will extract annotation information based on gene names. Since the existing c
 ```{r annotation, warning = FALSE, message = FALSE}
 anno_file = file.path(work_dir,"gene.annotation_dronc.rds")
 if( file.exists(anno_file) ){
-	gene_anno = readRDS(anno_file)
+  gene_anno = readRDS(anno_file)
 } else{
-	ensembl = useEnsembl(biomart="ensembl",GRCh=37,
-		dataset="hsapiens_gene_ensembl")
-
-	attr_string = c("hgnc_symbol","external_gene_name","chromosome_name",
-		"start_position","end_position","strand","description",
-		"percentage_gene_gc_content","gene_biotype")
-
-	gene_anno = getBM(attributes = attr_string,
-		filters = "external_gene_name",
-		values = rownames(sce),
-		mart = ensembl)
-	saveRDS(gene_anno, file=anno_file)
+  ensembl = useEnsembl(biomart="ensembl", GRCh=37,
+                       dataset="hsapiens_gene_ensembl")
+  
+  attr_string = c("hgnc_symbol","ensembl_gene_id","external_gene_name",
+                  "chromosome_name", "start_position","end_position","strand",
+                  "description","percentage_gene_gc_content","gene_biotype")
+  
+  gene_anno = getBM(attributes = attr_string,
+                    filters = "external_gene_name",
+                    values = rownames(sce),
+                    mart = ensembl)
+  saveRDS(gene_anno, file=anno_file)
 }
 
 dim(sce); dim(gene_anno)
@@ -237,12 +240,12 @@ uniq = !duplicated(bcrank$rank)
 
 par(mar=c(5,4,2,1), bty="n")
 plot(bcrank$rank[uniq], bcrank$total[uniq], log="xy", 
-	xlab="Rank", ylab="Total UMI count", cex=0.5, cex.lab=1.2)
+     xlab="Rank", ylab="Total UMI count", cex=0.5, cex.lab=1.2)
 abline(h=bcrank$inflection, col="darkgreen", lty=2,lwd=2)
 abline(h=bcrank$knee, col="dodgerblue", lty=2,lwd=2)
 
 legend("left", legend=c("Inflection", "Knee"), bty="n", 
-	col=c("darkgreen", "dodgerblue"), lty=2, cex=1.2,lwd=2)
+       col=c("darkgreen", "dodgerblue"), lty=2, cex=1.2,lwd=2)
 
 bcrank$inflection
 bcrank$knee
@@ -285,23 +288,23 @@ sort(colnames(colData(sce)))
 
 par(mfrow=c(2,2), mar=c(5, 4, 1, 1), bty="n")
 hist(log10(sce$total_counts), xlab="log10(Library sizes)", main="", 
-    breaks=20, col="grey80", ylab="Number of cells")
+     breaks=20, col="grey80", ylab="Number of cells")
 hist(log10(sce$total_features), xlab="log10(# of expressed genes)", 
-	main="", breaks=20, col="grey80", ylab="Number of cells")
+     main="", breaks=20, col="grey80", ylab="Number of cells")
 hist(sce$pct_counts_Ri, xlab="Ribosome prop. (%)",
-    ylab="Number of cells", breaks=40, main="", col="grey80")
+     ylab="Number of cells", breaks=40, main="", col="grey80")
 hist(sce$pct_counts_Mt, xlab="Mitochondrial prop. (%)", 
-    ylab="Number of cells", breaks=80, main="", col="grey80")
+     ylab="Number of cells", breaks=80, main="", col="grey80")
 
 par(mfrow=c(2,2), mar=c(5, 4, 1, 1), bty="n")
 smoothScatter(log10(sce$total_counts), log10(sce$total_features), 
-	xlab="log10(Library sizes)", ylab="log10(# of expressed genes)")
+              xlab="log10(Library sizes)", ylab="log10(# of expressed genes)")
 smoothScatter(log10(sce$total_counts), sce$pct_counts_Ri,
-	xlab="log10(Library sizes)", ylab="Ribosome prop. (%)")
+              xlab="log10(Library sizes)", ylab="Ribosome prop. (%)")
 smoothScatter(log10(sce$total_counts), sce$pct_counts_Mt,
-	xlab="log10(Library sizes)", ylab="Mitochondrial prop. (%)")
+              xlab="log10(Library sizes)", ylab="Mitochondrial prop. (%)")
 smoothScatter(sce$pct_counts_Ri,sce$pct_counts_Mt,
-	xlab="Ribosome prop. (%)", ylab="Mitochondrial prop. (%)")
+              xlab="Ribosome prop. (%)", ylab="Mitochondrial prop. (%)")
 ```
 
 From the QC results, we will filter on the metrics by identifying outliers using `isOutlier`.  Note that the cells assigned to cluster 18 by [@habib2017massively] will all be excluded.
@@ -314,8 +317,8 @@ mito_drop = isOutlier(sce$pct_counts_Mt,nmads = 3,type = "higher")
 ribo_drop = isOutlier(sce$pct_counts_Ri,nmads = 3,type = "higher")
 keep = !(libsize_drop | feature_drop | mito_drop | ribo_drop)
 smart_df(ByLibSize = sum(libsize_drop),ByFeature = sum(feature_drop),
-		ByMito = sum(mito_drop),ByRibo = sum(ribo_drop),
-		Remaining = sum(keep))
+         ByMito = sum(mito_drop),ByRibo = sum(ribo_drop),
+         Remaining = sum(keep))
 
 smart_table(colData(sce)$Habib_clusters,keep)
 smart_table(colData(sce)$Habib_clusters_name,keep)
@@ -333,13 +336,13 @@ summary(rowData(sce)$n_cells_counts)
 
 par(mfrow=c(1,3), mar=c(5,4,1,1))
 hist(log10(rowData(sce)$mean_counts+1e-6), col="grey80",  main="", 
-	breaks=40, xlab="log10(ave # of UMI + 1e-6)")
+     breaks=40, xlab="log10(ave # of UMI + 1e-6)")
 hist(log10(rowData(sce)$n_cells_counts+1), col="grey80", main="", 
-	breaks=40, xlab="log10(# of expressed cells + 1)")
+     breaks=40, xlab="log10(# of expressed cells + 1)")
 plot(log10(rowData(sce)$mean_counts+1e-6), pch=16, col=rgb(0,0,0,0.4), 
-	log10(rowData(sce)$n_cells_counts + 1), 
-	xlab="log10(ave # of UMI + 1e-6)", 
-	ylab="log10(# of expressed cells + 1)")
+     log10(rowData(sce)$n_cells_counts + 1), 
+     xlab="log10(ave # of UMI + 1e-6)", 
+     ylab="log10(# of expressed cells + 1)")
 
 tb1 = table(rowData(sce)$n_cells_counts)
 tb1[1:11]
@@ -383,9 +386,9 @@ Next we check those highly expressed genes
 par(mar=c(5,4,1,1))
 od1 = order(rowData(sce)$mean_counts, decreasing = TRUE)
 barplot(rowData(sce)$mean_counts[od1[20:1]], las=1, 
-		names.arg=rowData(sce)$hgnc_symbol[od1[20:1]], 
-		horiz=TRUE, cex.names=0.8, cex.axis=0.8, 
-		xlab="ave # of UMI")
+        names.arg=rowData(sce)$hgnc_symbol[od1[20:1]], 
+        horiz=TRUE, cex.names=0.8, cex.axis=0.8, 
+        xlab="ave # of UMI")
 ```
 
 ## Normalization
@@ -412,10 +415,10 @@ dim(sce)
 
 par(mfrow=c(1,2), mar=c(5,4,2,1), bty="n")
 smoothScatter(sce$total_counts, sizeFactors(sce), log="xy", 
-				xlab="total counts", ylab="size factors")
+              xlab="total counts", ylab="size factors")
 plot(sce$total_counts, sizeFactors(sce), log="xy", 
-	xlab="total counts", ylab="size factors", 
-	cex=0.3, pch=20, col=rgb(0.1,0.2,0.7,0.3))
+     xlab="total counts", ylab="size factors", 
+     cex=0.3, pch=20, col=rgb(0.1,0.2,0.7,0.3))
 abline(h=0.05)
 
 dim(sce)
@@ -434,11 +437,11 @@ fit = trendVar(sce, use.spikes=FALSE, loess.args=list(span=0.05))
 
 par(mfrow=c(1,1), mar=c(5,4,2,1), bty="n")
 plot(fit$mean, fit$var, pch=20, col=rgb(0.1,0.2,0.7,0.6), 
-	xlab="log(mean)", ylab="var")
+     xlab="log(mean)", ylab="var")
 curve(fit$trend(x), col="orange", lwd=2, add=TRUE)
 curve(new_trend(x), col="red", lwd=2, add=TRUE)
 legend("top", legend=c("Poisson noise", "observed trend"), 
-		lty=1, lwd=2, col=c("red", "orange"), bty="n")
+       lty=1, lwd=2, col=c("red", "orange"), bty="n")
 
 fit$trend = new_trend
 
@@ -457,14 +460,14 @@ dim(reducedDim(sce,"PCA"))
 
 par(mfrow=c(1,1))
 plot(log10(attr(reducedDim(sce), "percentVar")), xlab="PC",
-	ylab="log10(Prop of variance explained)", pch=20, cex=0.6, 
-	col=rgb(0.8, 0.2, 0.2, 0.5))
+     ylab="log10(Prop of variance explained)", pch=20, cex=0.6, 
+     col=rgb(0.8, 0.2, 0.2, 0.5))
 abline(v=ncol(reducedDim(sce,"PCA")), lty=2, col="red")
 
 df_redDim = smart_df(colData(sce)[,c("sample_name","part_cell_id",
-	paste0("Habib_TSNE",1:2),"log10_total_features","Habib_clusters",
-	"Habib_clusters_name","Habib_cell_type")],
-	reducedDim(sce, "PCA")[,1:2])
+                                     paste0("Habib_TSNE",1:2),"log10_total_features","Habib_clusters",
+                                     "Habib_clusters_name","Habib_cell_type")],
+                     reducedDim(sce, "PCA")[,1:2])
 rownames(df_redDim) = NULL
 
 ggplot_custom(DATA = df_redDim,X = "Habib_TSNE1",Y = "Habib_TSNE2",
@@ -542,8 +545,9 @@ tmp_df = smart_df(pca[,1:2])
 names(tmp_df) = paste0("HVG_PC",seq(ncol(tmp_df)))
 
 df_hvg = smart_df(colData(sce)[,c("sample_name","part_cell_id",
-	paste0("Habib_TSNE",1:2),"log10_total_features","Habib_clusters",
-	"Habib_clusters_name","Habib_cell_type")],tmp_df)
+                                  paste0("Habib_TSNE",1:2),
+                                  "log10_total_features","Habib_clusters",
+                                  "Habib_clusters_name","Habib_cell_type")],tmp_df)
 rownames(df_hvg) = NULL
 
 set.seed(100)
@@ -580,12 +584,12 @@ all_num_clust = c(11:15)
 df_hvg = df_hvg[,!grepl("^KM_",names(df_hvg))]
 
 for(num_clust in all_num_clust){
-	cat(paste0("KM with ",num_clust," clusters.\n"))
-	kmeans_out = kmeans(reducedDim(sce_hvg, "PCA"), centers = num_clust, 
-	                    iter.max = 1e8, nstart = 2500,
-	                    algorithm = "MacQueen")
-	km_label = paste0("KM_",num_clust)
-	df_hvg[[km_label]] = as.factor(kmeans_out$cluster)
+  cat(paste0("KM with ",num_clust," clusters.\n"))
+  kmeans_out = kmeans(reducedDim(sce_hvg, "PCA"), centers = num_clust, 
+                      iter.max = 1e8, nstart = 2500,
+                      algorithm = "MacQueen")
+  km_label = paste0("KM_",num_clust)
+  df_hvg[[km_label]] = as.factor(kmeans_out$cluster)
 }
 ```
 
@@ -609,8 +613,8 @@ rowData(sce_hvg)$feature_symbol = rowData(sce_hvg)$external_gene_name
 date()
 all_ks = c(10,12)
 sce_hvg = sc3(sce_hvg,gene_filter = FALSE,
-			n_cores = num_cores,ks = all_ks,biology = TRUE, 
-			rand_seed = 100,svm_num_cells = 2000)
+              n_cores = num_cores,ks = all_ks,biology = TRUE, 
+              rand_seed = 100,svm_num_cells = 2000)
 date()
 
 dim(colData(sce_hvg))
@@ -625,8 +629,8 @@ date()
 Next we compare the clustering results from SC3 and the reported cell types.
 ```{r post_sc3, fig.dim = c(8,8),fig.path='figure/', dev=c('png')}
 for(one_ks in all_ks){
-	sc3_label = paste0("sc3_",one_ks,"_clusters")
-	df_hvg[[sc3_label]] = as.factor(colData(sce_hvg)[,sc3_label])
+  sc3_label = paste0("sc3_",one_ks,"_clusters")
+  df_hvg[[sc3_label]] = as.factor(colData(sce_hvg)[,sc3_label])
 }
 ```
 
@@ -649,7 +653,7 @@ tmp_res = name_change(tmp_res,"X.Genes","nGenes")
 tmp_res = name_change(tmp_res,"X.Transcripts","nTranscripts")
 
 tmp_res = smart_merge(tmp_res, tmp_lab[,c("Cluster.Name","Cell_Type")], 
-					all.x=TRUE)
+                      all.x=TRUE)
 
 summary(tmp_res$nGenes)
 df_hvg$Cell.ID = colnames(sce_hvg)
@@ -660,8 +664,8 @@ smart_table(df_hvg$Cell.ID %in% tmp_res$Cell.ID)
 all_clust_res = smart_merge(df_hvg,tmp_res)
 sc3_res = smart_df(colData(sce_hvg)[,paste0("sc3_",all_ks,"_clusters")])
 for(ks in all_ks){
-	sc3_label = paste0("sc3_",ks,"_clusters")
-	sc3_res[,sc3_label] = as.factor(sc3_res[,sc3_label])
+  sc3_label = paste0("sc3_",ks,"_clusters")
+  sc3_res[,sc3_label] = as.factor(sc3_res[,sc3_label])
 }
 sc3_res$Cell.ID = colnames(sce_hvg)
 all_clust_res = smart_merge(all_clust_res, sc3_res)
@@ -671,19 +675,19 @@ all_clust_res[1:5,]
 smart_table(all_clust_res[,c("Cell_Type","Cluster.ID")])
 
 for(num_clust in all_num_clust){
-	km_label = paste0("KM_",num_clust)
-	print(smart_table(all_clust_res[,c("Cell_Type",km_label)]))
-	t2 = melt(smart_table(all_clust_res[,c("Cell_Type",km_label)]))
-	colnames(t2)[2] = "cluster"
-	print(gg.heatmap(t2,paste0("kmeans ",num_clust," clusters")))
+  km_label = paste0("KM_",num_clust)
+  print(smart_table(all_clust_res[,c("Cell_Type",km_label)]))
+  t2 = melt(smart_table(all_clust_res[,c("Cell_Type",km_label)]))
+  colnames(t2)[2] = "cluster"
+  print(gg.heatmap(t2,paste0("kmeans ",num_clust," clusters")))
 }
 
 for(ks in all_ks){
-	sc3_label = paste0("sc3_",ks,"_clusters")
-	print(smart_table(all_clust_res[,c("Cell_Type",sc3_label)]))
-	t2 = melt(smart_table(all_clust_res[,c("Cell_Type",sc3_label)]))
-	colnames(t2)[2] = "cluster"
-	print(gg.heatmap(t2,paste0("sc3 ",ks," clusters")))
+  sc3_label = paste0("sc3_",ks,"_clusters")
+  print(smart_table(all_clust_res[,c("Cell_Type",sc3_label)]))
+  t2 = melt(smart_table(all_clust_res[,c("Cell_Type",sc3_label)]))
+  colnames(t2)[2] = "cluster"
+  print(gg.heatmap(t2,paste0("sc3 ",ks," clusters")))
 }
 
 ```
@@ -693,8 +697,8 @@ We plot our TSNE colored by our clustering results.
 all_vars = c("Cell_Type", paste0("KM_",all_num_clust), 
              paste0("sc3_",all_ks,"_clusters"))
 for(one_var in all_vars){
-	print(ggplot_custom(DATA = all_clust_res,X = "HVG_TSNE1",Y = "HVG_TSNE2",
-	                    COL = one_var,TYPE = "cat"))
+  print(ggplot_custom(DATA = all_clust_res,X = "HVG_TSNE1",Y = "HVG_TSNE2",
+                      COL = one_var,TYPE = "cat"))
 }
 ```
 
@@ -704,8 +708,8 @@ Next we plot the TSNE reported by [@habib2017massively], colored by our clusteri
 all_vars = c("Cell_Type",paste0("KM_",all_num_clust),
              paste0("sc3_",all_ks,"_clusters"))
 for(one_var in all_vars){
-	print(ggplot_custom(DATA = all_clust_res,X="Habib_TSNE1",Y="Habib_TSNE2",
-	                    COL = one_var,TYPE = "cat"))
+  print(ggplot_custom(DATA = all_clust_res,X="Habib_TSNE1",Y="Habib_TSNE2",
+                      COL = one_var,TYPE = "cat"))
 }
 ```
 

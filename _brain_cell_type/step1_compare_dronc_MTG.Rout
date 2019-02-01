@@ -1,0 +1,402 @@
+
+R version 3.5.0 (2018-04-23) -- "Joy in Playing"
+Copyright (C) 2018 The R Foundation for Statistical Computing
+Platform: x86_64-apple-darwin15.6.0 (64-bit)
+
+R is free software and comes with ABSOLUTELY NO WARRANTY.
+You are welcome to redistribute it under certain conditions.
+Type 'license()' or 'licence()' for distribution details.
+
+  Natural language support but running in an English locale
+
+R is a collaborative project with many contributors.
+Type 'contributors()' for more information and
+'citation()' on how to cite R or R packages in publications.
+
+Type 'demo()' for some demos, 'help()' for on-line help, or
+'help.start()' for an HTML browser interface to help.
+Type 'q()' to quit R.
+
+> 
+> library(org.Hs.eg.db)
+Loading required package: AnnotationDbi
+Loading required package: stats4
+Loading required package: BiocGenerics
+Loading required package: parallel
+
+Attaching package: ‘BiocGenerics’
+
+The following objects are masked from ‘package:parallel’:
+
+    clusterApply, clusterApplyLB, clusterCall, clusterEvalQ,
+    clusterExport, clusterMap, parApply, parCapply, parLapply,
+    parLapplyLB, parRapply, parSapply, parSapplyLB
+
+The following objects are masked from ‘package:stats’:
+
+    IQR, mad, sd, var, xtabs
+
+The following objects are masked from ‘package:base’:
+
+    anyDuplicated, append, as.data.frame, basename, cbind, colMeans,
+    colnames, colSums, dirname, do.call, duplicated, eval, evalq,
+    Filter, Find, get, grep, grepl, intersect, is.unsorted, lapply,
+    lengths, Map, mapply, match, mget, order, paste, pmax, pmax.int,
+    pmin, pmin.int, Position, rank, rbind, Reduce, rowMeans, rownames,
+    rowSums, sapply, setdiff, sort, table, tapply, union, unique,
+    unsplit, which, which.max, which.min
+
+Loading required package: Biobase
+Welcome to Bioconductor
+
+    Vignettes contain introductory material; view with
+    'browseVignettes()'. To cite Bioconductor, see
+    'citation("Biobase")', and for packages 'citation("pkgname")'.
+
+Loading required package: IRanges
+Loading required package: S4Vectors
+
+Attaching package: ‘S4Vectors’
+
+The following object is masked from ‘package:base’:
+
+    expand.grid
+
+
+> library(reshape2)
+> library(ggplot2)
+> 
+> repo_dir  = "~/research/GitHub/scRNAseq_pipelines"
+> setwd(repo_dir)
+> 
+> # ------------------------------------------------------------------
+> # load data matrix 
+> # ------------------------------------------------------------------
+> 
+> dronc_n_cell = readRDS("dronc/ct_cells_dronc.rds")
+> dronc_g_info = readRDS("dronc/gene_info_dronc.rds")
+> dronc_ct_mat = readRDS("dronc/ct_matrix_dronc.rds")
+> 
+> dronc_n_cell
+   Cell_Type nCells_All nCells_PFC
+1      exCA3        630          8
+2      exCA1        179          0
+3      exPFC       3107       3072
+4        ASC       1584        339
+5       GABA       1154        758
+6        ODC       2582        167
+7       exDG       1380          0
+8        END         68          8
+9         MG        223         19
+10       OPC        533        165
+11       NSC        145          0
+> dim(dronc_g_info)
+[1] 10607    21
+> dronc_g_info[1:2,]
+  hgnc_symbol ensembl_gene_id external_gene_name chromosome_name start_position
+1             ENSG00000242687        AC004893.11               7       98610788
+2       ABCA5 ENSG00000154265              ABCA5              17       67240452
+  end_position strand_n
+1     98645863        1
+2     67323385       -1
+                                                                      description
+1                                                                                
+2 ATP-binding cassette, sub-family A (ABC1), member 5 [Source:HGNC Symbol;Acc:35]
+  percentage_gene_gc_content   gene_biotype is_feature_control
+1                      46.84      antisense              FALSE
+2                      34.61 protein_coding              FALSE
+  is_feature_control_Mt is_feature_control_Ri mean_counts log10_mean_counts
+1                 FALSE                 FALSE  0.01550491       0.006682028
+2                 FALSE                 FALSE  0.19875693       0.078731132
+  n_cells_by_counts pct_dropout_by_counts total_counts log10_total_counts
+1               216              98.55644          232           2.367356
+2              2327              84.44831         2974           3.473487
+  n_cells_counts pct_dropout_counts
+1            216           98.55644
+2           2327           84.44831
+> 
+> names(dronc_ct_mat)
+[1] "all" "PFC"
+> dronc_ct_mat$PFC[1:2,1:3]
+            exCA3 exCA1 exPFC
+AC004893.11     0     0    54
+ABCA5           0     0  1083
+> 
+> MTG_n_cell = readRDS("MTG/ct_cells_human_MTG.rds")
+> MTG_g_info = readRDS("MTG/gene_info_human_MTG.rds")
+> MTG_ct_mat = readRDS("MTG/ct_matrix_human_MTG.rds")
+> 
+> MTG_n_cell
+  Cell_Type nCells_All
+1       Inh       4131
+2       Exc      10434
+3     Oligo        310
+4       OPC        233
+5     Astro        287
+6     Micro         62
+7      Endo          8
+> dim(MTG_g_info)
+[1] 37657    15
+> MTG_g_info[1:2,]
+     gene chromosome entrez_id
+1 5-HT3C2          3    389180
+2    A1BG         19         1
+                                                               gene_name
+1 5-hydroxytryptamine (serotonin) receptor 3, family member E pseudogene
+2                                                 alpha-1-B glycoprotein
+  mouse_homologenes is_feature_control mean_counts log10_mean_counts
+1                                FALSE   0.3058137         0.1158812
+2              A1bg              FALSE   4.9620794         0.7753978
+  n_cells_by_counts pct_dropout_by_counts total_counts log10_total_counts
+1               662              95.84380         4871           3.687707
+2              2449              84.62456        79036           4.897830
+  n_cells_counts pct_dropout_counts ensembl_gene_id
+1            662           95.84380            <NA>
+2           2449           84.62456 ENSG00000121410
+> 
+> # ------------------------------------------------------------------
+> # check gene information 
+> # ------------------------------------------------------------------
+> 
+> length(unique(dronc_g_info$ensembl_gene_id))
+[1] 10607
+> table(is.na(dronc_g_info$ensembl_gene_id))
+
+FALSE 
+10607 
+> table(is.na(MTG_g_info$ensembl_gene_id))
+
+FALSE  TRUE 
+21401 16256 
+> table(is.na(MTG_g_info$entrez_id))
+
+FALSE 
+37657 
+> 
+> columns(org.Hs.eg.db)
+ [1] "ACCNUM"       "ALIAS"        "ENSEMBL"      "ENSEMBLPROT"  "ENSEMBLTRANS"
+ [6] "ENTREZID"     "ENZYME"       "EVIDENCE"     "EVIDENCEALL"  "GENENAME"    
+[11] "GO"           "GOALL"        "IPI"          "MAP"          "OMIM"        
+[16] "ONTOLOGY"     "ONTOLOGYALL"  "PATH"         "PFAM"         "PMID"        
+[21] "PROSITE"      "REFSEQ"       "SYMBOL"       "UCSCKG"       "UNIGENE"     
+[26] "UNIPROT"     
+> map1 = mapIds(org.Hs.eg.db, keys=as.character(dronc_g_info$ensembl_gene_id), 
++               'ENTREZID', 'ENSEMBL')
+'select()' returned 1:many mapping between keys and columns
+> length(map1)
+[1] 10607
+> map1[1:5]
+ENSG00000242687 ENSG00000154265 ENSG00000181409 ENSG00000081760 ENSG00000231312 
+    "101927550"         "23461"          "9625"         "65985"        "728730" 
+> table(is.na(map1))
+
+FALSE  TRUE 
+10176   431 
+> dronc_g_info$entrez_id = as.character(map1)
+> 
+> length(intersect(MTG_g_info$ensembl_gene_id, dronc_g_info$ensembl_gene_id))
+[1] 10151
+> length(intersect(MTG_g_info$entrez_id, dronc_g_info$entrez_id))
+[1] 10148
+> 
+> table(MTG_g_info$pct_dropout_counts<90,!is.na(MTG_g_info$ensembl_gene_id))
+       
+        FALSE  TRUE
+  FALSE 14335  9784
+  TRUE   1921 11617
+> table(MTG_g_info$pct_dropout_counts<80,!is.na(MTG_g_info$ensembl_gene_id))
+       
+        FALSE  TRUE
+  FALSE 15443 12504
+  TRUE    813  8897
+> 
+> wNA = which(is.na(MTG_g_info$ensembl_gene_id))
+> 
+> summary(MTG_g_info$pct_dropout_counts)
+   Min. 1st Qu.  Median    Mean 3rd Qu.    Max. 
+   0.00   78.99   95.99   85.40   99.05   99.81 
+> log10_p_dropout = log10(1 - MTG_g_info$pct_dropout_counts/100)
+> 
+> pdf("_brain_cell_type/figure/MTG_with_ensembl_id_or_not.pdf", width=7, 
++     height=3.5)
+> par(mfrow=c(1,2), mar=c(5,4,1,1), bty="n")
+> plot(density(MTG_g_info$log10_mean_counts[wNA]), main="", 
++      xlab="log10(mean counts)")
+> lines(density(MTG_g_info$log10_mean_counts[-wNA]), 
++       lty=2, col="red")
+> text(3.5, 5, labels="Ensembl ID", pos=2)
+> legend("topright", legend=c("", "No", "Yes"), 
++        lty=c(1, 1,2), col=c("white", "black", "red"), bty="n")
+> plot(density(log10_p_dropout[wNA]), main="", ylim=c(0,0.9), xaxt="n", 
++      xlab="percent dropout")
+> lines(density(log10_p_dropout[-wNA]), lty=2, col="red")
+> pts = c(0, 70, 90, 99, 99.9)
+> axis(side=1, at=log10(1-pts/100), labels=pts)
+> dev.off()
+null device 
+          1 
+> 
+> # ------------------------------------------------------------------
+> # take intersection 
+> # ------------------------------------------------------------------
+> 
+> ens_id = intersect(MTG_g_info$ensembl_gene_id, dronc_g_info$ensembl_gene_id)
+> dronc_all = dronc_ct_mat$all[match(ens_id, dronc_g_info$ensembl_gene_id),]
+> dronc_pfc = dronc_ct_mat$PFC[match(ens_id, dronc_g_info$ensembl_gene_id),]
+> MTG = MTG_ct_mat[match(ens_id, MTG_g_info$ensembl_gene_id),]
+> 
+> dim(MTG)
+[1] 10151     7
+> dim(dronc_all)
+[1] 10151    11
+> dim(dronc_pfc)
+[1] 10151    11
+> 
+> dronc_all[1:2,]
+      exCA3 exCA1 exPFC ASC GABA ODC exDG END MG OPC NSC
+A2M       8     7    27   9   18  26   19  68 56   7   2
+A2ML1     5     1    25  62    7   6    5   0  0   0   3
+> dronc_pfc[1:2,]
+      exCA3 exCA1 exPFC ASC GABA ODC exDG END MG OPC NSC
+A2M       0     0    27   1    9   2    0  10  2   2   0
+A2ML1     0     0    25   7    6   0    0   0  0   0   0
+> MTG[1:2,]
+        Inh    Exc Oligo  OPC Astro Micro  Endo
+A2M   46843 144604  6424 6391  5212 89091 10807
+A2ML1 20932  50279    57  410 10732     5     0
+> 
+> col_names = c("GABA", "exPFC", "ODC", "OPC", "ASC", "MG", "END")
+> dronc_all = dronc_all[,col_names]
+> dronc_pfc = dronc_pfc[,col_names]
+> 
+> col_names = c("GABA", "Gluta", "ODC", "OPC", "ASC", "MG", "END")
+> colnames(MTG) = colnames(dronc_all) = colnames(dronc_pfc) = col_names
+> 
+> # ------------------------------------------------------------------
+> # comparison for each cell type 
+> # ------------------------------------------------------------------
+> 
+> for(i in 1:length(col_names)){
++   ci = col_names[i]
++   png(sprintf("_brain_cell_type/figure/ct_%s.png", ci), 
++       width=9, height=6, units="in", res=300)
++   
++   x = log10(dronc_all[,ci]+1)
++   y = log10(dronc_pfc[,ci]+1)
++   z = log10(MTG[,ci]+1)
++   
++   par(mfrow=c(2,3), mar=c(5,4,2,1), bty="n")
++   hist(x, xlab="log10(count+1)", main="dronc all", breaks=50)
++   hist(y, xlab="log10(count+1)", main="dronc PFC", breaks=50)
++   hist(z, xlab="log10(count+1)", main="MTG", breaks=50)
++   plot(x, y, cex=0.2, xlab="dronc all", ylab="dronc PFC", 
++        main=round(cor(x, y, method="spearman"),2))
++   plot(x, z, cex=0.2, xlab="dronc all", ylab="MTG", 
++        main=round(cor(x, z, method="spearman"),2))
++   plot(y, z, cex=0.2, xlab="dronc all", ylab="MTG", 
++        main=round(cor(y, z, method="spearman"),2))
++   dev.off()
++ }
+> 
+> # ------------------------------------------------------------------
+> # comparison across cell types 
+> # ------------------------------------------------------------------
+> 
+> png("_brain_cell_type/figure/pairs_MTG.png", 
++     width=18, height=18, units="in", res=300)
+> pairs(log10(MTG+1))
+> dev.off()
+null device 
+          1 
+> 
+> png("_brain_cell_type/figure/pairs_dronc_all.png", 
++     width=18, height=18, units="in", res=300)
+> pairs(log10(dronc_all+1))
+> dev.off()
+null device 
+          1 
+> 
+> png("_brain_cell_type/figure/pairs_dronc_pfc.png", 
++     width=18, height=18, units="in", res=300)
+> pairs(log10(dronc_pfc+1))
+> dev.off()
+null device 
+          1 
+> 
+> # ------------------------------------------------------------------
+> # correlations 
+> # ------------------------------------------------------------------
+> 
+> cr.MTG = cor(log10(MTG+1), method="spearman")
+> cr.dronc_all = cor(log10(dronc_all+1), method="spearman")
+> cr.dronc_pfc = cor(log10(dronc_pfc+1), method="spearman")
+> 
+> diag(cr.MTG) = diag(cor(log10(MTG+1), log10(dronc_all+1), 
++                         method="spearman"))
+> diag(cr.dronc_all) = diag(cor(log10(MTG+1), log10(dronc_all+1), 
++                               method="spearman"))
+> diag(cr.dronc_pfc) = diag(cor(log10(MTG+1), log10(dronc_pfc+1), 
++                               method="spearman"))
+> 
+> gplot1 <- function(melted_cormat){
++   g1 = ggplot(data = melted_cormat, aes(x=Var1, y=Var2, fill=value)) + 
++     geom_tile() + labs(x="",y="") + 
++     scale_fill_gradient2(low = "blue", high = "red", mid = "white", 
++                          midpoint = 0.5, limit = c(0,1)) + 
++     geom_text(aes(label = round(value, 2)))
++   g1
++ }
+> 
+> g1 = gplot1(melt(cr.MTG))
+> g2 = gplot1(melt(cr.dronc_all))
+> g3 = gplot1(melt(cr.dronc_pfc))
+> 
+> ggsave("_brain_cell_type/figure/cr_MTG.png", g1, width=5, 
++        height=4, units="in")
+> 
+> ggsave("_brain_cell_type/figure/cr_dronc_all.png", g2, width=5, 
++        height=4, units="in")
+> 
+> ggsave("_brain_cell_type/figure/cr_dronc_pfc.png", g3, width=5, 
++        height=4, units="in")
+> 
+> if(file.exists("Rplots.pdf")){
++   file.remove("Rplots.pdf")
++ }
+[1] TRUE
+> 
+> sessionInfo()
+R version 3.5.0 (2018-04-23)
+Platform: x86_64-apple-darwin15.6.0 (64-bit)
+Running under: macOS  10.14.2
+
+Matrix products: default
+BLAS: /Library/Frameworks/R.framework/Versions/3.5/Resources/lib/libRblas.0.dylib
+LAPACK: /Library/Frameworks/R.framework/Versions/3.5/Resources/lib/libRlapack.dylib
+
+locale:
+[1] en_US.UTF-8/en_US.UTF-8/en_US.UTF-8/C/en_US.UTF-8/en_US.UTF-8
+
+attached base packages:
+[1] parallel  stats4    stats     graphics  grDevices utils     datasets 
+[8] methods   base     
+
+other attached packages:
+[1] ggplot2_3.0.0        reshape2_1.4.3       org.Hs.eg.db_3.6.0  
+[4] AnnotationDbi_1.42.1 IRanges_2.14.10      S4Vectors_0.18.3    
+[7] Biobase_2.40.0       BiocGenerics_0.26.0 
+
+loaded via a namespace (and not attached):
+ [1] Rcpp_0.12.18     compiler_3.5.0   pillar_1.3.0     plyr_1.8.4      
+ [5] bindr_0.1.1      tools_3.5.0      digest_0.6.15    bit_1.1-14      
+ [9] RSQLite_2.1.1    memoise_1.1.0    tibble_1.4.2     gtable_0.2.0    
+[13] pkgconfig_2.0.1  rlang_0.2.1      DBI_1.0.0        bindrcpp_0.2.2  
+[17] withr_2.1.2      stringr_1.3.1    dplyr_0.7.6      bit64_0.9-7     
+[21] grid_3.5.0       tidyselect_0.2.4 glue_1.3.0       R6_2.2.2        
+[25] purrr_0.2.5      blob_1.1.1       magrittr_1.5     scales_1.0.0    
+[29] assertthat_0.2.0 colorspace_1.3-2 labeling_0.3     stringi_1.2.4   
+[33] lazyeval_0.2.1   munsell_0.5.0    crayon_1.3.4    
+> q(save="no")
+> proc.time()
+   user  system elapsed 
+ 39.693   0.709  40.926 

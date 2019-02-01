@@ -28,8 +28,6 @@ The packages required for the analysis are as follows:
 - scran: methods provide normalization of cell-specific biases, correcting batch effects, identify marker genes
 - SC3: package for single cell consensus clustering.
 
-# Obtaining/Loading Counts
-
 ## Loading libraries. 
 
 ```{r setup, include=FALSE}
@@ -64,7 +62,9 @@ library(Rtsne)
 library(SC3)
 ```
 
-Before runing this R markdown, please first download the datafile human_MTG_gene_expression_matrices_2018-06-14.zip from  [here](http://celltypes.brain-map.org/api/v2/well_known_file_download/694416044) to your local computer, and unzip the file. Then in the following code chunk, set the working directory to be the directory of the unzipped folder. 
+# Obtaining/Loading Counts
+
+Before runing this R markdown, please first download the datafile human_MTG_gene_expression_matrices_2018-06-14.zip from  http://celltypes.brain-map.org/api/v2/well_known_file_download/694416044 to your local computer, and unzip the file. Then in the following code chunk, set the working directory to be the directory of the unzipped folder. 
 
 You can modify the following code to determine if the analysis will be conducted with exon counts only(`exon_only = TRUE`) or with both exon and intron counts summed together (`exon_only = FALSE`).  We have requested 7 cores (`num_cores = 7`) to improve SC3 runtime. 
 
@@ -306,7 +306,7 @@ sce = normalize(sce)
 ```
 
 
-## Dimension reduction
+# Dimension reduction
 
 For dimension reduction, such as calculating PCA or performing TSNE, we should start by identifying a subset of genes with high level of biological signal relative to background (technical) noise. We start by examinng mean-variance relationship. 
 
@@ -328,6 +328,7 @@ legend("topright", legend=c("Poisson noise", "observed trend"),
 The above function `makeTechTrend()` assumes a Poisson model and from the above plot, it is clearly not a suitable fit. So we will keep `fit` equal to the loess fit from `trendVar()` rather than setting it equal to the output from `makeTechTrend()`. 
 
 In the following code, we used the ```decomposeVar``` function from ```R/cran``` to estimate the technical/biological component of variance of each gene.  
+
 > The technical component of the variance for each gene is determined by interpolating the fitted trend in fit at the mean log-count for that gene. This represents variance due to sequencing noise, variability in capture efficiency, etc. The biological component is determined by subtracting the technical component from the total variance. Highly variable genes (HVGs) can be identified as those with large biological components
 
 ```{r decompose_var, fig.dim = c(8,8)}
@@ -347,7 +348,7 @@ dim(sce_sub)
 plotExpression(sce_sub, features=1:10)
 ```
 
-Here we only select approximately the top a few thousands highly variable genes based on tuning thresholds on `dec$bio` and `dec$FDR` from the earlier variance decomposition. 
+Here we only select approximately the top a few thousands highly variable genes (**HVGs**) based on tuning thresholds on `dec$bio` and `dec$FDR` from the earlier variance decomposition. 
 
 ```{r gene_selection, fig.dim = c(8,8), fig.path='figure/', dev=c('png')}
 summary(dec$bio)
@@ -372,7 +373,6 @@ table(FDR_keep,bio_keep)
 w2kp = which(dec1$FDR < FDR_thres & dec1$bio > bio_thres)
 summary(rowData(sce)$n_cells_counts[w2kp])
 
-# Subsetting highly variable genes for subsequent PCA and TSNE
 sce_hvg = sce[w2kp,]
 sce_hvg
 ```
@@ -433,9 +433,9 @@ rm(edat)
 gc()
 ```
 
-## Clustering
+# Clustering
 
-### Kmeans
+## Kmeans
 We first try clustering using kmeans. 
 
 ```{r kmeans, fig.dim = c(8,8), fig.path='figure/', dev=c('png')}
@@ -458,7 +458,7 @@ for(num_clust in all_num_clust){
 ```
 
 
-### SC3
+## SC3
 Next we try to clustering cell using SC3. Code used here is based on [this link](https://bioconductor.org/packages/devel/bioc/vignettes/SC3/inst/doc/SC3.html#run-sc3). Since SC3 is computationally much more expensive, we only try three number of clusters, 5, 10, and 15. 
 
 ```{r sc3, eval = run_sc3, echo = run_sc3}
@@ -506,24 +506,20 @@ for(one_ks in all_ks){
 						COL = sc3_label,TYPE = "cat"))
 }
 
+```
+
+It looks SC3 with 5 clusters separate GABAergic, Glutamatergic neurons, and non-neurons, but clusering results with 10 or 15 clusters are noisy. Here we at a bit more details for the results with 5 clusters. 
+
+```{r sc3_plot2, fig.dim = c(8,8), eval = run_sc3, echo = run_sc3, fig.path='figure/', dev=c('png')}
+
 all_vars = c("brain_subregion", "class", "cell_type")
-
-for(one_ks in all_ks){
-	gc()
-
-	cat(paste0("Num Clusters = ",one_ks,"\n"))
+one_ks = 5
 	
-	sc3_label = paste0("sc3_",one_ks,"_clusters")
-	sc3_outlier = paste0("sc3_",one_ks,"_log2_outlier_score")
-	
-	# seems this consensus plot use too much memory 
-	# sc3_plot_consensus(sce_hvg, k = one_ks, 
-	#                    show_pdata = c(all_vars, sc3_label, sc3_outlier))
+sc3_label = paste0("sc3_",one_ks,"_clusters")
+sc3_outlier = paste0("sc3_",one_ks,"_log2_outlier_score")
 
-	sc3_plot_markers(sce_hvg, k = one_ks, 
-					show_pdata = c(all_vars, sc3_label, sc3_outlier))
-}
-
+sc3_plot_markers(sce_hvg, k = one_ks,	
+                 show_pdata = c(all_vars, sc3_label, sc3_outlier))
 ```
 
 Finally we save the sce object, sce_hvg object, and the clustering results.

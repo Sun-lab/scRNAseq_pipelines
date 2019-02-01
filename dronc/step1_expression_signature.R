@@ -70,7 +70,7 @@ t1 = table(clusters$KM_12, clusters$Cell_Type)
 t1
 
 clusters$cluster_kmean = clusters$KM_12
-clusts = apply(t1, 2, function(v){which.max(v)})
+clusts = apply(t1, 2, function(v){union(which.max(v), which(v > 500))})
 clusts
 
 # ------------------------------------------------------------------
@@ -99,8 +99,6 @@ nCells = data.frame(Cell_Type=celltypes, nCells_All=zeros, nCells_PFC=zeros)
 ct.matrx = ct.matrx.PFC = matrix(NA, nrow=nrow(sce), ncol=length(celltypes))
 colnames(ct.matrx) = colnames(ct.matrx.PFC) = celltypes
 rownames(ct.matrx) = rownames(ct.matrx.PFC) = rowData(sce)$external_gene_name
-
-geneInfo = rowData(sce)
 
 for(ct1 in celltypes){
   ct.cond    = clusters$Cell_Type == ct1
@@ -135,10 +133,17 @@ nCells
 
 setwd(work_dir)
 
-ct.matrx = list(all=ct.matrx, PFC=ct.matrx.PFC)
-saveRDS(ct.matrx, "ct_matrix.rds")
-saveRDS(nCells, "ct_cells.rds")
+geneInfo = as.data.frame(rowData(sce))
+dim(geneInfo)
+geneInfo[1:2,]
 
+ct.matrx = list(all=ct.matrx, PFC=ct.matrx.PFC)
+
+saveRDS(geneInfo, "gene_info_dronc.rds")
+saveRDS(ct.matrx, "ct_matrix_dronc.rds")
+saveRDS(nCells,   "ct_cells_dronc.rds")
+
+sessionInfo()
 q(save="no")
 
 
