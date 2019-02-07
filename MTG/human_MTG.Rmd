@@ -172,7 +172,7 @@ par(mfrow=c(3,2),mar=c(5, 4, 1, 1), bty="n",cex=0.9)
 smart_hist(log10(sce$total_counts),xlab="log10(Library sizes)",
 	main="",breaks=40,ylab="Number of cells")
 
-smart_hist(log10(sce$total_features),xlab="log10(# of expressed genes)", 
+smart_hist(log10(sce$total_features_by_counts),xlab="log10(# of expressed genes)", 
 	main="",breaks=40,ylab="Number of cells")
 
 smart_hist(sce$percent_rrna_reads, xlab="Ribosome prop. (%)",
@@ -189,7 +189,7 @@ smart_hist(sce$percent_reads_unique, xlab="Unique reads (%)",
 
 par(mfrow=c(3,2),mar=c(5, 4, 1, 1),bty="n",cex=0.9)
 
-plot(log10(sce$total_counts),log10(sce$total_features), 
+plot(log10(sce$total_counts),log10(sce$total_features_by_counts), 
 	xlab="log10(Library sizes)",ylab="log10(# of expressed genes)", 
 	pch=20,cex=0.5,col=rgb(0,0,0,0.5))
 
@@ -406,9 +406,10 @@ rownames(df_hvg) = NULL
 names(df_hvg) = paste0("PC",seq(ncol(df_hvg)))
 df_hvg        = smart_df(sample_name = colnames(sce_hvg), df_hvg)
 
-all_vars = c("log10_total_features", "sex", "brain_hemisphere",
+all_vars = c("log10_total_features_by_counts", "sex", "brain_hemisphere",
 	"brain_subregion", "facs_sort_criteria", "class", "cluster",
 	"cell_type")
+all_vars %in% names(colData(sce_hvg))
 
 df_hvg = cbind(df_hvg, colData(sce_hvg)[,all_vars])
 dim(df_hvg)
@@ -426,7 +427,7 @@ df_tsne[1:2,]
 
 df_hvg = smart_df(df_hvg, df_tsne)
 
-ggplot_custom(DATA = df_hvg,X = "HVG_TSNE1",Y = "HVG_TSNE2",COL = "log10_total_features",TYPE = "cont")
+ggplot_custom(DATA = df_hvg,X = "HVG_TSNE1",Y = "HVG_TSNE2",COL = "log10_total_features_by_counts",TYPE = "cont")
 ggplot_custom(DATA = df_hvg,X = "HVG_TSNE1",Y = "HVG_TSNE2",COL = "sex",TYPE = "cat")
 ggplot_custom(DATA = df_hvg,X = "HVG_TSNE1",Y = "HVG_TSNE2",COL = "brain_hemisphere",TYPE = "cat")
 ggplot_custom(DATA = df_hvg,X = "HVG_TSNE1",Y = "HVG_TSNE2",COL = "brain_subregion",TYPE = "cat")
