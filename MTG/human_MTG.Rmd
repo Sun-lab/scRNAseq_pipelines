@@ -36,8 +36,8 @@ knitr::opts_chunk$set(echo = TRUE)
 
 ```{r load_libraries, warning = FALSE, message = FALSE}
 bio_packs = c("SingleCellExperiment","biomaRt","scater","scran","SC3")
-
 source("https://bioconductor.org/biocLite.R")
+# biocLite("BiocUpgrade",suppressUpdates = TRUE)
 for(pack1 in bio_packs){
 	if( !pack1 %in% installed.packages()[,"Package"]){
 		biocLite(pack1, suppressUpdates = TRUE)
@@ -45,7 +45,6 @@ for(pack1 in bio_packs){
 }
 
 cran_packs = c("data.table", "svd", "Rtsne")
-
 for(pack1 in cran_packs){
 	if( !pack1 %in% installed.packages()[,"Package"]){
 		install.packages(pack1)
@@ -64,21 +63,33 @@ library(SC3)
 
 # Obtaining/Loading Counts
 
-Before runing this R markdown, please first download the datafile human_MTG_gene_expression_matrices_2018-06-14.zip from  http://celltypes.brain-map.org/api/v2/well_known_file_download/694416044 to your local computer, and unzip the file. Then in the following code chunk, set the working directory to be the directory of the unzipped folder. 
+Before running this R markdown, please first download the datafile human_MTG_gene_expression_matrices_2018-06-14.zip from  http://celltypes.brain-map.org/api/v2/well_known_file_download/694416044 to your local computer, and unzip the file. Then in the following code chunk, set the working directory to be the directory of the unzipped folder. 
+
+```{r eval = FALSE, echo = FALSE}
+url_name = "http://celltypes.brain-map.org/api/v2/well_known_file_download/694416044"
+url_file = strsplit(url_name,"/")[[1]]
+url_file = url_file[length(url_file)]
+repo_dir = "/pine/scr/p/l/pllittle/CS_eQTL/s3_Real/scRNAseq_pipelines"
+work_dir = file.path(repo_dir,"MTG")
+setwd(work_dir)
+if( !file.exists(url_file) ) system(sprintf("wget %s",url_name))
+system(sprintf("unzip -o %s",url_file))
+
+```
 
 You can modify the following code to determine if the analysis will be conducted with exon counts only(`exon_only = TRUE`) or with both exon and intron counts summed together (`exon_only = FALSE`).  We have requested 7 cores (`num_cores = 7`) to improve SC3 runtime. 
 
 ```{r input}
-work_dir = "~/research/scRNAseq/data/Allen_BI/"
-work_dir = paste0(work_dir, "human_MTG_gene_expression_matrices_2018-06-14")
-repo_dir = "~/research/GitHub/scRNAseq_pipelines"
+# work_dir = "~/research/scRNAseq/data/Allen_BI/"
+# work_dir = paste0(work_dir, "human_MTG_gene_expression_matrices_2018-06-14")
+# repo_dir = "~/research/GitHub/scRNAseq_pipelines"
 
-# repo_dir = "/pine/scr/p/l/pllittle/CS_eQTL/s3_Real/scRNAseq_pipelines"
-# work_dir = file.path(repo_dir,"MTG")
+repo_dir = "/pine/scr/p/l/pllittle/CS_eQTL/s3_Real/scRNAseq_pipelines"
+work_dir = file.path(repo_dir,"MTG")
 source(file.path(repo_dir,"SOURCE.R"))
 
 exon_only = TRUE
-run_sc3   = TRUE
+run_sc3   = !TRUE
 num_cores = ifelse(run_sc3,7,1)
 
 exons_fn    = "human_MTG_2018-06-14_exon-matrix.csv"
@@ -88,7 +99,7 @@ introns_fn  = "human_MTG_2018-06-14_intron-matrix.csv"
 The following code read-in count data. To be compatible with other studies that only use count data from exonic regions, here we just read the exon counts. 
 
 ```{r read_count_data}
-counts = fread(file.path(work_dir,exons_fn),data.table = FALSE)
+counts = data.table::fread(file.path(work_dir,exons_fn),data.table = FALSE)
 dim(counts)
 counts[1:2,1:2]
 
@@ -106,7 +117,7 @@ if( !exon_only ) {
 Next we add the sample/cell information and gene information. Spike-ins were used for this data, though in this final count matrix, the spike-ins were not included. We generate an object of SingleCellExperiment named as ```sce```, and then delete those original data. 
 
 ```{r read_cell_gene_data}
-cell_data = fread(file.path(work_dir,"human_MTG_2018-06-14_samples-columns.csv"))
+cell_data = data.table::fread(file.path(work_dir,"human_MTG_2018-06-14_samples-columns.csv"))
 
 dim(cell_data)
 cell_data[1:2,]
@@ -124,8 +135,7 @@ sce = SingleCellExperiment(assays = list(counts = counts), colData = cell_data)
 rm(counts, cell_data)
 ```
 
-
-Import gene infomration and add them into the ```sce``` object. We also check for spike ins. Those gene names starting with ERCC are indeed gene names rather than labels for spke-ins. 
+Import gene infomration and add them into the ```sce``` object. We also check for spike ins. Those gene names starting with ERCC are indeed gene names rather than labels for spike-ins. 
 
 ```{r import_gene_info}
 gene_dat = smart_RT(file.path(work_dir,"human_MTG_2018-06-14_genes-rows.csv"), 
@@ -271,9 +281,9 @@ gc()
 ```
 
 ## Normalization
-A simple solution for normalization and stablizing expression varaince across genes is to tranform the count data by log(count/size.factor + 1). One may calcualte size.factor per cell as the total number of reads/UMIs, and this assumes the total expression are the same across all the cells. However, the total expression of each cell may vary with respect to cell type and/or cell size, and the ```computeSumFactors``` function in R package scran provides a more sophisicated way to calcualte size.factor to allow such variaation across cells [@lun2016pooling]. ```computeSumFactors``` can use initial clustering of cells to normalize expression within and beetween clusters. Within a cluster, it estimates the size factor for many groups of cells so that there are more groups than cells, and then it can calcualte the size factor per cell using a lienar deconvolution system. 
+A simple solution for normalization and stablizing expression variance across genes is to tranform the count data by log(count/size.factor + 1). One may calcualte size.factor per cell as the total number of reads/UMIs, and this assumes the total expression are the same across all the cells. However, the total expression of each cell may vary with respect to cell type and/or cell size, and the ```computeSumFactors``` function in R package scran provides a more sophisicated way to calcualte size.factor to allow such variation across cells [@lun2016pooling]. ```computeSumFactors``` can use initial clustering of cells to normalize expression within and beetween clusters. Within a cluster, it estimates the size factor for many groups of cells so that there are more groups than cells, and then it can calcualte the size factor per cell using a linear deconvolution system. 
 
-This mehtod will fail (i.e., giving negative size factors) if there are too many zeros in the count data. Therefore it is necessesary to remove "genes with a library size-adjusted average count below a specified threshold" using the parameter  `min.mean`. See [here](https://bioconductor.org/packages/devel/workflows/vignettes/simpleSingleCell/inst/doc/work-1-reads.html#61_using_the_deconvolution_method_to_deal_with_zero_counts) for more explanations. 
+This method will fail (i.e., giving negative size factors) if there are too many zeros in the count data. Therefore it is necessesary to remove "genes with a library size-adjusted average count below a specified threshold" using the parameter `min.mean`. See [here](https://bioconductor.org/packages/devel/workflows/vignettes/simpleSingleCell/inst/doc/work-1-reads.html#61_using_the_deconvolution_method_to_deal_with_zero_counts) for more explanations. 
 
 ```{r normalize}
 min_mean = 1
@@ -305,7 +315,6 @@ Finally, the command ```normalize(sce)``` adds the normalized expression into th
 sce = normalize(sce)
 ```
 
-
 # Dimension reduction
 
 For dimension reduction, such as calculating PCA or performing TSNE, we should start by identifying a subset of genes with high level of biological signal relative to background (technical) noise. We start by examinng mean-variance relationship. 
@@ -313,8 +322,11 @@ For dimension reduction, such as calculating PCA or performing TSNE, we should s
 Since the information of individual spike-ins have been removed from this MTG dataset, we implemented the code below similar to  [here](http://bioconductor.org/packages/devel/workflows/vignettes/simpleSingleCell/inst/doc/xtra-3-var.html#32_when_spike-ins_are_unavailable).
 
 ```{r get_trend, fig.dim=c(5,5)}
+date()
 new_trend = makeTechTrend(x=sce)
+date()
 fit = trendVar(sce, use.spikes=FALSE, loess.args=list(span=0.05))
+date()
 
 par(mfrow=c(1,1), mar=c(5,4,2,1), bty="n")
 plot(fit$mean, fit$vars, pch=20, col=rgb(0.1,0.2,0.7,0.6), 
@@ -481,7 +493,6 @@ saveRDS(list(sce_hvg=sce_hvg, all_ks=all_ks),
         file.path(work_dir, "post_HVG_sc3.rds"))
 gc()
 ```
-
 
 Next we compare the clustering results from SC3 and cell types.
 
