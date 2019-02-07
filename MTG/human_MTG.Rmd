@@ -452,14 +452,21 @@ gc()
 We first try clustering using kmeans. 
 
 ```{r kmeans, fig.dim = c(8,8), fig.path='figure/', dev=c('png')}
-all_num_clust = c(5:15)
+# rds = readRDS("post_redDim_HVG.rds"); df_hvg = rds$df_hvg; sce_hvg = rds$sce_hvg; rm(rds)
+set.seed(100)
+all_num_clust = c(10:20)
 df_hvg = df_hvg[,!grepl("^KM_",names(df_hvg))]
 
 for(num_clust in all_num_clust){
+	# num_clust = 15
 	cat(paste0("KM with ",num_clust," clusters.\n"))
   
-	kmeans_out = kmeans(reducedDim(sce_hvg,"PCA"), centers = num_clust,
-						iter.max = 5e2, algorithm = "MacQueen")
+	kmeans_out = kmeans(reducedDim(sce_hvg,"PCA"),
+						centers = num_clust,
+						iter.max = 1e3,
+						nstart = 50,
+						algorithm = "MacQueen")
+	print(kmeans_out[c("betweenss","tot.withinss")])
 
 	km_label = paste0("KM_",num_clust)
 	df_hvg[[km_label]] = as.factor(kmeans_out$cluster)
