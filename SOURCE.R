@@ -31,7 +31,19 @@ smart_df = function(...){
 smart_sapply = function(...){
 	sapply(...,USE.NAMES=FALSE,simplify=FALSE)
 }
-
+smart_pack = function(pack,repo="CRAN"){
+	# pack = "foreach"; repo = "CRAN"
+	if( !pack %in% installed.packages()[,"Package"] ){
+		if( repo == "CRAN" ){
+			install.packages(pack,repos = "https://mirrors.nics.utk.edu/cran/")
+		} else if( repo == "BIOC" ){
+			source("https://bioconductor.org/biocLite.R")
+			biocLite(pack)
+		}
+	}
+	
+	library(package = pack,character.only = TRUE)
+}
 name_change = function(DATA,ORIG_NAME,NEW_NAME){
 	index = which(names(DATA) == ORIG_NAME)
 	if( length(index) > 0 ){
