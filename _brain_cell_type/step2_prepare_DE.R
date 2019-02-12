@@ -49,8 +49,10 @@ celltypes
 w2kp = NULL
 
 for(ct1 in celltypes){
+	# ct1 = celltypes[1]
 	ct.cond    = clusters$cell_type == ct1
 	clust.cond = clusters[,opt_clust] %in% clusts[[ct1]]
+	# Intersect previous clustering result with ours
 	w2kp = c(w2kp, which(ct.cond & clust.cond))
 }
 length(w2kp)
@@ -59,7 +61,10 @@ dim(sce)
 sce = sce[,w2kp]
 dim(sce)
 
-saveRDS(sce, file.path(MTG_dir, "final_sce_filtered_by_kmeans.rds"))
+saveRDS(list(opt_clust=opt_clust,clusts=clusts,t1=t1),
+		file.path(MTG_dir,"old_new_clusters.rds"))
+saveRDS(sce,
+		file.path(MTG_dir,"final_sce_filtered_by_kmeans.rds"))
 
 sessionInfo()
 q(save="no")
