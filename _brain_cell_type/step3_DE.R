@@ -1,4 +1,5 @@
 # scRNAseq differential expression (seems to require at least 80 gbs)
+# srun -c 1 --time=8:00:00 --mem=80000 --job-name="Rint" --pty -p interact /nas/longleaf/home/pllittle/downloads/R-3.5.1/bin/R --vanilla
 
 # ----------
 # Shortcuts
@@ -10,7 +11,7 @@ setwd(MTG_dir)
 
 
 # ----------
-# Libraries
+# Libraries/Functions
 # ----------
 source(file.path(repo_dir,"SOURCE.R"))
 if( !("BiocManager" %in% installed.packages()[,"Package"]) ){
@@ -21,82 +22,114 @@ if( !("MAST" %in% installed.packages()[,"Package"]) ){
 	BiocManager::install("MAST")
 }
 library(ggplot2)
+library(data.table)
+MAST_DEgenes = function(work_dir,num_genes=NULL,sce_obj,one_cell_type,fdr_thres=1e-3,logFC_thres=log(2)){
+	
+	if(FALSE){
+		work_dir = MTG_dir
+		num_genes = 100
+		sce_obj = sce
+		one_cell_type = c("Astro","Exc","Inh","Micro","Oligo","OPC")[1]
+		fdr_thres = 1e-3
+		logFC_thres = log(2)
+	}
+	
+	# Subset Genes and make SingleCellAssay object
+	if( is.null(num_genes) ){
+		num_genes = nrow(sce_obj)
+	}
+	sca = MAST::SceToSingleCellAssay(sce = sce_obj[seq(num_genes),])
+
+	# Calculate CDS
+	colData(sca)$cngeneson = scale(colSums(assay(sca) > 0))
+
+	# Calculate Group
+	# one_cell_type = "Astro"
+	ref_group = paste0("not_",one_cell_type)
+	colData(sca)$Group = ifelse(colData(sca)$cell_type == one_cell_type,
+		one_cell_type,ref_group)
+	colData(sca)$Group = factor(colData(sca)$Group,
+		levels = c(ref_group,one_cell_type))
+
+	# zlm analysis: Model log-transformed expression as 
+	#	function of clustered cell type and num detected genes
+	zlm_fn = file.path(work_dir,paste0("zlm",
+		"_nG",num_genes,
+		"_cell",one_cell_type,
+		".rds"))
+	if( !file.exists(zlm_fn) ){
+		print(date())
+		zlm_output = MAST::zlm(formula = ~ Group + cngeneson,sca = sca)
+		print(date())
+		cat("Saving image ...\n")
+		saveRDS(zlm_output,zlm_fn)
+	}
+	cat("Reading in image ...\n")
+	zlm_output = readRDS(zlm_fn)
+	# show(zlm_output)
+
+	# Perform LRT of one cell_type against all others
+	cat("Running LRT by excluding the cell_type covariate ...\n")
+	ssc = MAST::summary(object = zlm_output,
+		doLRT = paste0("Group",one_cell_type))
+	ssd0 = smart_df(ssc$datatable)
+	ssd = ssd0[which(ssd0$component == "H"),]
+	ssd = name_change(ssd,"Pr..Chisq.","pvalue")
+	ssd = name_change(ssd,"primerid","gene")
+	ssd = ssd[,c("gene","pvalue")]
+	tmp_index = which(ssd0$component == "logFC"
+					& ssd0$contrast == paste0("Group",one_cell_type))
+	ssd$logFC = ssd0$coef[tmp_index]
+	ssd$z = ssd0$z[tmp_index]
+	ssd = ssd[which(!is.na(ssd$logFC)),]
+	ssd$FDR_qvalue = p.adjust(p = ssd$pvalue,method = "fdr")
+	ssd = ssd[order(ssd$FDR_qvalue),]
+	# Plot
+	# smart_hist(ssd$FDR_qvalue,breaks=40,xlab="FDR",main="")
+	# smart_hist(ssd$logFC,breaks=40)
+	# plot(ssd[,c("FDR_qvalue","logFC")],pch=16,col=rgb(0,0,0,0.5))
+	# dev.off()
+	ssd = ssd[which(ssd$FDR_qvalue < fdr_thres 
+					& ssd$logFC > logFC_thres),]
+	# dim(ssd); smart_table(ssd$logFC > 0); ssd[1:20,]
+	ssd = smart_df(cell_type=one_cell_type,ssd)
+	
+	ssd_fn = file.path(work_dir,paste0("ssd",
+		"_nG",num_genes,
+		"_cell",one_cell_type,
+		".rds"))
+	cat(paste0("Saving image in ",ssd_fn," ...\n"))
+	saveRDS(ssd,ssd_fn)
+
+	return(NULL)
+}
 
 
 # ----------
 # Analyze
 # ----------
-rds = readRDS(file.path(MTG_dir,"old_new_clusters.rds"))
-	names(rds)
-	opt_clust = rds$opt_clust
-	clusts = rds$clusts; clusts
-	t1 = rds$t1; t1
 sce = readRDS(file.path(MTG_dir,"final_sce_filtered_by_kmeans.rds"))
-	sce
-	sort(names(colData(sce)))
-	smart_table(colData(sce)$donor)
-if(FALSE){
-clusters = readRDS(file.path(MTG_dir,"final_hvg_clust.rds"))
-	clusters[1:4,]
-	length(clusters$sample_name)
-	length(colData(sce)$sample_name)
-	clusters = clusters[match(colData(sce)$sample_name,clusters$sample_name),]
-	table(clusters$sample_name == colData(sce)$sample_name)
-	table(clusters[,c(opt_clust,"cell_type")])
-	colData(sce)[[opt_clust]] = clusters[,opt_clust]
-}
+sce
+# sort(names(colData(sce)))
 
-# zlm analysis
-# sca = as(sce,"SingleCellAssay")
-sca = MAST::SceToSingleCellAssay(sce = sce)
-zlm_output = MAST::zlm(formula = ~ cell_type,sca = sca)
-show(zlm_output)
+# Subset cell_types with enough cells: Exclude Endo
+smart_table(colData(sce)$cell_type)
+sce = sce[,colData(sce)$cell_type != "Endo"]
+smart_table(colData(sce)$cell_type)
+dim(sce)
 
-coefAndCI = summary(zlm_output,logFC = FALSE)$datatable
-coefAndCI
-dim(coefAndCI)
-smart_table(coefAndCI$component) # C = continuous betas, D = discrete betas
-smart_table(coefAndCI$contrast)
-coefAndCI = coefAndCI[contrast != '(Intercept)',]
-dim(coefAndCI)
+# Get cell type specific marker genes
+one_ct = "blah_one_ct"
+MAST_DEgenes(work_dir = MTG_dir,
+			num_genes = nrow(sce),
+			# num_genes = 100,
+			sce_obj = sce,
+			one_cell_type = one_ct,
+			fdr_thres = 1e-3,
+			logFC_thres = log(2))
 
-ggplot(coefAndCI,aes(x = contrast,y = coef,ymin = ci.lo,ymax = ci.hi,col = component)) +
-	geom_pointrange(position = position_dodge(width=.5)) +
-	facet_wrap(~ primerid) + theme(axis.text.x = element_text(angle = 45,hjust = 1)) +
-	coord_cartesian(ylim = 12*c(-1,1))
-dev.off()
-
-
-
-
-
-
-# zlm Practice
-sce2 = sce[1:20,] # first 20 genes
-sca2 = as(sce2,"SingleCellAssay")
-zlm_output = MAST::zlm(formula = ~ donor,sca = sca2)
-show(zlm_output)
-
-coefAndCI = summary(zlm_output,logFC = FALSE)$datatable
-coefAndCI
-dim(coefAndCI)
-smart_table(coefAndCI$component) # C = continuous betas, D = discrete betas
-smart_table(coefAndCI$contrast)
-coefAndCI = coefAndCI[contrast != '(Intercept)',]
-dim(coefAndCI)
-# coefAndCI[,contrast:=abbreviate(contrast)]
-
-ggplot(coefAndCI,aes(x = contrast,y = coef,ymin = ci.lo,ymax = ci.hi,col = component)) +
-	geom_pointrange(position = position_dodge(width=.5)) +
-	facet_wrap(~ primerid) + theme(axis.text.x = element_text(angle = 45,hjust = 1)) +
-	coord_cartesian(ylim = c(-3,3))
-
-zlm_lr = MAST::lrTest(zlm_output, 'donor')
-dimnames(zlm_lr)
-
-pvalue = ggplot(melt(zlm.lr[,,'Pr(>Chisq)']),aes(x=primerid, y=-log10(value)))+
-    geom_bar(stat='identity')+facet_wrap(~test.type) + coord_flip()
-print(pvalue)
+# ssd = readRDS(file.path(MTG_dir,paste0("ssd_nG100_cellAstro.rds")))
+# dim(ssd)
 
 
 q("no")
