@@ -70,8 +70,10 @@ MAST_DEgenes = function(work_dir,num_genes=NULL,sce_obj,one_cell_type,fdr_thres=
 
 	# Perform LRT of one cell_type against all others
 	cat("Running LRT by excluding the cell_type covariate ...\n")
+	print(date())
 	ssc = MAST::summary(object = zlm_output,
 		doLRT = paste0("Group",one_cell_type))
+	print(date())
 	ssd0 = smart_df(ssc$datatable)
 	ssd = ssd0[which(ssd0$component == "H"),]
 	ssd = name_change(ssd,"Pr..Chisq.","pvalue")
@@ -120,6 +122,12 @@ dim(sce)
 
 # Get cell type specific marker genes
 one_ct = "blah_one_ct"
+# one_ct = "Astro"
+# one_ct = "Exc"
+# one_ct = "Inh"
+# one_ct = "Micro"
+# one_ct = "Oligo"
+# one_ct = "OPC"
 MAST_DEgenes(work_dir = MTG_dir,
 			num_genes = nrow(sce),
 			# num_genes = 100,
@@ -130,6 +138,39 @@ MAST_DEgenes(work_dir = MTG_dir,
 
 # ssd = readRDS(file.path(MTG_dir,paste0("ssd_nG100_cellAstro.rds")))
 # dim(ssd)
+q("no")
+
+
+# ----------
+# VennDiagram and getting marker genes
+# ----------
+if(FALSE){
+
+cell_types = c("Astro","Exc","Inh","Micro","Oligo","OPC")
+ct_genes = list()
+for(ct in cell_types){
+	ct_genes[[ct]] = readRDS(file.path(MTG_dir,paste0("ssd_nG37657_cell",ct,".rds")))$gene
+}
+saveRDS(ct_genes,file.path(MTG_dir,"ct_genes.rds"))
+
+smart_pack(venn)
+pdf(file.path(MTG_dir,"venn.pdf"),width=8,height=8)
+venn(x = ct_genes,ilabels = TRUE,zcolor = "style")
+dev.off()
+
+# Get marker genes
+cts_genes = list()
+for(ct in cell_types){
+	# ct = cell_types[1]
+	cts_genes[[ct]] = sort(setdiff(ct_genes[[ct]],
+		unique(unlist(ct_genes[which(names(ct_genes) != ct)]))))
+}
+saveRDS(cts_genes,file.path(MTG_dir,"cts_genes.rds"))
+
+
+
+}
+
 
 
 q("no")
