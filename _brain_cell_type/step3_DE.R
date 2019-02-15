@@ -1,5 +1,4 @@
 # scRNAseq differential expression (seems to require at least 80 gbs)
-# srun -c 1 --time=8:00:00 --mem=80000 --job-name="Rint" --pty -p interact /nas/longleaf/home/pllittle/downloads/R-3.5.1/bin/R --vanilla
 
 # ----------
 # Shortcuts
