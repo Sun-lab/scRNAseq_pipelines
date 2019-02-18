@@ -234,20 +234,20 @@ rowData(sce)[1:2,]
 summary(rowData(sce)$mean_counts)
 table(rowData(sce)$mean_counts == 0)
 
-summary(rowData(sce)$n_cells_counts)
+summary(rowData(sce)$n_cells_by_counts)
 table(colData(sce)$cell_type)
 
 par(mfrow=c(2,2), mar=c(5,4,1,1))
 smart_hist(log10(rowData(sce)$mean_counts+1e-6),main="",
 	breaks=40, xlab="log10(ave # of UMI + 1e-6)")
-smart_hist(log10(rowData(sce)$n_cells_counts+1),main="",
+smart_hist(log10(rowData(sce)$n_cells_by_counts+1),main="",
 	breaks=40, xlab="log10(# of expressed cells + 1)")
 smoothScatter(log10(rowData(sce)$mean_counts+1e-6),
-	log10(rowData(sce)$n_cells_counts + 1),
+	log10(rowData(sce)$n_cells_by_counts + 1),
 	xlab="log10(ave # of UMI + 1e-6)",
 	ylab="log10(# of expressed cells + 1)")
 
-tb1 = table(rowData(sce)$n_cells_counts)
+tb1 = table(rowData(sce)$n_cells_by_counts)
 tb1[1:11]
 ncol(sce)*0.002
 
@@ -383,7 +383,7 @@ bio_keep = dec$bio > bio_thres
 table(FDR_keep,bio_keep)
 
 w2kp = which(dec1$FDR < FDR_thres & dec1$bio > bio_thres)
-summary(rowData(sce)$n_cells_counts[w2kp])
+summary(rowData(sce)$n_cells_by_counts[w2kp])
 
 sce_hvg = sce[w2kp,]
 sce_hvg
