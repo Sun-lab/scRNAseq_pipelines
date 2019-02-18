@@ -89,7 +89,7 @@ work_dir = file.path(repo_dir,"MTG")
 source(file.path(repo_dir,"SOURCE.R"))
 
 exon_only = TRUE
-run_sc3   = !TRUE
+run_sc3   = TRUE
 num_cores = ifelse(run_sc3,7,1)
 
 exons_fn    = "human_MTG_2018-06-14_exon-matrix.csv"
@@ -484,7 +484,7 @@ Next we try to clustering cell using SC3. Code used here is based on [this link]
 ```{r sc3, eval = run_sc3, echo = run_sc3}
 rowData(sce_hvg)$feature_symbol = rowData(sce_hvg)$gene
 
-all_ks = c(5,10,15)
+all_ks = c(10,15)
 
 date()
 sce_hvg = sc3(sce_hvg, ks = all_ks, biology = TRUE,
