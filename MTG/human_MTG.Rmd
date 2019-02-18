@@ -532,13 +532,15 @@ It looks SC3 with 5 clusters separate GABAergic, Glutamatergic neurons, and non-
 ```{r sc3_plot2, fig.dim = c(8,8), eval = run_sc3, echo = run_sc3, fig.path='figure/', dev=c('png')}
 
 all_vars = c("brain_subregion", "class", "cell_type")
-one_ks = 5
-	
-sc3_label = paste0("sc3_",one_ks,"_clusters")
-sc3_outlier = paste0("sc3_",one_ks,"_log2_outlier_score")
+for(one_ks in all_ks){
+	# one_ks = 5
+		
+	sc3_label = paste0("sc3_",one_ks,"_clusters")
+	sc3_outlier = paste0("sc3_",one_ks,"_log2_outlier_score")
 
-sc3_plot_markers(sce_hvg, k = one_ks,	
-                 show_pdata = c(all_vars, sc3_label, sc3_outlier))
+	sc3_plot_markers(sce_hvg,k = one_ks,	
+					 show_pdata = c(all_vars, sc3_label, sc3_outlier))
+}
 ```
 
 Finally we save the sce object, sce_hvg object, and the clustering results.
