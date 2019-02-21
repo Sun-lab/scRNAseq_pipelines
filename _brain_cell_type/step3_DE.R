@@ -141,18 +141,19 @@ q("no")
 
 
 # ----------
-# VennDiagram and getting marker genes
+# VennDiagram and getting/annotating marker genes
 # ----------
 if(FALSE){
 
 cell_types = c("Astro","Exc","Inh","Micro","Oligo","OPC")
+
 ct_genes = list()
 for(ct in cell_types){
 	ct_genes[[ct]] = readRDS(file.path(MTG_dir,paste0("ssd_nG37657_cell",ct,".rds")))$gene
 }
 saveRDS(ct_genes,file.path(MTG_dir,"ct_genes.rds"))
 
-smart_pack(venn)
+smart_pack("venn")
 pdf(file.path(MTG_dir,"venn.pdf"),width=8,height=8)
 venn(x = ct_genes,ilabels = TRUE,zcolor = "style")
 dev.off()
@@ -166,9 +167,66 @@ for(ct in cell_types){
 }
 saveRDS(cts_genes,file.path(MTG_dir,"cts_genes.rds"))
 
+# Get gene annotations
+sce = readRDS(file.path(MTG_dir,"final_sce_filtered_by_kmeans.rds"))
+sce
+rowData(sce)
+
+# Import/Prep gtf
+rsem_fn = file.path(MTG_dir,"rsem_GRCh38.p2.gtf")
+if( !file.exists(rsem_fn) ){
+	gtf_link = "http://celltypes.brain-map.org/api/v2/well_known_file_download/502175284"
+	gtf_fn0 = strsplit(gtf_link,"/")[[1]]
+	gtf_fn0 = gtf_fn0[length(gtf_fn0)]
+	gtf_fn = file.path(MTG_dir,gtf_fn0)
+	sprintf("cd %s; wget %s; unzip %s",MTG_dir,gtf_link,gtf_fn)
+}
+rsem = smart_RT(rsem_fn,sep="\t",header=FALSE)
+names(rsem) = c("seqname","source","feature","start_position","end_position",
+	"score","strand","frame","attributes")
+smart_table(rsem$feature)
+rsem = rsem[rsem$feature == "gene",]
+rsem$gene_id = sapply(rsem$attributes,function(xx) 
+	gsub("gene_id ","",strsplit(xx,";")[[1]][1]),USE.NAMES=FALSE)
+rsem$symbol = sapply(rsem$attributes,function(xx) 
+	gsub(" gene_symbol ","",strsplit(xx,";")[[1]][2]),USE.NAMES=FALSE)
+rsem = rsem[,c("symbol","gene_id","start_position","end_position")]
+all(rownames(sce) %in% rsem$symbol)
+all(rowData(sce)$entrez_id %in% rsem$gene_id)
+rsem = rsem[which(rsem$symbol %in% rowData(sce)$gene),]
+rsem[1:10,]
+rsem = rsem[match(rowData(sce)$gene,rsem$symbol),]
+rownames(rsem) = NULL
+rsem[1:10,]
+all(rowData(sce)$gene == rsem$symbol)
+all(rowData(sce)$entrez_id == rsem$gene_id)
+rowData(sce)$start_position = rsem$start_position
+rowData(sce)$end_position = rsem$end_position
+
+gene_anno = smart_df(rowData(sce)[,c("gene","chromosome",
+	"entrez_id","start_position","end_position")])
+rownames(gene_anno) = NULL
+
+res_de = c()
+for(ct in cell_types){
+	# ct = cell_types[1]
+	one_ct_genes = cts_genes[[ct]]
+	one_res = readRDS(file.path(MTG_dir,paste0("ssd_nG37657_cell",ct,".rds")))
+	one_res = one_res[one_res$gene %in% one_ct_genes,]
+	# one_res[1:10,]
+	res_de = rbind(res_de,one_res)
+}
+
+gene_anno = gene_anno[gene_anno$gene %in% res_de$gene,]
+gene_anno = gene_anno[match(res_de$gene,gene_anno$gene),]
+all(gene_anno$gene == res_de$gene)
+gene_anno = cbind(gene_anno,res_de[,names(res_de) != "gene"])
+saveRDS(gene_anno,file.path(MTG_dir,"anno_marker_genes.rds"))
 
 
 }
+
+
 
 
 

@@ -173,7 +173,7 @@ if( file.exists(anno_file) ){
 dim(sce); dim(gene_anno)
 ```
 
-We remove those genes that are part of extracted annotation, but aren't in sce.
+We remove those genes that are part of extracted annotation, but are not in sce.
 ```{r clean_annotation_step1}
 w2rm = which(!gene_anno$external_gene_name %in% rownames(sce))
 w2rm
