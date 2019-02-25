@@ -1,0 +1,567 @@
+---
+title: "Workflow for single cell RNA-seq data analysis: psychENCODE Dataset"
+author: "Chong Jin, Paul Little, Wei Sun"
+date: "`r Sys.Date()`"
+bibliography: [psychENCODE.bib]
+biblio-style: apalike
+output: 
+  html_document:
+    theme: journal
+    highlight: tango
+    toc: true
+    toc_depth: 3
+    toc_float:
+      collapsed: true
+      smooth_scroll: false
+    number_sections: true
+---
+
+# Introduction
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+This workflow reanalyze the adult single nucleus RNA-seq data produced by [@wang_comprehensive_2018], including adult using single-nucleus droplet-based sequencing (snDrop-seq) from PFC [@lake_integrative_2018].
+
+In Page 7 of the supplementary materials of [@wang_comprehensive_2018]:
+
+> For the UMI count-based dataset, we integrated the PsychENCODE adult single-cell profiles for 17,093 cells from dorsolateral prefrontal cortex (DFC) with the published 10,319 adult single-cell data from PFC (20). The integrated UMI dataset includes nine excitatory, ten inhibitory and six non-neuronal cell types (astrocytes, endothelial cells, microglia, oligodendrocytes, OPCs, and pericytes), and a newly discovered excitatory neuronal type (Ex9).
+
+## Libraries and directories
+
+We will first load a few libraries. Among them, 
+* ```DropletUtils``` provides functions for data from droplet technologies such as 10X Genomics. 
+* ```biomaRt``` provides easy access to databases, such as Ensembl, COSMIC, Uniprot, HGNC, etc.
+* ```scater``` is a collection of tools for doing quality control analyses of scRNA-seq
+* ```scran``` provide functions for normalization of cell-specific libary sizes, correcting batch effects, and identification marker genes
+
+```{r libraries, warning = FALSE, message = FALSE}
+bio_packs = c("SingleCellExperiment","DropletUtils","biomaRt",
+              "scater","scran","limma","org.Hs.eg.db")
+source("https://bioconductor.org/biocLite.R")
+for(pack1 in bio_packs){
+  if( !pack1 %in% installed.packages()[,"Package"]){
+    biocLite(pack1, suppressUpdates = TRUE)
+  }
+}
+
+cran_packs = c("data.table","svd","Rtsne","stringi","irlba")
+for(pack1 in cran_packs){
+  if( !pack1 %in% installed.packages()[,"Package"]){
+    install.packages(pack1)
+  }
+}
+
+library(data.table)
+library(SingleCellExperiment)
+library(DropletUtils)
+library(biomaRt)
+library(scater)
+library(scran)
+library(limma)
+library(ggplot2)
+```
+
+
+```{r setup2}
+repo_dir  = "~/scRNAseq_pipelines"
+work_dir  = file.path(repo_dir,"psychENCODE")
+psychENCODE_dir = "~/psychENCODE_data"
+```
+
+# Obtaining/Loading Counts
+
+Next we import in the count data and other available information. The dataset is available [here](http://resource.psychencode.org/Datasets/Derived/SC_Decomp/DER-22_Single_cell_expression_raw_UMI.tsv).
+
+```{r import_counts}
+
+local_counts_fn  = file.path(psychENCODE_dir, "DER-22_Single_cell_expression_raw_UMI.tsv")
+online_counts_fn = "http://resource.psychencode.org/Datasets/Derived/SC_Decomp/DER-22_Single_cell_expression_raw_UMI.tsv"
+if (file.exists(local_counts_fn)) {
+  counts = fread(local_counts_fn, data.table = FALSE)
+} else {
+  counts = fread(online_counts_fn, data.table = FALSE)
+}
+dim(counts); counts[1:3,1:2]
+
+rownames(counts) = counts$V1
+counts = as.matrix(counts[,-1])
+colnames(counts)[1:10]
+
+# Parse cell ID. Since we used data.table() to read the table as data.table, it has automatically parsed the cell types.
+# We need to parse it back as:
+# Ex3e.2 -> Ex3e, V2898 -> NA
+part_cell_id = sapply(colnames(counts), 
+                      function(xx) strsplit(xx,".",fixed=TRUE)[[1]][1],
+                      USE.NAMES=FALSE)
+part_cell_id[grep("^V", part_cell_id)] = NA
+table(part_cell_id, useNA = "ifany")
+
+col_dat = data.frame(sample_name = colnames(counts), 
+                     part_cell_id = part_cell_id,
+                     stringsAsFactors = FALSE)
+col_dat[1:5,]
+```
+
+
+We create ```sce``` object. We also check for spike-ins.
+```{r create_sce}
+sce = SingleCellExperiment(assays = list(counts = counts),colData = col_dat)
+rm(counts)  # save some memory
+sce
+
+rownames(sce)[grep("^ERCC",rownames(sce))]
+```
+
+# Pre-processing and Quality Control
+
+## Gene Annotation
+
+We will extract annotation information based on gene names.
+
+```{r annotation, warning = FALSE, message = FALSE}
+anno_file = file.path(work_dir,"gene.annotation.rds")
+if( file.exists(anno_file) ){
+  gene_anno = readRDS(anno_file)
+} else{
+  ensembl = useEnsembl(biomart="ensembl",
+                       dataset="hsapiens_gene_ensembl")
+  
+  attr_string = c("hgnc_symbol","ensembl_gene_id","external_gene_name",
+                  "chromosome_name", "start_position","end_position","strand",
+                  "description","percentage_gene_gc_content","gene_biotype")
+  
+  gene_anno = getBM(attributes = attr_string,
+                    filters = "external_gene_name",
+                    values = rownames(sce),
+                    mart = ensembl)
+  saveRDS(gene_anno, file=anno_file)
+}
+
+dim(sce); dim(gene_anno)
+```
+
+We remove those genes that are part of extracted annotation, but aren't in sce.
+```{r clean_annotation_step1}
+w2rm = which(!gene_anno$external_gene_name %in% rownames(sce))
+w2rm
+gene_anno[w2rm,]
+if (length(w2rm) != 0) gene_anno = gene_anno[-w2rm,]
+dim(sce); dim(gene_anno)
+```
+
+Many genes have multiple entries in the annotation, often because they are annotated to scaffolds, assembly patches and alternate loci. Here we simply remove such entries. The we remove duplicated annotations and genes without annotations.
+
+```{r clean_annotation_step2}
+table(gene_anno$chromosome_name)[1:30]
+
+chr_nms = c(1:22,"X","Y","MT")
+gene_anno = gene_anno[which(gene_anno$chromosome_name %in% chr_nms),]
+dim(sce); dim(gene_anno)
+
+t1 = table(gene_anno$external_gene_name)
+t2 = sort(t1[t1 > 1], decreasing=TRUE)
+length(t2)
+t2[1:10]
+
+gene_anno[which(gene_anno$external_gene_name %in% names(t2)[1:4]), 1:4]
+w_duplicate = which(gene_anno$external_gene_name %in% names(t2))
+ganno2 = gene_anno[w_duplicate,]
+dim(ganno2)
+
+table(ganno2$hgnc_symbol == ganno2$external_gene_name)
+ganno2 = ganno2[which(ganno2$hgnc_symbol == ganno2$external_gene_name),]
+dim(ganno2)
+
+ganno2 = dplyr::distinct(ganno2,external_gene_name,.keep_all = TRUE)
+dim(ganno2)
+
+gene_anno = rbind(gene_anno[-w_duplicate,], ganno2)
+dim(gene_anno)
+table(gene_anno$gene_biotype)
+
+gene_missing = setdiff(rownames(sce),gene_anno$external_gene_name)
+gene_missing[1:10]
+length(gene_missing)
+
+w2kp = match(gene_anno$external_gene_name,rownames(sce))
+table(is.na(w2kp))
+gene_anno$external_gene_name[which(is.na(w2kp))]
+sce = sce[w2kp,]
+
+dim(sce)
+rowData(sce) = gene_anno
+
+sce
+rowData(sce)[1:5,]
+```
+
+## Identify Low quality cells
+
+### barcodeRanks filtering
+Please refer to [this workflow in bioconductor](https://bioconductor.org/packages/release/workflows/vignettes/simpleSingleCell/inst/doc/work-3-tenx.html#calling-cells-from-empty-droplets) for reference. 
+
+```{r remove_low_quality_cells, fig.dim = c(5,5)}
+bcrank = barcodeRanks(counts(sce))
+# Only show unique points for plotting speed.
+uniq = !duplicated(bcrank$rank)
+
+par(mar=c(5,4,2,1), bty="n")
+plot(bcrank$rank[uniq], bcrank$total[uniq], log="xy", 
+     xlab="Rank", ylab="Total UMI count", cex=0.5, cex.lab=1.2)
+abline(h=bcrank$inflection, col="darkgreen", lty=2,lwd=2)
+abline(h=bcrank$knee, col="dodgerblue", lty=2,lwd=2)
+
+legend("left", legend=c("Inflection", "Knee"), bty="n", 
+       col=c("darkgreen", "dodgerblue"), lty=2, cex=1.2,lwd=2)
+
+bcrank$inflection
+bcrank$knee
+
+summary(bcrank$total)
+table(bcrank$total >= bcrank$knee)
+table(bcrank$total >= bcrank$inflection)
+
+set.seed(100)
+date()
+e_out = emptyDrops(counts(sce))
+date()
+e_out
+length(unique(e_out$FDR))
+table(e_out$FDR)
+
+tapply(e_out$Total, e_out$FDR, summary)
+```
+
+From the above analysis, some cells with very small number of UMIs. Here we chose do not remove any cells.
+
+### Incorporate information of mitochondira/ribosomal genes in QC metrics
+
+We will generate a set of QC features per cell, including the expression of mitochondira genes (there is none here) or ribosomal genes.  We identify ribosomal genes based on annotation from https://www.genenames.org/.
+
+```{r qc_mito_ribo, fig.dim = c(8,3), warning = FALSE, message = FALSE}
+ribo_fn = file.path(work_dir,"ribosome_genes.txt")
+ribo    = read.table(ribo_fn,sep='\t',header=TRUE,stringsAsFactors= FALSE)
+ribo[1:2,]
+
+is_mito = which(rowData(sce)$chromosome_name == "MT")
+is_ribo = which(rowData(sce)$external_gene_name %in% ribo$Approved.Symbol)
+length(is_mito)
+length(is_ribo)
+
+sce = calculateQCMetrics(sce, feature_controls=list(Ri=is_ribo))
+sort(colnames(colData(sce)))
+
+par(mfrow=c(1,3), mar=c(5, 4, 1, 1), bty="n")
+hist(log10(sce$total_counts), xlab="log10(Library sizes)", main="", 
+     breaks=20, col="grey80", ylab="Number of cells")
+hist(sce$log10_total_features_by_counts, xlab="log10(# of expressed genes)", 
+     main="", breaks=20, col="grey80", ylab="Number of cells")
+hist(sce$pct_counts_Ri, xlab="Ribosome prop. (%)",
+     ylab="Number of cells", breaks=40, main="", col="grey80")
+# hist(sce$pct_counts_Mt, xlab="Mitochondrial prop. (%)", 
+#      ylab="Number of cells", breaks=80, main="", col="grey80")
+
+par(mfrow=c(1,3), mar=c(5, 4, 1, 1), bty="n")
+smoothScatter(log10(sce$total_counts), sce$log10_total_features_by_counts, 
+              xlab="log10(Library sizes)", ylab="log10(# of expressed genes)")
+smoothScatter(log10(sce$total_counts), sce$pct_counts_Ri,
+              xlab="log10(Library sizes)", ylab="Ribosome prop. (%)")
+# smoothScatter(log10(sce$total_counts), sce$pct_counts_Mt,
+#               xlab="log10(Library sizes)", ylab="Mitochondrial prop. (%)")
+# smoothScatter(sce$pct_counts_Ri,sce$pct_counts_Mt,
+#               xlab="Ribosome prop. (%)", ylab="Mitochondrial prop. (%)")
+```
+
+From the QC results, we will filter on the metrics by identifying outliers using `isOutlier`.
+
+```{r qc_outlier}
+libsize_drop = isOutlier(sce$total_counts,nmads = 3,type = "lower",log = TRUE)
+feature_drop = isOutlier(sce$total_features_by_counts,nmads = 3,
+                         type = "lower",log = TRUE)
+mito_drop = rep(FALSE, nrow(sce))
+ribo_drop = isOutlier(sce$pct_counts_Ri,nmads = 3,type = "higher")
+keep = !(libsize_drop | feature_drop | mito_drop | ribo_drop)
+data.frame(ByLibSize = sum(libsize_drop),ByFeature = sum(feature_drop),
+         ByMito = sum(mito_drop),ByRibo = sum(ribo_drop),
+         Remaining = sum(keep))
+
+table(colData(sce)$part_cell_id,keep)
+
+sce = sce[,keep]
+dim(sce)
+```
+
+## Summarize gene level information
+```{r gene_level, warning = FALSE, message = FALSE, fig.dim = c(8,3)}
+rowData(sce)[1:2,]
+summary(rowData(sce)$mean_counts)
+summary(rowData(sce)$mean_counts[rowData(sce)$mean_counts>0])
+summary(rowData(sce)$n_cells_by_counts)
+
+par(mfrow=c(1,3), mar=c(5,4,1,1))
+hist(log10(rowData(sce)$mean_counts+1e-6), col="grey80",  main="", 
+     breaks=40, xlab="log10(ave # of UMI + 1e-6)")
+hist(log10(rowData(sce)$n_cells_by_counts+1), col="grey80", main="", 
+     breaks=40, xlab="log10(# of expressed cells + 1)")
+plot(log10(rowData(sce)$mean_counts+1e-6), pch=16, col=rgb(0,0,0,0.4), 
+     log10(rowData(sce)$n_cells_by_counts + 1), 
+     xlab="log10(ave # of UMI + 1e-6)", 
+     ylab="log10(# of expressed cells + 1)")
+
+tb1 = table(rowData(sce)$n_cells_by_counts)
+tb1[1:11]
+```
+
+We remove those genes that are lowly expressed. To filter genes, we follow the threshold to remove genes with two or more UMIs in less than 10 nuclei.
+
+Note that the variable _strand_ need to be renamed, otherwise there is an error message that such a variabel name cannot be used. 
+
+```{r filter_cells_genes}
+names(rowData(sce))[names(rowData(sce)) == "strand"] = "strand_n"
+
+n_genes = colSums(counts(sce) >= 2)
+summary(n_genes)
+table(n_genes >= 100)
+table(n_genes >= 200)
+
+n_genes = colSums(counts(sce) >= 1)
+summary(n_genes)
+table(n_genes >= 100)
+table(n_genes >= 200)
+
+n_cells = rowSums(counts(sce) >= 2)
+summary(n_cells)
+table(n_cells >= 10)
+
+sce = sce[which(n_cells >= 10),]
+dim(sce)
+```
+
+Next we check those highly expressed genes.
+```{r high_express_genes, fig.dim = c(5,5)}
+par(mar=c(5,4,1,1))
+od1 = order(rowData(sce)$mean_counts, decreasing = TRUE)
+barplot(rowData(sce)$mean_counts[od1[20:1]], las=1, 
+        names.arg=rowData(sce)$hgnc_symbol[od1[20:1]], 
+        horiz=TRUE, cex.names=0.8, cex.axis=0.8, 
+        xlab="ave # of UMI")
+```
+
+## Normalization
+A simple solution for normalization and stablizing expression varaince across genes is to tranform the count data by log(count/size.factor + 1). One may calcualte size.factor per cell as the total number of UMIs, and this assumes the total expression are the same across all the cells. However, the total expression of each cell may vary with respect to cell type and/or cell size, and the ```computeSumFactors``` function in R package scran provides a more sophisicated way to calculate size.factor to allow such variaation across cells [@lun_pooling_2016]. ```computeSumFactors``` can use initial clustering of cells to normalize expression within and beetween clusters.  Within a cluster, it estimates the size factor for many groups of cells so that there are more groups than cells, and then it can calcualte the size factor per cell using a lienar deconvolution system. We remove all the cells with negative or very small size factors (< 0.01). 
+
+
+As shown in the following plot, the final size factor estimation is indeed highly correlated with the naive definition by total count. 
+
+Finally, the command ```normalize(sce)``` adds the normalized expression into the variable ```sce```, which can be accessed by ````logcounts(sce) = log2(gene_cell_count / size_factor + 1)````.
+
+```{r normalize,warning = FALSE,message = FALSE,fig.dim = c(8,4)}
+date()
+clusters = quickCluster(sce, min.mean=0.1, method="igraph")
+table(clusters)
+date()
+sce = computeSumFactors(sce, cluster=clusters, min.mean=0.1)
+date()
+summary(sizeFactors(sce))
+sort(sizeFactors(sce))[1:30]
+
+dim(sce)
+sce = sce[,which(sizeFactors(sce) > 0.01)]
+dim(sce)
+
+par(mfrow=c(1,2), mar=c(5,4,2,1), bty="n")
+smoothScatter(sce$total_counts, sizeFactors(sce), log="xy", 
+              xlab="total counts", ylab="size factors")
+plot(sce$total_counts, sizeFactors(sce), log="xy", 
+     xlab="total counts", ylab="size factors", 
+     cex=0.3, pch=20, col=rgb(0.1,0.2,0.7,0.3))
+abline(h=0.05)
+
+dim(sce)
+sce = sce[,which(sizeFactors(sce) > 0.05)]
+dim(sce)
+
+sce = normalize(sce) 
+```
+
+# Dimension Reduction
+For dimension reduction, such as calculating PCA or performing TSNE, we should start by identifying a subset of genes with high level of biological signal relative to background (technical) noise. These genes are referred to as **HVGs** (highly variable genes). The ```decomposeVar``` function from ```R/cran``` is designed for this task. 
+
+```{r hgv, warning = FALSE,message = FALSE,fig.dim = c(8,4)}
+new_trend = makeTechTrend(x=sce)
+fit = trendVar(sce, use.spikes=FALSE, loess.args=list(span=0.05))
+
+par(mfrow=c(1,1), mar=c(5,4,2,1), bty="n")
+plot(fit$mean, fit$var, pch=20, col=rgb(0.1,0.2,0.7,0.6), 
+     xlab="log(mean)", ylab="var")
+curve(fit$trend(x), col="orange", lwd=2, add=TRUE)
+curve(new_trend(x), col="red", lwd=2, add=TRUE)
+legend("top", legend=c("Poisson noise", "observed trend"), 
+       lty=1, lwd=2, col=c("red", "orange"), bty="n")
+
+fit$trend = new_trend
+
+dec     = decomposeVar(fit=fit) 
+top_dec = dec[order(dec$bio, decreasing=TRUE),]
+plotExpression(sce, features=rownames(top_dec)[1:10])
+```
+
+When performing PCA, we can use all the genes or just those genes with high signal-to-noise ratio (HGVs). TSNE analysis is usually based on the top PCs rather than the original gene expression data. We first perform PCA using **all the genes** and the function ```denoisePCA``` can automatically select the PCs based on modeling of technical noise.
+
+```{r denoisepca, fig.dim = c(7,5)}
+date()
+sce = denoisePCA(sce, technical=new_trend, approx=TRUE)
+date()
+dim(reducedDim(sce, "PCA"))
+
+plot(log10(attr(reducedDim(sce), "percentVar")), xlab="PC",
+     ylab="log10(Prop of variance explained)", pch=20, cex=0.6, 
+     col=rgb(0.8, 0.2, 0.2, 0.5))
+abline(v=ncol(reducedDim(sce, "PCA")), lty=2, col="red")
+
+
+df_pcs = data.frame(reducedDim(sce, "PCA"))
+df_pcs$log10_total_features_by_counts = colData(sce)$log10_total_features_by_counts
+df_pcs$part_cell_id = colData(sce)$part_cell_id
+
+gp1 = ggplot(df_pcs, aes(PC1,PC2,col=log10_total_features_by_counts)) + 
+  geom_point(size=0.2,alpha=0.6) + theme_classic() + 
+  scale_colour_gradient(low="lightblue",high="red") +
+  guides(color = guide_legend(override.aes = list(size=3)))
+gp1
+
+gp1 = ggplot(df_pcs, aes(PC1,PC2,col=part_cell_id)) + 
+  geom_point(size=0.2,alpha=0.6) + theme_classic() + 
+  guides(color = guide_legend(override.aes = list(size=3)))
+gp1
+
+date()
+sce = runTSNE(sce, use_dimred="PCA", perplexity=30, rand_seed=100)
+date()
+
+df_tsne = data.frame(reducedDim(sce, "TSNE"))
+df_tsne$log10_total_features_by_counts = colData(sce)$log10_total_features_by_counts
+df_tsne$part_cell_id = colData(sce)$part_cell_id
+
+gp1 = ggplot(df_tsne, aes(X1,X2,col=log10_total_features_by_counts)) + 
+  geom_point(size=0.2,alpha=0.6) + theme_classic() + 
+  scale_colour_gradient(low="lightblue",high="red") +
+  guides(color = guide_legend(override.aes = list(size=3)))
+gp1
+
+gp1 = ggplot(df_tsne, aes(X1,X2,col=part_cell_id)) + 
+  geom_point(size=0.2,alpha=0.6) + theme_classic() + 
+  guides(color = guide_legend(override.aes = list(size=3)))
+gp1
+```
+
+We select around top 2,500 genes (based on FDR and biological residual thresholds) as **HVGs** (highly variable genes).
+
+```{r select_hvg, warning = FALSE,message = FALSE,fig.dim = c(8,4)}
+summary(dec$bio)
+dec1 = dec
+dec1$bio[which(dec$bio < 1e-5)] = 1e-5
+dec1$FDR[which(dec$FDR < 1e-100)] = 1e-100
+
+par(mfrow=c(1,2))
+hist(log10(dec1$bio),breaks=100,main="")
+hist(log10(dec1$FDR),breaks=100,main="")
+
+summary(dec$FDR[dec$bio > 0.01])
+summary(dec$FDR[dec$bio > 0.03])
+table(dec$FDR < 1e-10,dec$bio > 0.03)
+table(dec$FDR < 1e-10,dec$bio > 0.01)
+table(dec$FDR < 1e-10,dec$bio > 0.02)
+
+w2kp = which(dec$FDR < 1e-10 & dec$bio > 0.02)
+sce_hvg = sce[w2kp,]
+sce_hvg
+
+edat = t(as.matrix(logcounts(sce_hvg)))
+edat = scale(edat)
+dim(edat)
+edat[1:2,1:3]
+```
+
+Perform PCA and use the top 50 PCs for TSNE projection. When calculating PCs, we use log-transformed normalized gene expression data: ```log2(norm_express+1)```.
+```{r analysis_hvg, warning = FALSE,message = FALSE,fig.dim = c(7,5)}
+library(svd)
+library(Rtsne)
+
+date()
+ppk = propack.svd(edat,neig=50)
+date()
+pca = t(ppk$d*t(ppk$u)) # calculates pc scores aka principal components
+
+tmp_df = data.frame(pca[,1:2])
+names(tmp_df) = paste0("HVG_PC",seq(ncol(tmp_df)))
+
+df_hvg = data.frame(colData(sce)[,c("sample_name","part_cell_id",
+                                  "log10_total_features_by_counts")],tmp_df)
+rownames(df_hvg) = NULL
+
+set.seed(100)
+date()
+tsne = Rtsne(pca, pca = FALSE)
+date()
+
+tmp_df = data.frame(tsne$Y)
+names(tmp_df) = paste0("HVG_TSNE",seq(ncol(tmp_df)))
+df_hvg = data.frame(df_hvg,tmp_df)
+
+gp1 = ggplot(df_hvg, aes(HVG_TSNE1,HVG_TSNE2,col=log10_total_features_by_counts)) + 
+  geom_point(size=0.2,alpha=0.6) + theme_classic() + 
+  scale_colour_gradient(low="lightblue",high="red") +
+  guides(color = guide_legend(override.aes = list(size=3)))
+gp1
+
+gp1 = ggplot(df_hvg, aes(HVG_TSNE1,HVG_TSNE2,col=part_cell_id)) + 
+  geom_point(size=0.2,alpha=0.6) + theme_classic() + 
+  guides(color = guide_legend(override.aes = list(size=3)))
+gp1
+
+reducedDims(sce_hvg) = SimpleList(PCA=pca, TSNE=tsne$Y)
+sce_hvg
+```
+
+# Clustering
+
+## Kmeans
+Next we cluster the cells using a simple kmeans method on the top 50 PCs. We set the number of clusters to be 25, the number of clusters that they have found in [@wang_comprehensive_2018].
+```{r kmeans, warning = FALSE,message = FALSE,fig.dim = c(7,5)}
+date()
+k25_50_pcs = kmeans(reducedDim(sce_hvg, "PCA"), centers=25,
+                    iter.max = 1e8, nstart = 250,
+                    algorithm="MacQueen")
+date()
+names(k25_50_pcs)
+
+dim(k25_50_pcs$centers)
+
+df_tsne$cluster_kmean = as.factor(k25_50_pcs$cluster)
+
+gp1 = ggplot(df_tsne, aes(X1,X2,col=cluster_kmean)) + 
+  geom_point(size=0.2,alpha=0.6) + theme_classic() + 
+  guides(color = guide_legend(override.aes = list(size=3)))
+
+gp1
+```
+
+
+Finally we save the sce object and the clustering results.
+
+```{r}
+saveRDS(sce,file.path(psychENCODE_dir,"sce.rds"))
+saveRDS(sce_hvg,file.path(psychENCODE_dir,"sce_hvg.rds"))
+saveRDS(k25_50_pcs,file.path(psychENCODE_dir,"k25_50_pcs.rds"))
+```
+
+
+# Session information
+```{r}
+sessionInfo()
+```
+
+# Reference
