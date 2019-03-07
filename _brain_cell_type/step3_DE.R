@@ -90,10 +90,12 @@ MAST_DEgenes = function(work_dir,num_genes=NULL,sce_obj,one_cell_type,fdr_thres=
 	# smart_hist(ssd$logFC,breaks=40)
 	# plot(ssd[,c("FDR_qvalue","logFC")],pch=16,col=rgb(0,0,0,0.5))
 	# dev.off()
-	ssd = ssd[which(ssd$FDR_qvalue < fdr_thres 
-					& ssd$logFC > logFC_thres),]
+	
+	# Subsetting supposed DE genes
+	# ssd = ssd[which(ssd$FDR_qvalue < fdr_thres & ssd$logFC > logFC_thres),]
+	
 	# dim(ssd); smart_table(ssd$logFC > 0); ssd[1:20,]
-	ssd = smart_df(cell_type=one_cell_type,ssd)
+	ssd = smart_df(cell_type = one_cell_type,ssd)
 	
 	ssd_fn = file.path(work_dir,paste0("ssd",
 		"_nG",num_genes,
