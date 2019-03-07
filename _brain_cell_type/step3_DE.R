@@ -85,12 +85,7 @@ MAST_DEgenes = function(work_dir,num_genes=NULL,sce_obj,one_cell_type,fdr_thres=
 	ssd = ssd[which(!is.na(ssd$logFC)),]
 	ssd$FDR_qvalue = p.adjust(p = ssd$pvalue,method = "fdr")
 	ssd = ssd[order(ssd$FDR_qvalue),]
-	# Plot
-	# smart_hist(ssd$FDR_qvalue,breaks=40,xlab="FDR",main="")
-	# smart_hist(ssd$logFC,breaks=40)
-	# plot(ssd[,c("FDR_qvalue","logFC")],pch=16,col=rgb(0,0,0,0.5))
-	# dev.off()
-	
+
 	# Subsetting supposed DE genes
 	# ssd = ssd[which(ssd$FDR_qvalue < fdr_thres & ssd$logFC > logFC_thres),]
 	
@@ -225,9 +220,77 @@ all(gene_anno$gene == res_de$gene)
 gene_anno = cbind(gene_anno,res_de[,names(res_de) != "gene"])
 saveRDS(gene_anno,file.path(MTG_dir,"anno_marker_genes.rds"))
 
-
 }
 
+
+# ----------
+# 03/07/19: Combine all genes with annotations and proportion of expressed cells per cell type
+# ----------
+if(FALSE){
+
+# Get sce
+	sce = readRDS(file.path(MTG_dir,"final_sce_filtered_by_kmeans.rds"))
+	# sce
+
+# Get gene annotations
+	rsem_fn = file.path(MTG_dir,"rsem_GRCh38.p2.gtf")
+	if( !file.exists(rsem_fn) ){
+		gtf_link = "http://celltypes.brain-map.org/api/v2/well_known_file_download/502175284"
+		gtf_fn0 = strsplit(gtf_link,"/")[[1]]
+		gtf_fn0 = gtf_fn0[length(gtf_fn0)]
+		gtf_fn = file.path(MTG_dir,gtf_fn0)
+		sprintf("cd %s; wget %s; unzip %s",MTG_dir,gtf_link,gtf_fn)
+	}
+	rsem = smart_RT(rsem_fn,sep="\t",header=FALSE)
+	names(rsem) = c("seqname","source","feature","start_position","end_position",
+		"score","strand","frame","attributes")
+	rsem[1:4,]
+	smart_table(rsem$feature)
+	rsem = rsem[rsem$feature == "gene",]
+	rsem$entrez_id = sapply(rsem$attributes,function(xx) 
+		gsub("gene_id ","",strsplit(xx,";")[[1]][1]),USE.NAMES=FALSE)
+	rsem$gene = sapply(rsem$attributes,function(xx) 
+		gsub(" gene_symbol ","",strsplit(xx,";")[[1]][2]),USE.NAMES=FALSE)
+	rsem = rsem[,c("gene","entrez_id","start_position","end_position")]
+	all(rownames(sce) %in% rsem$gene)
+	all(rowData(sce)$entrez_id %in% rsem$entrez_id)
+	rsem = rsem[which(rsem$gene %in% rowData(sce)$gene),]
+	rsem[1:10,]
+	rsem = rsem[match(rowData(sce)$gene,rsem$gene),]
+	rownames(rsem) = NULL
+	rsem[1:10,]
+	# Ensure rsem and sce are ordered the same
+	all(rowData(sce)$gene == rsem$gene)
+	all(rowData(sce)$entrez_id == rsem$entrez_id)
+	rsem$chromosome = rowData(sce)$chromosome
+	rsem = rsem[,c("gene","entrez_id","chromosome","start_position","end_position")]
+	rsem$prop_express = as.numeric(apply(assay(sce),1,function(xx) mean(xx > 0)))
+	
+# For each cell type, gather logFC, qvalues, prop cells expressed in genes
+	cell_types = c("Astro","Exc","Inh","Micro","Oligo","OPC")
+	for(ct in cell_types){
+		# ct = "Astro"
+		cat(paste0(ct," "))
+		tmp_df = readRDS(file.path(MTG_dir,paste0("ssd_nG37657_cell",ct,".rds")))
+		tmp_df = tmp_df[,c("gene","pvalue","logFC","FDR_qvalue")]
+		names(tmp_df)[-1] = paste0(names(tmp_df)[-1],".",ct)
+		# Calculating proportion of cells expressed in a gene and cell_type
+		bb = apply(assay(sce[,colData(sce)$cell_type == ct]),1,
+			function(xx) mean(xx > 0))
+		bb = smart_df(gene = names(bb),prop_express = as.numeric(bb))
+		names(bb)[2] = paste0(names(bb)[2],".",ct)
+		bb = smart_merge(bb,tmp_df,all.x=TRUE)
+		all(bb$gene == rsem$gene)
+		bb = bb[match(rsem$gene,bb$gene),]
+		all(bb$gene == rsem$gene)
+		rsem = cbind(rsem,bb[,names(bb) != "gene"])
+		rm(tmp_df,bb)
+	}
+
+# Output
+	saveRDS(rsem,file.path(MTG_dir,"DE_gene_anno.rds"))
+
+}
 
 
 
