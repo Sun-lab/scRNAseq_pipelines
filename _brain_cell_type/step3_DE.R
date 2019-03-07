@@ -225,6 +225,7 @@ saveRDS(gene_anno,file.path(MTG_dir,"anno_marker_genes.rds"))
 
 # ----------
 # 03/07/19: Combine all genes with annotations and proportion of expressed cells per cell type
+# Required about 30gbs of ram to run
 # ----------
 if(FALSE){
 
