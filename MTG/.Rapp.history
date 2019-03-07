@@ -1,0 +1,2 @@
+load("/Users/wsun/research/GitHub/scRNAseq_pipelines/MTG/gene_info_human_MTG.rds")
+load("/Users/wsun/research/GitHub/scRNAseq_pipelines/MTG/anno_marker_genes.rds")
