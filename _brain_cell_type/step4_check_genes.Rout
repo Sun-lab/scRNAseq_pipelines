@@ -1,0 +1,159 @@
+
+R version 3.5.0 (2018-04-23) -- "Joy in Playing"
+Copyright (C) 2018 The R Foundation for Statistical Computing
+Platform: x86_64-apple-darwin15.6.0 (64-bit)
+
+R is free software and comes with ABSOLUTELY NO WARRANTY.
+You are welcome to redistribute it under certain conditions.
+Type 'license()' or 'licence()' for distribution details.
+
+  Natural language support but running in an English locale
+
+R is a collaborative project with many contributors.
+Type 'contributors()' for more information and
+'citation()' on how to cite R or R packages in publications.
+
+Type 'demo()' for some demos, 'help()' for on-line help, or
+'help.start()' for an HTML browser interface to help.
+Type 'q()' to quit R.
+
+> 
+> setwd("~/research/GitHub/scRNAseq_pipelines/MTG")
+> 
+> genes = readRDS("DE_gene_anno.rds")
+> dim(genes)
+[1] 37657    30
+> genes[1:2,]
+     gene entrez_id chromosome start_position end_position prop_express
+1 5-HT3C2    389180          3      184076646    184084331   0.04121181
+2    A1BG         1         19       58346806     58353499   0.15438279
+  prop_express.Astro pvalue.Astro logFC.Astro FDR_qvalue.Astro prop_express.Exc
+1        0.055749129 3.270102e-01 -0.01044745     4.632335e-01       0.03913501
+2        0.003484321 4.538923e-06 -0.59555729     2.531198e-05       0.19356999
+    pvalue.Exc   logFC.Exc FDR_qvalue.Exc prop_express.Inh   pvalue.Inh
+1 3.529829e-01 -0.01360596   4.442193e-01       0.04479419 5.913558e-01
+2 2.138587e-12  0.24276228   1.101112e-11       0.07723971 1.566159e-13
+     logFC.Inh FDR_qvalue.Inh prop_express.Micro pvalue.Micro logFC.Micro
+1  0.008948007   6.649788e-01         0.04838710    0.9646765 -0.01020243
+2 -0.262332374   8.484677e-13         0.03225806    0.4113878 -0.22102717
+  FDR_qvalue.Micro prop_express.Oligo pvalue.Oligo logFC.Oligo FDR_qvalue.Oligo
+1        0.9777642         0.05483871 3.956487e-01  0.03384687     5.093617e-01
+2        0.5518345         0.14516129 5.702434e-17  1.65968834     9.279577e-16
+  prop_express.OPC pvalue.OPC    logFC.OPC FDR_qvalue.OPC
+1       0.03418803  0.2252179 0.0002677732      0.3704333
+2       0.00000000         NA           NA             NA
+> 
+> cts = gsub("logFC.", "", colnames(genes)[grep("logFC", colnames(genes))])
+> cts
+[1] "Astro" "Exc"   "Inh"   "Micro" "Oligo" "OPC"  
+> 
+> for(ct1 in cts){
++   
++   cname     = paste0("selected.", ct1)
++   fdr.col   = paste0("FDR_qvalue.", ct1)
++   logfc.col = paste0("logFC.", ct1)
++   
++   wwi = which(genes[[fdr.col]] < 0.001 & genes[[logfc.col]] > log(2))
++   
++   genes[[cname]] = rep(0, nrow=(genes))
++   genes[[cname]][wwi] = 1
++ }
+> 
+> genes[["n.cellTypes"]] = rowSums(genes[,31:36])
+> table(genes$n.cellTypes)
+
+    0     1     2     3     4     5 
+31220  5127  1068   213    27     2 
+> colSums(genes[which(genes$n.cellTypes==1),31:36])
+selected.Astro   selected.Exc   selected.Inh selected.Micro selected.Oligo 
+          1223            924            968            679            926 
+  selected.OPC 
+           407 
+> 
+> library(ggplot2)
+> p <- ggplot(genes, aes(x=as.factor(n.cellTypes), y=prop_express)) + 
++   geom_boxplot()
+> ggsave("boxplot_prop_express_vs_n_cell_types.pdf", device="pdf", 
++        width=4, height=3, units="in")
+> 
+> tapply(genes$prop_express, genes$n.cellTypes, quantile, 
++        probs=c(0.05, 0.1, 0.2,  0.5, 0.8, 0.9, 0.95))
+$`0`
+         5%         10%         20%         50%         80%         90% 
+0.002454622 0.003229766 0.005555197 0.026290291 0.177895485 0.357347717 
+        95% 
+0.503972612 
+
+$`1`
+        5%        10%        20%        50%        80%        90%        95% 
+0.01195013 0.02247917 0.05285188 0.25521607 0.55845230 0.70137588 0.79936697 
+
+$`2`
+        5%        10%        20%        50%        80%        90%        95% 
+0.06599703 0.09509076 0.16504102 0.38550481 0.65761902 0.76901363 0.84509399 
+
+$`3`
+       5%       10%       20%       50%       80%       90%       95% 
+0.1100962 0.1445126 0.2102319 0.4004263 0.6787546 0.7630644 0.8243912 
+
+$`4`
+       5%       10%       20%       50%       80%       90%       95% 
+0.2854790 0.3044506 0.3318132 0.5474453 0.7300433 0.7576772 0.8541761 
+
+$`5`
+       5%       10%       20%       50%       80%       90%       95% 
+0.1694593 0.2055940 0.2778632 0.4946709 0.7114786 0.7837478 0.8198824 
+
+> 
+> table(genes$prop_express > 0.01, genes$n.cellTypes)
+       
+            0     1     2     3     4     5
+  FALSE  9663   213     0     0     0     0
+  TRUE  21557  4914  1068   213    27     2
+> 
+> col2use = c(1:6, 31:36)
+> 
+> ww1 = which(genes$prop_express > 0.01 & genes$n.cellTypes==1)
+> ww2 = which(genes$prop_express > 0.01 & genes$n.cellTypes==0)
+> genes.ct = genes[ww1,col2use]
+> genes.control = genes[ww2,col2use]
+> 
+> dim(genes.ct)
+[1] 4914   12
+> genes.ct[1:2,]
+   gene entrez_id chromosome start_position end_position prop_express
+2  A1BG         1         19       58346806     58353499    0.1543828
+7 A2ML1    144568         12        8822554      8886918    0.1051612
+  selected.Astro selected.Exc selected.Inh selected.Micro selected.Oligo
+2              0            0            0              0              1
+7              1            0            0              0              0
+  selected.OPC
+2            0
+7            0
+> 
+> dim(genes.control)
+[1] 21557    12
+> genes.control[1:2,]
+      gene entrez_id chromosome start_position end_position prop_express
+1  5-HT3C2    389180          3      184076646    184084331   0.04121181
+3 A1BG-AS1    503538         19       58351970     58355183   0.03442930
+  selected.Astro selected.Exc selected.Inh selected.Micro selected.Oligo
+1              0            0            0              0              0
+3              0            0            0              0              0
+  selected.OPC
+1            0
+3            0
+> 
+> write.table(genes.ct, file="genes_ct_specific_expression.txt", 
++             quote = FALSE, sep = "\t", row.names = FALSE,
++             col.names = TRUE)
+> 
+> write.table(genes.control, file="genes_control.txt", 
++             quote = FALSE, sep = "\t", row.names = FALSE,
++             col.names = TRUE)
+> 
+> ###
+> 
+> proc.time()
+   user  system elapsed 
+  1.166   0.119   1.321 
