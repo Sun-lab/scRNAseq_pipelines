@@ -56,4 +56,39 @@ write.table(genes.control, file="genes_control.txt",
             quote = FALSE, sep = "\t", row.names = FALSE,
             col.names = TRUE)
 
-###
+setwd("~/research/data/PsychENCODE/data/")
+
+markers = read.table("DER-21_Single_cell_markergenes_UMI.txt", 
+                     sep="\t", as.is=TRUE, header=TRUE)
+dim(markers)
+markers[1:2,]
+
+length(unique(markers$Gene))
+tb1 = table(table(markers$Gene))
+tb2[9] = sum(tb1[9:length(tb1)])
+tb2
+
+table(markers$Cluster)
+
+cluster.group = tapply(markers$Cluster, markers$Gene, paste, collapse=":")
+length(cluster.group)
+cluster.group[1:2]
+
+tbc = table(cluster.group)
+tbc = tbc[grep(":", names(tbc))]
+sort(tbc, decreasing=T)[1:20]
+
+table(genes.ct$gene %in% markers$Gene)
+table(markers$Gene %in% genes.ct$gene)
+tb3 = table(markers$Gene %in% genes.ct$gene, markers$Cluster)
+tb3
+
+pdf("DER-21_Single_cell_markergenes.pdf", width=6, height=4)
+par(las=2, cex=0.8)
+barplot(tb3)
+legend("topright", c("overlap", "no overlap"), 
+       fill = c(gray(0.9), gray(0.2)))
+dev.off()
+
+q(save="no")
+

@@ -23,7 +23,7 @@ knitr::opts_chunk$set(echo = TRUE)
 # Introduction
 
 ## Example datasets and single cell RNA-seq techniques
-This document aims to provide a workflow for processing and QC of single cell RNA-seq data. Because this is a relatively new area with many on-going development of new methods/appraoches. This document will be updated to reflect such new developmets. There are many other important topics for scRNA-seq analysis, such as imputatoin or clustring. We will provide separate workflows for those topics. One publicly available datasets will be used for this workflow. 
+This document aims to provide a workflow for processing and QC of single cell RNA-seq data. Because this is a relatively new area with many on-going development of new methods/approaches. This document will be updated to reflect such new developments. There are many other important topics for scRNA-seq analysis, such as imputation or clustering. We will provide separate workflows for those topics. One publicly available datasets will be used for this workflow. 
 
 PBMC.68k: around 68k peripheral blood mononuclear cells (PBMCs) from one donor (donor A) [@zheng2017massively].
 
@@ -42,20 +42,20 @@ Multiple techniques are available to generate scRNA-seq data. For example, @zieg
 
 Among the many differences of these techniques, the most important ones are: 
 
-- the trade-off between using unique molecular identifiers (UMIs) versus sequecing full lenght RNA, and 
+- the trade-off between using unique molecular identifiers (UMIs) versus sequencing full length RNA, and 
 - the trade-off between capturing more cells or more genes per cell. 
 
-An UMI is a randomly generated barcode (4-10bp) to label each transcript molecule before amplification. Therefore, by counting UMIs instead of actual reads, one can remove most noise and bias due to amplification. However, UMI is only available for techniques that sequence 5' or 3' ends of the transcript molecule, and thus cannot sequence full length RNA. Among the aformentioned techniques, Smart-seq/C1 and Smart-seq2 sequence full length RNA, hence cannot use UMI. 
+An UMI is a randomly generated barcode (4-10bp) to label each transcript molecule before amplification. Therefore, by counting UMIs instead of actual reads, one can remove most noise and bias due to amplification. However, UMI is only available for techniques that sequence 5' or 3' ends of the transcript molecule, and thus cannot sequence full length RNA. Among the aforementioned techniques, Smart-seq/C1 and Smart-seq2 sequence full length RNA, hence cannot use UMI. 
 
-Drop-seq (e.g., prducts from 10x Genomics) can capture much more cells than other techiniques, but has low depth within each cell. In other words, compared with otehr techniques, Drop-seq captures more cells and samller number of genes witin each cell. 
+Drop-seq (e.g., products from 10x Genomics) can capture much more cells than other techniques, but has low depth within each cell. In other words, compared with other techniques, Drop-seq captures more cells and smaller number of genes within each cell. 
 
-<!-- The first two datsets (PBMC.68k and PBMC.9ct) that we will use were generated from 10x genomics (Drop-seq). The third one (Tirosh2016) employed Smart-seq2.  -->
+<!-- The first two datasets (PBMC.68k and PBMC.9ct) that we will use were generated from 10x genomics (Drop-seq). The third one (Tirosh2016) employed Smart-seq2.  -->
 
 ## An overview of workflow
 
-The analysis of scRNA-seq data may be divided into two steps. The first step is to generate a count matrix for all the genes and all the cells of one individual (the left panel of the following flowchart). For example, a matrix where each row corresponds to a gene and each column corresponds to a cell. The first step also invovles generation of fastq files and map the reads in the fastq file and obtain a bam file, as well as QC on fastq files, bam files, and the read count data matrix.  
+The analysis of scRNA-seq data may be divided into two steps. The first step is to generate a count matrix for all the genes and all the cells of one individual (the left panel of the following flowchart). For example, a matrix where each row corresponds to a gene and each column corresponds to a cell. The first step also involves generation of fastq files and map the reads in the fastq file and obtain a bam file, as well as QC on fastq files, bam files, and the read count data matrix.  
 
-The second step is data analysis based on this count matrix, typicially include imputation, clustering, and differential expression (the right panel of the following flowchart). These data analysis steps are very active reasearch topics and many computational methods are avaialble. In the followign figure, we list a few popular methods for each step. 
+The second step is data analysis based on this count matrix, typically include imputation, clustering, and differential expression (the right panel of the following flowchart). These data analysis steps are very active research topics and many computational methods are available. In the following figure, we list a few popular methods for each step. 
 
 ```{r, out.width='80%', fig.align='center', fig.cap='A flow chart of the workflow for analyzing scRNA-seq data.', echo=FALSE}
 knitr::include_graphics('figures/workflow.png')
@@ -64,7 +64,7 @@ knitr::include_graphics('figures/workflow.png')
 # Generate read count matrix
 
 ## Use Cell Ranger to process scRNA data from 10x Genomics
-Cell Ranger are a set of pipelines to process and analzye 10x Genomics's scRNA-seq data. It was developed and maintained by 10x Genomics. Here we provide some example code for data analysis and more details can be found in the support webpage by 10x Genomics. 
+Cell Ranger are a set of pipelines to process and analyze 10x Genomics’ scRNA-seq data. It was developed and maintained by 10x Genomics. Here we provide some example code for data analysis and more details can be found in the support webpage by 10x Genomics. 
 https://support.10xgenomics.com/single-cell-gene-expression/software/pipelines/latest/what-is-cell-ranger
 
 ### Generate fastq files
@@ -154,7 +154,7 @@ Without using Cell Ranger, one can obtain the read counts in three steps.
 
 2. Map RNA-seq reads to reference genome using alignment software such as STAR or tophat, or pseudo-alignment methods (e.g. Kallisto, Salmon) for well annotated transcriptomes, such as human or mouse. 
 
-3. Count the number of reads per gene per sample, for example, by softare HT-seq or R function ```summarizeOverlaps```, as shown in the following codes. 
+3. Count the number of reads per gene per sample, for example, by software HT-seq or R function ```summarizeOverlaps```, as shown in the following codes. 
 
 ```{r, eval=FALSE}
 library("GenomicFeatures")
@@ -274,7 +274,7 @@ rownames(sce) = uniquifyFeatureNames(rowData(sce)$ensembl_gene_id,
                                      rowData(sce)$hgnc_symbol)
 ```
 
-### Identify low quallity cells
+### Identify low quality cells
 
 An important QC step for scRNA-seq data analysis is to identify low quality or empty cells. For 10x Genomics data, The ```emptyDrops``` function in R package ```DropletUtils``` can be used detect empty cells, given the count matrix of **all** barcodes. That is why we loaded the raw data matrix intead of filtered data matrix. 
 
@@ -386,7 +386,7 @@ abline(h=5,  lty=1)
 abline(v=10, lty=1)
 ```
 
-It is not clear why some cells have very low proportion of ribosome genes. To be a little bit conservative, we remove those genes with low proportion of ribosomeal genes ($<10\%$) or high proportion of Mitochondrial genes ($>5\%$). 
+It is not clear why some cells have very low proportion of ribosome genes. To be a little bit conservative, we remove those genes with low proportion of ribosomal genes ($<10\%$) or high proportion of Mitochondrial genes ($>5\%$). 
 
 ```{r}
 table(sce$pct_counts_Mt > 5, sce$pct_counts_Ri < 10)
@@ -420,7 +420,7 @@ tb1[1:11]
 
 ```
 
-We remove those genes that are expressed in zero or only one cell. The variable _strand_ need to be renamed, otherwise there is an error message that such a variabel name cannot be used. 
+We remove those genes that are expressed in zero or only one cell. The variable _strand_ need to be renamed, otherwise there is an error message that such a variable name cannot be used. 
 
 ```{r}
 names(rowData(sce))[6] = "strand_n"

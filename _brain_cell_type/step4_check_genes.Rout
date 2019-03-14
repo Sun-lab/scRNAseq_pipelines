@@ -152,8 +152,20 @@ $`5`
 +             quote = FALSE, sep = "\t", row.names = FALSE,
 +             col.names = TRUE)
 > 
-> ###
+> setwd("~/research/data/PsychENCODE/data/")
 > 
-> proc.time()
-   user  system elapsed 
-  1.166   0.119   1.321 
+> markers = read.table("DER-21_Single_cell_markergenes_UMI.txt", 
++                      sep="\t", as.is=TRUE, header=TRUE)
+> dim(markers)
+[1] 5373    2
+> markers[1:2,]
+   Gene Cluster
+1 CBLN2     Ex1
+2  ENC1     Ex1
+> 
+> length(unique(markers$Gene))
+[1] 1852
+> tb1 = table(table(markers$Gene))
+> tb2[9] = sum(tb1[9:length(tb1)])
+Error in tb2[9] = sum(tb1[9:length(tb1)]) : object 'tb2' not found
+Execution halted
