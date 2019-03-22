@@ -22,82 +22,117 @@ if( !("MAST" %in% installed.packages()[,"Package"]) ){
 }
 library(ggplot2)
 library(data.table)
-MAST_DEgenes = function(work_dir,num_genes=NULL,sce_obj,one_cell_type,fdr_thres=1e-3,logFC_thres=log(2)){
-	
+MAST_DEgenes = function(work_dir,num_genes=NULL,sce_obj,one_cell_type){
 	if(FALSE){
 		work_dir = MTG_dir
 		num_genes = 100
 		sce_obj = sce
 		one_cell_type = c("Astro","Exc","Inh","Micro","Oligo","OPC")[1]
-		fdr_thres = 1e-3
-		logFC_thres = log(2)
+		# fdr_thres = 1e-3; logFC_thres = log(2)
 	}
 	
 	# Subset Genes and make SingleCellAssay object
-	if( is.null(num_genes) ){
-		num_genes = nrow(sce_obj)
-	}
-	sca = MAST::SceToSingleCellAssay(sce = sce_obj[seq(num_genes),])
-
-	# Calculate CDS
-	colData(sca)$cngeneson = scale(colSums(assay(sca) > 0))
+		if( is.null(num_genes) ){
+			num_genes = nrow(sce_obj)
+		}
+		sca = MAST::SceToSingleCellAssay(sce = sce_obj[seq(num_genes),])
+	
+	# Make ET assay log2(TPM+1)
+		## Need gene lengths (Import GTF file)
+		rsem_gtf_fn = file.path(work_dir,"rsem_GRCh38.p2.gtf")
+		if( !file.exists(rsem_gtf_fn) ){
+			gtf_link = "http://celltypes.brain-map.org/api/v2/well_known_file_download/502175284"
+			gtf_fn = strsplit(gtf_link,"/")[[1]]
+			gtf_fn = gtf_fn[length(gtf_fn)]
+			gtf_fn = file.path(work_dir,gtf_fn)
+			system(sprintf("cd %s; wget %s; unzip %s",work_dir,gtf_link,gtf_fn))
+		}
+		gtf = data.table::fread(rsem_gtf_fn,header = FALSE)
+		# dim(gtf); gtf[1:3,]; smart_table(gtf$V3)
+		gtf = gtf[which(gtf$V3 == "gene"),]
+		gtf$gene_id = sapply(gtf$V9,function(xx) 
+			gsub("\"","",gsub("gene_id ","",strsplit(xx,";")[[1]][1])),
+			USE.NAMES = !TRUE)
+		gtf$gene_symbol = sapply(gtf$V9,function(xx) 
+			gsub("\"","",gsub(" gene_symbol ","",strsplit(xx,";")[[1]][2])),
+			USE.NAMES = !TRUE)
+		gtf2 = gtf[match(rownames(sca),gtf$gene_symbol),]
+		gtf2 = name_change(gtf2,"V4","Start")
+		gtf2 = name_change(gtf2,"V5","End")
+		gtf2$Gene_Length = gtf2$End - gtf2$Start
+		rowData(sca)$Gene_Length = gtf2$Gene_Length
+		
+		# Exclude any subjects with no gene counts
+		sca = sca[,colSums(counts(sca)) > 0]
+		
+		## Calculate log2(TPM+1)
+		calc_count_to_log2_TPM_1 = function(vec_count,vec_lengths){
+			xx = vec_count / vec_lengths
+			xx = xx / sum(xx)
+			TPM = xx * 1e6
+			log2(1 + TPM)
+		}
+		assay(sca,"Et") = apply(counts(sca),2,function(xx) 
+			calc_count_to_log2_TPM_1(xx,rowData(sca)$Gene_Length))
+		assay(sca,"counts") = NULL
+		assay(sca,"logcounts") = NULL
+	
+	# Calculate CDS, only after Et assay is created
+		colData(sca)$cngeneson = scale(colSums(assay(sca,"Et") > 0))
 
 	# Calculate Group
-	# one_cell_type = "Astro"
-	ref_group = paste0("not_",one_cell_type)
-	colData(sca)$Group = ifelse(colData(sca)$cell_type == one_cell_type,
-		one_cell_type,ref_group)
-	colData(sca)$Group = factor(colData(sca)$Group,
-		levels = c(ref_group,one_cell_type))
+		# one_cell_type = "Astro"
+		ref_group = paste0("not_",one_cell_type)
+		colData(sca)$Group = ifelse(colData(sca)$cell_type == one_cell_type,
+			one_cell_type,ref_group)
+		colData(sca)$Group = factor(colData(sca)$Group,
+			levels = c(ref_group,one_cell_type))
 
 	# zlm analysis: Model log-transformed expression as 
 	#	function of clustered cell type and num detected genes
-	zlm_fn = file.path(work_dir,paste0("zlm",
-		"_nG",num_genes,
-		"_cell",one_cell_type,
-		".rds"))
-	if( !file.exists(zlm_fn) ){
-		print(date())
-		zlm_output = MAST::zlm(formula = ~ Group + cngeneson,sca = sca)
-		print(date())
-		cat("Saving image ...\n")
-		saveRDS(zlm_output,zlm_fn)
-	}
-	cat("Reading in image ...\n")
-	zlm_output = readRDS(zlm_fn)
-	# show(zlm_output)
+		zlm_fn = file.path(work_dir,paste0("zlm",
+			"_nG",num_genes,
+			"_cell",one_cell_type,
+			".rds"))
+		if( !file.exists(zlm_fn) ){
+			print(date())
+			zlm_output = MAST::zlm(formula = ~ Group + cngeneson,sca = sca)
+			print(date())
+			cat("Saving image ...\n")
+			saveRDS(zlm_output,zlm_fn)
+		}
+		cat("Reading in image ...\n")
+		zlm_output = readRDS(zlm_fn)
+		# show(zlm_output)
 
 	# Perform LRT of one cell_type against all others
-	cat("Running LRT by excluding the cell_type covariate ...\n")
-	print(date())
-	ssc = MAST::summary(object = zlm_output,
-		doLRT = paste0("Group",one_cell_type))
-	print(date())
-	ssd0 = smart_df(ssc$datatable)
-	ssd = ssd0[which(ssd0$component == "H"),]
-	ssd = name_change(ssd,"Pr..Chisq.","pvalue")
-	ssd = name_change(ssd,"primerid","gene")
-	ssd = ssd[,c("gene","pvalue")]
-	tmp_index = which(ssd0$component == "logFC"
-					& ssd0$contrast == paste0("Group",one_cell_type))
-	ssd$logFC = ssd0$coef[tmp_index]
-	ssd$z = ssd0$z[tmp_index]
-	ssd = ssd[which(!is.na(ssd$logFC)),]
-	ssd$FDR_qvalue = p.adjust(p = ssd$pvalue,method = "fdr")
-	ssd = ssd[order(ssd$FDR_qvalue),]
-
-	# Subsetting supposed DE genes
-	# ssd = ssd[which(ssd$FDR_qvalue < fdr_thres & ssd$logFC > logFC_thres),]
-	
-	# dim(ssd); smart_table(ssd$logFC > 0); ssd[1:20,]
-	ssd = smart_df(cell_type = one_cell_type,ssd)
-	
-	ssd_fn = file.path(work_dir,paste0("ssd",
-		"_nG",num_genes,
-		"_cell",one_cell_type,
-		".rds"))
-	cat(paste0("Saving image in ",ssd_fn," ...\n"))
-	saveRDS(ssd,ssd_fn)
+		cat("Running LRT by excluding the cell_type covariate ...\n")
+		print(date())
+		ssc = MAST::summary(object = zlm_output,
+			doLRT = paste0("Group",one_cell_type))
+		print(date())
+		ssd0 = smart_df(ssc$datatable)
+		ssd = ssd0[which(ssd0$component == "H"),]
+		ssd = name_change(ssd,"Pr..Chisq.","pvalue")
+		ssd = name_change(ssd,"primerid","gene")
+		ssd = ssd[,c("gene","pvalue")]
+		tmp_index = which(ssd0$component == "logFC"
+						& ssd0$contrast == paste0("Group",one_cell_type))
+		ssd$logFC = ssd0$coef[tmp_index]
+		ssd$z = ssd0$z[tmp_index]
+		ssd = ssd[which(!is.na(ssd$logFC)),]
+		ssd$FDR_qvalue = p.adjust(p = ssd$pvalue,method = "fdr")
+		ssd = ssd[order(ssd$FDR_qvalue),]
+		# dim(ssd); smart_table(ssd$logFC > 0); ssd[1:20,]
+		ssd = smart_df(cell_type = one_cell_type,ssd)
+		
+	# Output
+		ssd_fn = file.path(work_dir,paste0("ssd",
+			"_nG",num_genes,
+			"_cell",one_cell_type,
+			".rds"))
+		cat(paste0("Saving image in ",ssd_fn," ...\n"))
+		saveRDS(ssd,ssd_fn)
 
 	return(NULL)
 }
