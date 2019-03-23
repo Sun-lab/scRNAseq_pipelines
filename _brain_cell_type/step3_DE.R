@@ -163,9 +163,7 @@ MAST_DEgenes(work_dir = MTG_dir,
 			num_genes = nrow(sce),
 			# num_genes = 100,
 			sce_obj = sce,
-			one_cell_type = one_ct,
-			fdr_thres = 1e-3,
-			logFC_thres = log(2))
+			one_cell_type = one_ct)
 
 # ssd = readRDS(file.path(MTG_dir,paste0("ssd_nG100_cellAstro.rds")))
 # dim(ssd)
