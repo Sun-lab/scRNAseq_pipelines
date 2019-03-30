@@ -37,44 +37,7 @@ MAST_DEgenes = function(work_dir,num_genes=NULL,sce_obj,one_cell_type){
 		sca = MAST::SceToSingleCellAssay(sce = sce_obj[seq(num_genes),])
 	
 	# Make ET assay log2(TPM+1)
-<<<<<<< HEAD
 		## Need gene lengths (Import GTF file)
-		
-=======
-		if(FALSE){ ## New Code: Get exonic gene lengths
-		library(GenomicRanges)
-		library(GenomicFeatures)
-		gtf_gz_fn = file.path(work_dir,"gencode.v22.annotation.gtf.gz")
-		if( !file.exists(gtf_gz_fn) ){
-			gz_link = "ftp://ftp.ebi.ac.uk/pub/databases/gencode/Gencode_human/release_22/gencode.v22.annotation.gtf.gz"
-			gz_fn = strsplit(gz_link,"/")[[1]]
-			gz_fn = file.path(work_dir,gz_fn[length(gz_fn)])
-			system(sprintf("cd %s; wget %s;",work_dir,gz_link))
-		}
-		exdb = GenomicFeatures::makeTxDbFromGFF(file = gtf_gz_fn,format = "gtf")
-		exons_list_per_gene = GenomicFeatures::exonsBy(exdb,by = "gene")
-		n_genes = length(exons_list_per_gene); count = 1
-		gene_df = matrix(NA,n_genes,2)
-		gene_df[,1] = names(exons_list_per_gene)
-		
-		for(gg in gene_df[,1]){
-			if(count %% 100 == 0) cat(".")
-			if(count %% 5000 == 0) cat(paste0(count,"\n"))
-			gene_df[count,2] = sum(width(reduce(exons_list_per_gene[[gg]])))
-			count = count + 1
-		}
-		
-		exonic_gene_sizes = lapply(exons_list_per_gene,function(xx) sum(width(GenomicRanges::reduce(xx))))
-		
-		# Subset ENSG 
-		gtf = data.table::fread(gtf_gz_fn,sep = "\t",header = FALSE)
-		
-		# Things to code: Use biomart to get ENSG ids for sce, intersect with ENSG ids from exons_list_per_gene
-
-		}
-		
-		## Old Code: Need gene lengths (Import GTF file)
->>>>>>> 87a59fa4c11720dfe11fbf05661fcc4e3ba937d6
 		rsem_gtf_fn = file.path(work_dir,"rsem_GRCh38.p2.gtf")
 		if( !file.exists(rsem_gtf_fn) ){
 			gtf_link = "http://celltypes.brain-map.org/api/v2/well_known_file_download/502175284"
