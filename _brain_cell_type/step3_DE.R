@@ -20,8 +20,7 @@ if( !("MAST" %in% installed.packages()[,"Package"]) ){
 	# MAST = Model-based Analysis of Single Cell Transcriptomics
 	BiocManager::install("MAST")
 }
-library(ggplot2)
-library(data.table)
+library(ggplot2); library(data.table)
 MAST_DEgenes = function(work_dir,num_genes=NULL,sce_obj,one_cell_type){
 	if(FALSE){
 		work_dir = MTG_dir
@@ -39,6 +38,7 @@ MAST_DEgenes = function(work_dir,num_genes=NULL,sce_obj,one_cell_type){
 	
 	# Make ET assay log2(TPM+1)
 		## Need gene lengths (Import GTF file)
+		
 		rsem_gtf_fn = file.path(work_dir,"rsem_GRCh38.p2.gtf")
 		if( !file.exists(rsem_gtf_fn) ){
 			gtf_link = "http://celltypes.brain-map.org/api/v2/well_known_file_download/502175284"
@@ -47,21 +47,32 @@ MAST_DEgenes = function(work_dir,num_genes=NULL,sce_obj,one_cell_type){
 			gtf_fn = file.path(work_dir,gtf_fn)
 			system(sprintf("cd %s; wget %s; unzip %s",work_dir,gtf_link,gtf_fn))
 		}
-		gtf = data.table::fread(rsem_gtf_fn,header = FALSE)
-		# dim(gtf); gtf[1:3,]; smart_table(gtf$V3)
-		gtf = gtf[which(gtf$V3 == "gene"),]
+		# Get mapping from gene_id to gene_symbol
+		gtf = data.table::fread(rsem_gtf_fn,header = FALSE,data.table = FALSE)
+		dim(gtf); gtf[1:3,]
+		gtf = gtf[which(gtf$V3 %in% c("gene")),]
 		gtf$gene_id = sapply(gtf$V9,function(xx) 
 			gsub("\"","",gsub("gene_id ","",strsplit(xx,";")[[1]][1])),
 			USE.NAMES = !TRUE)
 		gtf$gene_symbol = sapply(gtf$V9,function(xx) 
 			gsub("\"","",gsub(" gene_symbol ","",strsplit(xx,";")[[1]][2])),
 			USE.NAMES = !TRUE)
-		gtf2 = gtf[match(rownames(sca),gtf$gene_symbol),]
-		gtf2 = name_change(gtf2,"V4","Start")
-		gtf2 = name_change(gtf2,"V5","End")
-		gtf2$Gene_Length = gtf2$End - gtf2$Start
-		rowData(sca)$Gene_Length = gtf2$Gene_Length
+		gtf = gtf[which(gtf$gene_symbol %in% rownames(sca)),]
+		gtf = gtf[,names(gtf) != "V9"]
 		
+		# Subset genes and get gene lengths
+		library(GenomicRanges); library(GenomicFeatures)
+		exdb = GenomicFeatures::makeTxDbFromGFF(file = rsem_gtf_fn,format = "gtf")
+		exons_list_per_gene = GenomicFeatures::exonsBy(exdb,by = "gene")
+		exons_list_per_gene = exons_list_per_gene[names(exons_list_per_gene) %in% gtf$gene_id]
+		tmp_vec = sapply(exons_list_per_gene,function(x){sum(width(reduce(x)))})
+		tmp_df = smart_df(gene_id = names(tmp_vec),gene_length = as.numeric(tmp_vec))
+		tmp_df = tmp_df[match(gtf$gene_id,tmp_df$gene_id),]
+		all(gtf$gene_id == tmp_df$gene_id)
+		gtf = smart_df(gtf,gene_length = tmp_df$gene_length)
+		gtf = gtf[match(rownames(sca),gtf$gene_symbol),]
+		rowData(sca)$Gene_Length = gtf$gene_length
+
 		# Exclude any subjects with no gene counts
 		sca = sca[,colSums(counts(sca)) > 0]
 		
@@ -94,13 +105,11 @@ MAST_DEgenes = function(work_dir,num_genes=NULL,sce_obj,one_cell_type){
 			"_nG",num_genes,
 			"_cell",one_cell_type,
 			".rds"))
-		if( !file.exists(zlm_fn) ){
-			print(date())
-			zlm_output = MAST::zlm(formula = ~ Group + cngeneson,sca = sca)
-			print(date())
-			cat("Saving image ...\n")
-			saveRDS(zlm_output,zlm_fn)
-		}
+		print(date())
+		zlm_output = MAST::zlm(formula = ~ Group + cngeneson,sca = sca)
+		print(date())
+		cat("Saving image ...\n")
+		saveRDS(zlm_output,zlm_fn)
 		cat("Reading in image ...\n")
 		zlm_output = readRDS(zlm_fn)
 		# show(zlm_output)
