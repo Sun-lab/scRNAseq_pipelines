@@ -20,12 +20,61 @@ if( !("MAST" %in% installed.packages()[,"Package"]) ){
 	# MAST = Model-based Analysis of Single Cell Transcriptomics
 	BiocManager::install("MAST")
 }
-library(ggplot2)
-library(data.table)
+library(ggplot2); library(data.table)
+calc_gene_length_from_rsemGTF = function(work_dir,rsem_gtf_fn){
+	if(FALSE){
+		work_dir = MTG_dir
+		rsem_gtf_fn = file.path(work_dir,"rsem_GRCh38.p2.gtf")
+	}
+	
+	# Download GTF file
+		if( !file.exists(rsem_gtf_fn) ){
+			gtf_link = "http://celltypes.brain-map.org/api/v2/well_known_file_download/502175284"
+			gtf_fn = strsplit(gtf_link,"/")[[1]]
+			gtf_fn = gtf_fn[length(gtf_fn)]
+			gtf_fn = file.path(work_dir,gtf_fn)
+			system(sprintf("cd %s; wget %s; unzip %s",work_dir,gtf_link,gtf_fn))
+		}
+	
+	# Get mapping from gene_id to gene_symbol
+		gtf = data.table::fread(rsem_gtf_fn,header = FALSE,data.table = FALSE)
+		dim(gtf); gtf[1:3,]
+		names(gtf) = c("seqname","source","feature","start_position","end_position",
+			"score","strand","frame","attributes")
+		gtf = gtf[which(gtf$feature %in% c("gene")),]
+		gtf$gene_id = sapply(gtf$attributes,function(xx) 
+			gsub("\"","",gsub("gene_id ","",strsplit(xx,";")[[1]][1])),
+			USE.NAMES = !TRUE)
+		gtf$gene_symbol = sapply(gtf$attributes,function(xx) 
+			gsub("\"","",gsub(" gene_symbol ","",strsplit(xx,";")[[1]][2])),
+			USE.NAMES = !TRUE)
+	
+	# Import gtf to database
+		library(GenomicRanges)
+		library(GenomicFeatures)
+		cat("Make TxDb...\n")
+		exdb = suppressWarnings(GenomicFeatures::makeTxDbFromGFF(file = rsem_gtf_fn,format = "gtf"))
+		exons_list_per_gene = GenomicFeatures::exonsBy(exdb,by = "gene")
+	
+	# Get intersection
+		gene_intersect = intersect(gtf$gene_id,names(exons_list_per_gene))
+		exons_list_per_gene = exons_list_per_gene[names(exons_list_per_gene) %in% gene_intersect]
+		gtf = gtf[which(gtf$gene_id %in% gene_intersect),]
+	
+	# Calculate exonic gene lengths
+		tmp_df = smart_df(gene_id = names(exons_list_per_gene),
+			gene_length = as.numeric(sum(width(GenomicRanges::reduce(exons_list_per_gene)))))
+		tmp_df = tmp_df[match(gtf$gene_id,tmp_df$gene_id),]
+		all(gtf$gene_id == tmp_df$gene_id)
+		gtf$gene_length = tmp_df$gene_length
+	
+	# Output
+		gtf
+}
 MAST_DEgenes = function(work_dir,num_genes=NULL,sce_obj,one_cell_type){
 	if(FALSE){
 		work_dir = MTG_dir
-		num_genes = 100
+		num_genes = NULL
 		sce_obj = sce
 		one_cell_type = c("Astro","Exc","Inh","Micro","Oligo","OPC")[1]
 		# fdr_thres = 1e-3; logFC_thres = log(2)
@@ -37,35 +86,12 @@ MAST_DEgenes = function(work_dir,num_genes=NULL,sce_obj,one_cell_type){
 		}
 		sca = MAST::SceToSingleCellAssay(sce = sce_obj[seq(num_genes),])
 	
-	# Make ET assay log2(TPM+1)
-		## Need gene lengths (Import GTF file)
-		rsem_gtf_fn = file.path(work_dir,"rsem_GRCh38.p2.gtf")
-		if( !file.exists(rsem_gtf_fn) ){
-			gtf_link = "http://celltypes.brain-map.org/api/v2/well_known_file_download/502175284"
-			gtf_fn = strsplit(gtf_link,"/")[[1]]
-			gtf_fn = gtf_fn[length(gtf_fn)]
-			gtf_fn = file.path(work_dir,gtf_fn)
-			system(sprintf("cd %s; wget %s; unzip %s",work_dir,gtf_link,gtf_fn))
-		}
-		gtf = data.table::fread(rsem_gtf_fn,header = FALSE)
-		# dim(gtf); gtf[1:3,]; smart_table(gtf$V3)
-		gtf = gtf[which(gtf$V3 == "gene"),]
-		gtf$gene_id = sapply(gtf$V9,function(xx) 
-			gsub("\"","",gsub("gene_id ","",strsplit(xx,";")[[1]][1])),
-			USE.NAMES = !TRUE)
-		gtf$gene_symbol = sapply(gtf$V9,function(xx) 
-			gsub("\"","",gsub(" gene_symbol ","",strsplit(xx,";")[[1]][2])),
-			USE.NAMES = !TRUE)
-		gtf2 = gtf[match(rownames(sca),gtf$gene_symbol),]
-		gtf2 = name_change(gtf2,"V4","Start")
-		gtf2 = name_change(gtf2,"V5","End")
-		gtf2$Gene_Length = gtf2$End - gtf2$Start
-		rowData(sca)$Gene_Length = gtf2$Gene_Length
-		
-		# Exclude any subjects with no gene counts
+	# Exclude any subjects with no gene counts
 		sca = sca[,colSums(counts(sca)) > 0]
-		
+	
+	# Make ET assay log2(TPM+1)
 		## Calculate log2(TPM+1)
+		cat("Calculating log2(TPM+1)...\n")
 		calc_count_to_log2_TPM_1 = function(vec_count,vec_lengths){
 			xx = vec_count / vec_lengths
 			xx = xx / sum(xx)
@@ -73,7 +99,7 @@ MAST_DEgenes = function(work_dir,num_genes=NULL,sce_obj,one_cell_type){
 			log2(1 + TPM)
 		}
 		assay(sca,"Et") = apply(counts(sca),2,function(xx) 
-			calc_count_to_log2_TPM_1(xx,rowData(sca)$Gene_Length))
+			calc_count_to_log2_TPM_1(xx,rowData(sca)$gene_length))
 		assay(sca,"counts") = NULL
 		assay(sca,"logcounts") = NULL
 	
@@ -81,29 +107,20 @@ MAST_DEgenes = function(work_dir,num_genes=NULL,sce_obj,one_cell_type){
 		colData(sca)$cngeneson = scale(colSums(assay(sca,"Et") > 0))
 
 	# Calculate Group
-		# one_cell_type = "Astro"
 		ref_group = paste0("not_",one_cell_type)
 		colData(sca)$Group = ifelse(colData(sca)$cell_type == one_cell_type,
 			one_cell_type,ref_group)
 		colData(sca)$Group = factor(colData(sca)$Group,
 			levels = c(ref_group,one_cell_type))
 
-	# zlm analysis: Model log-transformed expression as 
-	#	function of clustered cell type and num detected genes
+	# zlm analysis: Model log-transformed expression as function of clustered cell type and num detected genes
 		zlm_fn = file.path(work_dir,paste0("zlm",
 			"_nG",num_genes,
 			"_cell",one_cell_type,
 			".rds"))
-		if( !file.exists(zlm_fn) ){
-			print(date())
-			zlm_output = MAST::zlm(formula = ~ Group + cngeneson,sca = sca)
-			print(date())
-			cat("Saving image ...\n")
-			saveRDS(zlm_output,zlm_fn)
-		}
-		cat("Reading in image ...\n")
-		zlm_output = readRDS(zlm_fn)
-		# show(zlm_output)
+		print(date())
+		zlm_output = MAST::zlm(formula = ~ Group + cngeneson,sca = sca)
+		print(date())
 
 	# Perform LRT of one cell_type against all others
 		cat("Running LRT by excluding the cell_type covariate ...\n")
@@ -141,9 +158,19 @@ MAST_DEgenes = function(work_dir,num_genes=NULL,sce_obj,one_cell_type){
 # ----------
 # Analyze
 # ----------
+# Import gtf with gene lengths
+gtf = calc_gene_length_from_rsemGTF(work_dir = MTG_dir,
+	rsem_gtf_fn = file.path(MTG_dir,"rsem_GRCh38.p2.gtf"))
+
 sce = readRDS(file.path(MTG_dir,"final_sce_filtered_by_kmeans.rds"))
 sce
-# sort(names(colData(sce)))
+
+# Append gene_lengths to sce
+gene_intersect = intersect(rownames(sce),gtf$gene_symbol)
+sce = sce[gene_intersect,]
+gtf = gtf[which(gtf$gene_symbol %in% gene_intersect),]
+gtf = gtf[match(rownames(sce),gtf$gene_symbol),]
+rowData(sce)$gene_length = gtf$gene_length
 
 # Subset cell_types with enough cells: Exclude Endo
 smart_table(colData(sce)$cell_type)
