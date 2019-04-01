@@ -1,0 +1,234 @@
+---
+title: "Deconvolution of CommonMind data"
+author: "Chong Jin"
+date: "`r Sys.Date()`"
+output:
+  html_document:
+    highlight: tango
+    number_sections: yes
+    theme: journal
+    toc: yes
+    toc_depth: 3
+    toc_float:
+      collapsed: yes
+      smooth_scroll: no
+  pdf_document:
+    toc: yes
+    toc_depth: '3'
+---
+
+We construct the bulk TPM and use ICeDT to perform deconvolution.
+
+# Introduction
+
+<!-- We have bulk RNA-seq brain data at: `/pine/scr/p/l/pllittle/CS_eQTL/s3_Real/CMC/CMC_MSSM-Penn-Pitt_Paul_geneExpressionRaw.rds`. -->
+<!-- The `so1` matrix is the one that we should use. Use the reference at: `/pine/scr/p/l/pllittle/CS_eQTL/s3_Real/CMC/Homo_sapiens.GRCh37.70.processed.gtf`. -->
+
+We will use CIBERSORT and ICeDT to do cell type deconvolution.
+Before that we need to compile a list of signature genes and their cell type-specific expression from single cell data.
+This file will first deal with MTG single cell data [Allen Brain Atlas MTG (middle temporal gyrus) dataset](http://celltypes.brain-map.org/rnaseq).
+We will also incorporate psychENCODE single cell data later.
+
+The procedure is:
+
+1. Process the single cell RNA-seq data to generate cell type label based on k-means clustering. Since the data set already has
+its own cell type labels, we take the intersect of cell type labels in agreement from the authors and from our k-means clustering.
+
+2. Use the `MAST` package to compile a list of signature genes (with FDR and log fold change) for every cell type (six in all).
+
+3. We select the top 100 in log fold change as signature genes for every cell type. Then we calculate TPM for each cell type by pooling the UMI from every cell type.
+
+4. Deconvolute using CIBERSORT and ICeDT.
+
+```{r prep, results='hide', message=FALSE, warning=FALSE, echo=TRUE}
+library(AnnotationDbi)
+library(GenomicFeatures)
+```
+
+```{r gene_lengths}
+# obtain gene length from gtf (used in bulk expression quantification):
+deconvolution_dir = "~/scRNAseq_pipelines/MTG"
+gencode_fn = file.path(deconvolution_dir,"Homo_sapiens.GRCh37.70.processed.gtf")
+genelength_fn = file.path(deconvolution_dir,"ExonicGeneLengths_GRCh37.RData")
+if( !file.exists(genelength_fn) ){
+  exdb = GenomicFeatures::makeTxDbFromGFF(file = gencode_fn,
+                                          format="gtf",dataSource = gtf_link)
+  exons.list.per.gene = GenomicFeatures::exonsBy(exdb,by="gene")
+  exonic.gene.sizes = lapply(exons.list.per.gene,function(x){sum(width(reduce(x)))})
+  save(file = genelength_fn, exonic.gene.sizes)
+}
+load(genelength_fn)
+names(exonic.gene.sizes) = sub("\\.[^.]*", "", names(exonic.gene.sizes))
+```
+
+```{r}
+# obtain bulk TPM by parsing from counts
+bulk_count = readRDS("CMC_MSSM-Penn-Pitt_Paul_geneExpressionRaw.rds")$so1
+dim(bulk_count)
+bulk_count[1:5,1:5]
+length(names(exonic.gene.sizes))
+length(rownames(bulk_count))
+all(names(exonic.gene.sizes) %in% rownames(bulk_count))
+all(names(exonic.gene.sizes) == rownames(bulk_count))
+TPM = bulk_count/unlist(exonic.gene.sizes)
+TPM = (1e6)*t(t(TPM/colSums(TPM)))
+TPM[1:5,1:5]
+
+# read reference TPM by parsing single cell data (note that this is probably in hg38:)
+tpm_signature_genes = readRDS(file.path(deconvolution_dir,"tpm_signature_genes.rds"))
+table(rownames(tpm_signature_genes) %in% rownames(TPM))
+tpm_signature_genes = tpm_signature_genes[rownames(tpm_signature_genes) %in% rownames(TPM),]
+```
+
+
+```{r ref_TPM}
+bulk_subset = TPM[rownames(tpm_signature_genes), ]
+all(rownames(bulk_subset) == rownames(tpm_signature_genes))
+```
+
+# Deconvolution
+
+```{r run_deconvolution, fig.width=8, fig.height=4}
+par(mar=c(5,4,1,1), bty="n", mfrow=c(1,2), cex=0.8)
+
+# run CIBERSORT 
+# change the input format according to the CIBERSORT website:
+bulk_subset[1:5,1:5]
+tpm_signature_genes[1:5,1:5]
+write.table(cbind(rowname=rownames(tpm_signature_genes), tpm_signature_genes),
+            "signature_genes_brain_from_psychENCODE.txt",
+            sep="\t", quote=FALSE, row.names = FALSE)
+write.table(cbind(rowname=rownames(bulk_subset), bulk_subset), 
+            "mixture_brain_from_CMC.txt",
+            sep="\t", quote=FALSE, row.names = FALSE)
+
+# Need to upload the files and run CIBERSORT
+# (no Quantile normalization, 1000 permutations):
+# https://cibersort.stanford.edu/runcibersort.php
+
+# read the output generated from CIBERSORT website 
+cibersort_results = read.csv(file.path(deconvolution_dir,
+            "CIBERSORT.Output_CMC_using_sig_genes_from_psychENCODE600_no_QN.csv"))
+prop_cibersort = cibersort_results[,2:7]
+prop_cibersort[1:5,1:5]
+dim(prop_cibersort)
+boxplot(prop_cibersort, main="CIBERSORT")
+
+
+# run ICeDT
+icedt_file = file.path(deconvolution_dir,"CMC_ICeDT_fitw0_genes_from_psychENCODE.rds")
+if (!file.exists()) {
+  # takes 15min on my laptop.
+  date()
+  fitw0 = ICeDT::ICeDT(Y=bulk_subset, Z=tpm_signature_genes, 
+                       tumorPurity=rep(0, ncol(bulk_subset)), refVar=NULL,
+                       rhoInit=NULL, maxIter_prop = 500, maxIter_PP = 250, 
+                       rhoConverge = 1e-2)
+  date()
+  saveRDS(fitw0, file = icedt_file)
+}
+fitw0 = readRDS(icedt_file)
+
+# plot ICeDT
+prop_icedt = t(fitw0$rho)[,-1]
+prop_icedt[1:5,1:5]
+dim(prop_icedt)
+boxplot(prop_icedt, main="ICeDT")
+#> table(colData(sce)$cell_type)
+#
+#Astro   Exc   Inh Micro Oligo   OPC 
+# 2647 13353  4064   115  2425  1046 
+```
+
+
+```{r comparison_of_prop_ICeDT_CIBERSORT, fig.height=6, fig.width=8}
+par(mar=c(5,4,1,1), bty="n", mfrow=c(2,3), cex=0.8)
+for (i in colnames(prop_cibersort)) {
+ plot(prop_icedt[,i], prop_cibersort[,i],
+                xlab="prop est in ICeDT",
+                ylab="prop est in CIBERSORT",
+                # xlab=xylab_formatter(deparse(substitute(data1))),
+                # ylab=xylab_formatter(deparse(substitute(data2))),
+                pch = 1, cex = 1.1, cex.lab=1.1, col=rgb(0,0,0,0.25),
+                xlim=c(0,1), ylim=c(0,1),
+                # nrpoints=0,
+                main=i
+         )
+}
+```
+
+# More analysis based on ICeDT results
+
+
+```{r fig.width=8, fig.height=4}
+par(mar=c(5,4,1,1), bty="n", mfrow=c(1,2), cex=0.8)
+Geneset = "psychENCODE600"
+# dir.create("./figures")
+
+p1 = fitw0$cProb
+dim(p1)
+
+p1[1:2,1:5]
+
+p1 = data.matrix(p1)
+
+q90 <- function(v){
+  qs = quantile(v, probs=c(0.10, 0.90))
+  qs[2] - qs[1]
+}
+
+# pdf(sprintf("./figures/probConsistent_GeneSet%s.pdf",Geneset), 
+#     width=9, height=3)
+plot(density(c(p1))$y, main="", xlim=c(0,1),
+     xlab="probability consistent", ylab="density", type="n")
+lines(density(c(p1)), lty=1, col="black")
+legend("topright", c("no weight"), lty=c(1,2), 
+       col=c("black"), bty="n")
+
+plot(apply(p1, 1, median), apply(p1, 1, q90), 
+     xlab="median prob. consistent", ylab="90 percentile - 10 percentile")
+
+
+# dev.off()
+
+# Scatterplot of predicted vs. observed gene expression
+dim(fitw0$rho[-1,])
+dim(tpm_signature_genes)
+dim(bulk_subset)
+predicted_bulk_w0 = tpm_signature_genes %*% fitw0$rho[-1,]
+p1_cutoffs = quantile(p1, c(0.333,0.666))
+
+cat(sprintf("Consistent probability cutoffs for model w/ weight: %.3f, %.3f \n", 
+            p1_cutoffs[1], p1_cutoffs[2]))
+```
+
+
+```{r plotting_results_ICeDT, fig.width=8, fig.height=3}
+# pdf(sprintf("./figures/ExpectedVsObservedExpr_GeneSet%s.pdf", 
+#             Geneset), width=9, height=6)
+par(mar=c(5,4,1,1), bty="n", mfrow=c(1,3), cex=0.6)
+
+# plot observed vs. expected expression, stratified by 3-quantiles
+plot_log1p = function(x, y, ...) {
+  smoothScatter(log(x+1e-5), log(y+1e-5), xlim=c(-5, 10), ylim=c(-5, 10), ...)
+  legend("bottomright", bty="n",
+         legend=sprintf("Pearson correlation = %.2f", cor(log(x+1e-5), log(y+1e-5))))
+}
+
+plot_log1p(c(predicted_bulk_w0)[p1 < p1_cutoffs[1]], c(bulk_subset)[p1 < p1_cutoffs[1]], 
+     xlab="Predicted gene expression", ylab="Observed gene expression",
+     sub="model w/ weight", main="low prob of being consistent")
+plot_log1p(c(predicted_bulk_w0)[p1 >= p1_cutoffs[1] & p1 <= p1_cutoffs[2]], 
+           c(bulk_subset)[p1 >= p1_cutoffs[1] & p1 <= p1_cutoffs[2]], 
+     xlab="Predicted gene expression", ylab="Observed gene expression",
+     sub="model w/ weight", main="med prob of being consistent")
+plot_log1p(c(predicted_bulk_w0)[p1 > p1_cutoffs[2]], c(bulk_subset)[p1 > p1_cutoffs[2]], 
+     xlab="Predicted gene expression", ylab="Observed gene expression",
+     sub="model w/ weight", main="high prob of being consistent")
+
+# dev.off()
+```
+
+```{r}
+sessionInfo()
+```

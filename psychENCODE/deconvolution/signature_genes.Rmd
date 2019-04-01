@@ -1,0 +1,496 @@
+---
+title: "Identifying signature genes: psychENCODE Dataset"
+author: "Chong Jin, Paul Little"
+date: "`r Sys.Date()`"
+bibliography: [psychENCODE.bib]
+biblio-style: apalike
+output: 
+  html_document:
+    theme: journal
+    highlight: tango
+    toc: true
+    toc_depth: 3
+    toc_float:
+      collapsed: true
+      smooth_scroll: false
+    number_sections: true
+---
+
+This file constructs the the reference matrix "tpm_signature_genes.rds" using psychENCODE single cell data.
+
+# Introduction
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, cache=TRUE, cache.lazy=FALSE, autodep=TRUE)
+```
+
+We extract the signature genes from the adult single nucleus RNA-seq data produced by [@wang_comprehensive_2018], including adult using single-nucleus droplet-based sequencing (snDrop-seq) from PFC [@lake_integrative_2018].
+
+```{r libraries, warning = FALSE, message = FALSE}
+bio_packs = c("SingleCellExperiment","DropletUtils","biomaRt",
+              "scater","scran","limma","org.Hs.eg.db")
+source("https://bioconductor.org/biocLite.R")
+for(pack1 in bio_packs){
+  if( !pack1 %in% installed.packages()[,"Package"]){
+    biocLite(pack1, suppressUpdates = TRUE)
+  }
+}
+
+cran_packs = c("data.table","svd","Rtsne","stringi","irlba")
+for(pack1 in cran_packs){
+  if( !pack1 %in% installed.packages()[,"Package"]){
+    install.packages(pack1)
+  }
+}
+
+library(data.table)
+library(SingleCellExperiment)
+# library(DropletUtils)
+# library(biomaRt)
+# library(scater)
+# library(scran)
+library(limma)
+library(ggplot2)
+```
+
+First we add cell type labels by collapsing together the related cell types identified by the authors.
+
+```{r get_data}
+work_dir = psychENCODE_dir = "~/psychENCODE_data"
+sce = readRDS(file.path(psychENCODE_dir,"sce.rds"))
+if (FALSE) {
+  tpm(sce) = counts(sce)/rowData(sce)$gene_length
+  tpm(sce) = (1e6)*t(t(tpm(sce))/colSums(tpm(sce)))
+  logcounts(sce) = log2(1 + tpm(sce))
+}
+num_genes = nrow(sce)
+```
+
+```{r step2_prepare_DE}
+table(colData(sce)$part_cell_id)
+colData(sce)$cell_type = colData(sce)$part_cell_id
+colData(sce)$cell_type[grep("In", colData(sce)$part_cell_id)] = "Inh"
+colData(sce)$cell_type[grep("Ex", colData(sce)$part_cell_id)] = "Exc"
+colData(sce)$cell_type[grep("Oligo", colData(sce)$part_cell_id)] = "Oligo"  # no change
+colData(sce)$cell_type[grep("OPC", colData(sce)$part_cell_id)] = "OPC"  # no change
+colData(sce)$cell_type[grep("Astro", colData(sce)$part_cell_id)] = "Astro"  # no change
+colData(sce)$cell_type[grep("Microglia", colData(sce)$part_cell_id)] = "Micro"  #   no change
+colData(sce)$cell_type[grep("Endo", colData(sce)$part_cell_id)] = "Endo"  #   no change
+table(colData(sce)$cell_type)
+```
+
+We then select the subset of cells that are clusted with the cells 
+of the same type.
+
+```{r clust}
+clusters	=  readRDS(file.path(psychENCODE_dir, "k25_50_pcs.rds"))
+
+dim(sce)
+dim(colData(sce))
+colData(sce)[1:2,1:5]
+
+names(colData(sce))
+table(colData(sce)$donor)
+
+dim(rowData(sce))
+rowData(sce)[1:2,]
+
+clusters = data.frame(KM25=clusters$cluster)
+clusters$cell_type = colData(sce)$cell_type
+
+opt_clust = paste0("KM",25) # our clustering results differ slightly
+t1 = table(clusters[,opt_clust], clusters$cell_type)
+t1
+
+# remove cluster 15 & 23 since they belong to multiple clusters
+t1[c(15,23), ] = 0
+
+clusts = apply(t1, 2, function(v){union(which.max(v), which(v > 100))})
+clusts
+
+cell_types = setdiff(unique(clusters$cell_type), "unknown")
+cell_types
+
+w2kp = NULL
+
+for(ct1 in cell_types){
+	# ct1 = celltypes[1]
+	ct.cond    = clusters$cell_type == ct1
+	clust.cond = clusters[,opt_clust] %in% clusts[[ct1]]
+	# Intersect previous clustering result with ours
+	w2kp = c(w2kp, which(ct.cond & clust.cond))
+}
+length(w2kp)
+
+dim(sce)
+sce = sce[,w2kp]
+dim(sce)
+```
+
+Finally we use `MAST` to select differentially expressed genes using code provided by Paul Little.
+
+```{r diffexpr_library}
+# source(file.path(repo_dir,"SOURCE.R"))
+if( !("BiocManager" %in% installed.packages()[,"Package"]) ){
+	install.packages("BiocManager",repos = "https://mirrors.nics.utk.edu/cran/")
+}
+if( !("MAST" %in% installed.packages()[,"Package"]) ){
+	# MAST = Model-based Analysis of Single Cell Transcriptomics
+	BiocManager::install("MAST")
+}
+library(ggplot2)
+library(data.table)
+```
+
+```{r diffexpr_func}
+name_change = function(dat,orig_name,new_name){
+        index = which(names(dat) == orig_name)
+        if( length(index) > 0 ){
+                names(dat)[index] = new_name
+        }
+        dat
+}
+
+
+MAST_DEgenes = function(work_dir,num_genes=NULL,sce_obj,one_cell_type,fdr_thres=1e-3,logFC_thres=log(2)){
+	
+	if(FALSE){
+		work_dir = psychENCODE_dir
+		num_genes = 100
+		sce_obj = sce
+		one_cell_type = c("Astro","Exc","Inh","Micro","Oligo","OPC")[1]
+		fdr_thres = 1e-3
+		logFC_thres = log(2)
+	}
+	
+	# Subset Genes and make SingleCellAssay object
+	if( is.null(num_genes) ){
+		num_genes = nrow(sce_obj)
+	}
+	sca = MAST::SceToSingleCellAssay(sce = sce_obj[seq(num_genes),])
+
+	# Calculate CDS
+	colData(sca)$cngeneson = scale(colSums(logcounts(sca) > 0))
+
+	# Calculate Group
+	# one_cell_type = "Astro"
+	ref_group = paste0("not_",one_cell_type)
+	colData(sca)$Group = ifelse(colData(sca)$cell_type == one_cell_type,
+		one_cell_type,ref_group)
+	colData(sca)$Group = factor(colData(sca)$Group,
+		levels = c(ref_group,one_cell_type))
+
+	# zlm analysis: Model log-transformed expression as 
+	#	function of clustered cell type and num detected genes
+	zlm_fn = file.path(work_dir,paste0("zlm",
+		"_nG",num_genes,
+		"_cell",one_cell_type,
+		".rds"))
+	if( !file.exists(zlm_fn) ){
+		print(date())
+		zlm_output = MAST::zlm(formula = ~ Group + cngeneson,sca = sca)
+		print(date())
+		cat("Saving image ...\n")
+		saveRDS(zlm_output,zlm_fn)
+	}
+	cat("Reading in image ...\n")
+	zlm_output = readRDS(zlm_fn)
+	# show(zlm_output)
+
+	# Perform LRT of one cell_type against all others
+	cat("Running LRT by excluding the cell_type covariate ...\n")
+	print(date())
+	ssc = MAST::summary(object = zlm_output,
+		doLRT = paste0("Group",one_cell_type))
+	print(date())
+	
+	ssc_fn = file.path(work_dir,paste0("ssc",
+		"_nG",num_genes,
+		"_cell",one_cell_type,
+		".rds"))
+	saveRDS(ssc, ssc_fn)
+	
+	ssd0 = data.frame(ssc$datatable, stringsAsFactors = FALSE)
+	ssd = ssd0[which(ssd0$component == "H"),]
+	ssd = name_change(ssd,"Pr..Chisq.","pvalue")
+	ssd = name_change(ssd,"primerid","gene")
+	ssd = ssd[,c("gene","pvalue")]
+	tmp_index = which(ssd0$component == "logFC"
+					& ssd0$contrast == paste0("Group",one_cell_type))
+	ssd$logFC = ssd0$coef[tmp_index]
+	ssd$z = ssd0$z[tmp_index]
+	ssd = ssd[which(!is.na(ssd$logFC)),]
+	ssd$FDR_qvalue = p.adjust(p = ssd$pvalue,method = "fdr")
+	ssd = ssd[order(ssd$FDR_qvalue),]
+	# Plot
+	# smart_hist(ssd$FDR_qvalue,breaks=40,xlab="FDR",main="")
+	# smart_hist(ssd$logFC,breaks=40)
+	# plot(ssd[,c("FDR_qvalue","logFC")],pch=16,col=rgb(0,0,0,0.5))
+	# dev.off()
+	
+	# filtering before generating ssd files -- do not use now
+	# ssd = ssd[which(ssd$FDR_qvalue < fdr_thres 
+	# 				& ssd$logFC > logFC_thres),]
+	
+	# dim(ssd); smart_table(ssd$logFC > 0); ssd[1:20,]
+	ssd = data.frame(cell_type=one_cell_type,ssd,stringsAsFactors = FALSE)
+	
+	ssd_fn = file.path(work_dir,paste0("ssd",
+		"_nG",num_genes,
+		"_cell",one_cell_type,
+		".rds"))
+	cat(paste0("Saving image in ",ssd_fn," ...\n"))
+	saveRDS(ssd,ssd_fn)
+
+	return(NULL)
+}
+```
+
+```{r diffexpr_analyze}
+# Subset cell_types with enough cells: Exclude Endo
+table(colData(sce)$cell_type, useNA="ifany")
+sce = sce[, !(colData(sce)$cell_type %in% c("Endo", "Per"))]
+table(colData(sce)$cell_type, useNA="ifany")
+dim(sce)
+
+# Get cell type specific marker genes
+# one_ct = "blah_one_ct"
+cts = c("Astro", "Exc", "Inh", "Micro", "Oligo", "OPC")
+
+# one_ct = "Astro"
+# one_ct = "Exc"
+# one_ct = "Inh"
+# one_ct = "Micro"
+# one_ct = "Oligo"
+# one_ct = "OPC"
+
+# Will need 64 GB of memory.
+if (FALSE) {
+  for (one_ct in cts) {
+    MAST_DEgenes(work_dir = psychENCODE_dir,
+  			num_genes = nrow(sce),
+  			# num_genes = 100,
+  			sce_obj = sce,
+  			one_cell_type = one_ct,
+  			fdr_thres = 1e-3,
+  			logFC_thres = log(2))
+    gc()
+  }
+}
+```
+
+The following section is an old version dealing with filtered `ssd_*.rds` files. 
+
+**Do not use it.**
+
+```{r postprocessing, eval=FALSE}
+# ----------
+# VennDiagram and getting/annotating marker genes
+# ----------
+source("~/scRNAseq_pipelines/SOURCE.R")
+
+cell_types = c("Astro","Exc","Inh","Micro","Oligo","OPC")
+
+ct_genes = list()
+for(ct in cell_types){
+	ct_genes[[ct]] = readRDS(file.path(psychENCODE_dir,paste0("ssd_nG",num_genes,"_cell",ct,".rds")))$gene
+}
+saveRDS(ct_genes,file.path(psychENCODE_dir,"ct_genes.rds"))
+
+smart_pack("venn")
+pdf(file.path(psychENCODE_dir,"venn.pdf"),width=8,height=8)
+venn(x = ct_genes,ilabels = TRUE,zcolor = "style")
+dev.off()
+
+# Get marker genes
+cts_genes = list()
+for(ct in cell_types){
+	# ct = cell_types[1]
+	cts_genes[[ct]] = sort(setdiff(ct_genes[[ct]],
+		unique(unlist(ct_genes[which(names(ct_genes) != ct)]))))
+}
+saveRDS(cts_genes,file.path(psychENCODE_dir,"cts_genes.rds"))
+
+# Get gene annotations
+# sce = readRDS(file.path(psychENCODE_dir,"sce.rds"))
+sce
+rowData(sce)
+
+# Import/Prep gtf
+rsem_fn = file.path(psychENCODE_dir,"rsem_GRCh38.p2.gtf")
+if( !file.exists(rsem_fn) ){
+	gtf_link = "http://celltypes.brain-map.org/api/v2/well_known_file_download/502175284"
+	gtf_fn0 = strsplit(gtf_link,"/")[[1]]
+	gtf_fn0 = gtf_fn0[length(gtf_fn0)]
+	gtf_fn = file.path(psychENCODE_dir,gtf_fn0)
+	sprintf("cd %s; wget %s; unzip %s",psychENCODE_dir,gtf_link,gtf_fn)
+}
+rsem = smart_RT(rsem_fn,sep="\t",header=FALSE)
+names(rsem) = c("seqname","source","feature","start_position","end_position",
+	"score","strand","frame","attributes")
+smart_table(rsem$feature)
+rsem = rsem[rsem$feature == "gene",]
+rsem$gene_id = sapply(rsem$attributes,function(xx) 
+	gsub("gene_id ","",strsplit(xx,";")[[1]][1]),USE.NAMES=FALSE)
+rsem$symbol = sapply(rsem$attributes,function(xx) 
+	gsub(" gene_symbol ","",strsplit(xx,";")[[1]][2]),USE.NAMES=FALSE)
+rsem = rsem[,c("symbol","gene_id","start_position","end_position")]
+all(rownames(sce) %in% rsem$symbol)
+all(rowData(sce)$entrez_id %in% rsem$gene_id)
+
+# patch
+rowData(sce)$gene = rownames(sce)
+
+rsem = rsem[which(rsem$symbol %in% rowData(sce)$gene),]
+rsem[1:10,]
+rsem = rsem[match(rowData(sce)$gene,rsem$symbol),]
+rownames(rsem) = NULL
+rsem[1:10,]
+all(rowData(sce)$gene == rsem$symbol)
+# all(rowData(sce)$entrez_id == rsem$gene_id)
+rowData(sce)$start_position = rsem$start_position
+rowData(sce)$end_position = rsem$end_position
+
+# gene_anno = smart_df(rowData(sce)[,c("gene","chromosome",
+# 	"entrez_id","start_position","end_position")])
+
+gene_anno = smart_df(rowData(sce)[,c("gene","chromosome_name",
+	 "start_position","end_position")])
+rownames(gene_anno) = NULL
+
+res_de = c()
+for(ct in cell_types){
+	# ct = cell_types[1]
+	one_ct_genes = cts_genes[[ct]]
+	one_res = readRDS(file.path(psychENCODE_dir,"fdr1e-2",paste0("ssd_nG",num_genes,"_cell",ct,".rds")))
+	one_res = one_res[one_res$gene %in% one_ct_genes,]
+	# one_res[1:10,]
+	res_de = rbind(res_de,one_res)
+        gc()
+}
+
+gene_anno = gene_anno[gene_anno$gene %in% res_de$gene,]
+gene_anno = gene_anno[match(res_de$gene,gene_anno$gene),]
+all(gene_anno$gene == res_de$gene)
+gene_anno = cbind(gene_anno,res_de[,names(res_de) != "gene"])
+saveRDS(gene_anno,file.path(psychENCODE_dir,"anno_marker_genes.rds"))
+
+# comparison with Paul's MTG results
+cts_genes_MTG = readRDS("~/scRNAseq_pipelines/MTG/cts_genes.rds")
+cts_genes = readRDS("~/psychENCODE_data/cts_genes.rds")
+sapply(cts_genes_MTG, length)
+sapply(cts_genes, length)
+
+printIntersect = function(x, y) {
+  print(length(intersect(x,y)))
+  print(length(setdiff(x,y)))
+  print(length(setdiff(y,x)))
+}
+
+printIntersect(cts_genes$Astro, cts_genes_MTG$Astro)
+printIntersect(cts_genes$Exc, cts_genes_MTG$Exc)
+printIntersect(cts_genes$Inh, cts_genes_MTG$Inh)
+printIntersect(cts_genes$Micro, cts_genes_MTG$Micro)
+printIntersect(cts_genes$Oligo, cts_genes_MTG$Oligo)
+printIntersect(cts_genes$OPC, cts_genes_MTG$OPC)
+```
+
+This is the new version which gives the logFC for every gene that we use now.
+
+```{r postprocessing_new}
+
+source("~/scRNAseq_pipelines/SOURCE.R")
+
+gene_anno = as.data.frame(rowData(sce)[, 
+    c("ensembl_gene_id","external_gene_name","chromosome_name","start_position","end_position")])
+gene_anno = dplyr::rename(gene_anno, gene=external_gene_name)  
+gene_anno$prop_express = as.numeric(apply(assay(sce),1,function(xx) mean(xx > 0)))
+
+# For each cell type, gather logFC, qvalues, prop cells expressed in genes
+cell_types = c("Astro","Exc","Inh","Micro","Oligo","OPC")
+for(ct in cell_types){
+	# ct = "Astro"
+	cat(paste0(ct," "))
+	tmp_df = readRDS(file.path(psychENCODE_dir,paste0("ssd_nG",num_genes,"_cell",ct,".rds")))
+	tmp_df = tmp_df[,c("gene","pvalue","logFC","FDR_qvalue")]
+	names(tmp_df)[-1] = paste0(names(tmp_df)[-1],".",ct)
+	# Calculating proportion of cells expressed in a gene and cell_type
+	bb = apply(assay(sce[,colData(sce)$cell_type %in% ct]),1,
+		function(xx) mean(xx > 0))
+	bb = data.frame(gene = names(bb),prop_express = as.numeric(bb), stringsAsFactors = FALSE)
+	names(bb)[2] = paste0(names(bb)[2],".",ct)
+	bb = merge(bb,tmp_df,by="gene",all.x=TRUE,sort=FALSE)
+	all(bb$gene == gene_anno$gene)
+	bb = bb[match(gene_anno$gene,bb$gene),]
+	all(bb$gene == gene_anno$gene)
+	gene_anno = cbind(gene_anno, bb[,names(bb) != "gene"])
+	rm(tmp_df,bb)
+}
+
+dim(gene_anno)
+head(gene_anno)
+# Output
+saveRDS(gene_anno, file.path(psychENCODE_dir,"DE_gene_anno.rds"))
+```
+
+We will need to pick top 100 genes for each cell type, and then try to calculate their cell type-specific TPMs.
+```{r gene_list}
+# how many genes will pass the threshold?
+gene_anno = readRDS(file.path(psychENCODE_dir,"DE_gene_anno.rds"))
+cell_types = c("Astro","Exc","Inh","Micro","Oligo","OPC")
+fdr_thres = 1e-3
+logFC_thres = log(2)
+for(ct in cell_types){
+  cat(sprintf("%s genes matching fdr and logFC threshold:", ct))
+  filtered_count = nrow(gene_anno[which(gene_anno[paste0("FDR_qvalue.", ct)] < fdr_thres 
+	 			      	        & gene_anno[paste0("logFC.", ct)] > logFC_thres),])
+  cat(sprintf(" %d\n", filtered_count))
+}
+# Okay, for each cell type we will pick top 100 genes by logFC rank
+# after the fdr threshold has been met:
+# (will need to use the intersection with the gene list from MTG dataset later)
+count_per_each_cell_type = 100
+gene_anno_by_cell_type = list()
+for(ct in cell_types){
+  gene_anno_by_cell_type[[ct]] = 
+      gene_anno[which(gene_anno[paste0("FDR_qvalue.", ct)] < fdr_thres 
+	 			      	      & gene_anno[paste0("logFC.", ct)] > logFC_thres),]
+}
+# remove genes that appear in more than one cell type:
+gene_anno_by_cell_type_dedup = list()
+gene_appearance_counts = table(do.call(rbind, gene_anno_by_cell_type)$ensembl_gene_id)
+gene_appeared_once = names(gene_appearance_counts)[gene_appearance_counts == 1]
+for(ct in cell_types){
+  gene_anno_by_cell_type_dedup[[ct]] = gene_anno_by_cell_type[[ct]][
+      gene_anno_by_cell_type[[ct]]$ensembl_gene_id %in% gene_appeared_once, ]
+  gene_anno_by_cell_type_dedup[[ct]] = gene_anno_by_cell_type_dedup[[ct]][
+      order(-gene_anno_by_cell_type_dedup[[ct]][,paste0("logFC.", ct)]), ]
+  cat(sprintf("%s genes after filtering that appear only once:", ct))
+  cat(sprintf(" %d\n", nrow(gene_anno_by_cell_type_dedup[[ct]])))
+}
+# only retain the top 100 or some other number per cell type -- this is the final gene list:
+ct_anno = list()
+for(ct in cell_types){
+  ct_anno[[ct]] = gene_anno_by_cell_type_dedup[[ct]][1:count_per_each_cell_type, ]
+}
+saveRDS(ct_anno, file.path(psychENCODE_dir,"DE_ct_anno.rds"))
+```
+
+```{r tpm_ref}
+# calculate total read count and then TPM for every cell type:
+table(colData(sce)$cell_type)
+ct_counts = matrix(nrow=nrow(sce), ncol=length(cell_types))
+colnames(ct_counts) = cell_types
+rownames(ct_counts) = rownames(sce)
+for(ct in cell_types){
+  ct_counts[,ct] = rowSums(counts(sce)[, colData(sce)$cell_type == ct])
+}
+dim(ct_counts)
+ct_tpm = ct_counts/rowData(sce)$gene_length
+ct_tpm = (1e6)*t(t(ct_tpm)/colSums(ct_tpm))
+tpm_signature_genes = ct_tpm[do.call(rbind, ct_anno)$gene, ]
+# change the row names to ensembl gene id for better matching in downstream:
+rownames(tpm_signature_genes) = gene_anno[rownames(tpm_signature_genes), "ensembl_gene_id"]
+dim(tpm_signature_genes)
+saveRDS(tpm_signature_genes, file.path(psychENCODE_dir,"tpm_signature_genes.rds"))
+```
