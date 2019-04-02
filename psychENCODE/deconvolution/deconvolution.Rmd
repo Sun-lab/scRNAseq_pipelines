@@ -47,7 +47,8 @@ library(GenomicFeatures)
 
 ```{r gene_lengths}
 # obtain gene length from gtf (used in bulk expression quantification):
-deconvolution_dir = "~/scRNAseq_pipelines/MTG"
+psychENCODE_dir = "~/psychENCODE_data"
+deconvolution_dir = "~/scRNAseq_pipelines/psychENCODE/deconvolution"
 gencode_fn = file.path(deconvolution_dir,"Homo_sapiens.GRCh37.70.processed.gtf")
 genelength_fn = file.path(deconvolution_dir,"ExonicGeneLengths_GRCh37.RData")
 if( !file.exists(genelength_fn) ){
@@ -63,7 +64,7 @@ names(exonic.gene.sizes) = sub("\\.[^.]*", "", names(exonic.gene.sizes))
 
 ```{r}
 # obtain bulk TPM by parsing from counts
-bulk_count = readRDS("CMC_MSSM-Penn-Pitt_Paul_geneExpressionRaw.rds")$so1
+bulk_count = readRDS(file.path(psychENCODE_dir, "CMC_MSSM-Penn-Pitt_Paul_geneExpressionRaw.rds"))$so1
 dim(bulk_count)
 bulk_count[1:5,1:5]
 length(names(exonic.gene.sizes))
@@ -117,7 +118,7 @@ boxplot(prop_cibersort, main="CIBERSORT")
 
 # run ICeDT
 icedt_file = file.path(deconvolution_dir,"CMC_ICeDT_fitw0_genes_from_psychENCODE.rds")
-if (!file.exists()) {
+if (!file.exists(icedt_file)) {
   # takes 15min on my laptop.
   date()
   fitw0 = ICeDT::ICeDT(Y=bulk_subset, Z=tpm_signature_genes, 

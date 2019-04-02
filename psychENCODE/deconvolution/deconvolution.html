@@ -354,10 +354,10 @@ div.tocify {
 <div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r"><span class="kw">library</span>(AnnotationDbi)
 <span class="kw">library</span>(GenomicFeatures)</code></pre></div>
 <div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r"><span class="co"># obtain gene length from gtf (used in bulk expression quantification):</span>
-MTG_dir =<span class="st"> &quot;~/scRNAseq_pipelines/MTG&quot;</span>
 psychENCODE_dir =<span class="st"> &quot;~/psychENCODE_data&quot;</span>
-gencode_fn =<span class="st"> </span><span class="kw">file.path</span>(MTG_dir,<span class="st">&quot;Homo_sapiens.GRCh37.70.processed.gtf&quot;</span>)
-genelength_fn =<span class="st"> </span><span class="kw">file.path</span>(MTG_dir,<span class="st">&quot;ExonicGeneLengths_GRCh37.RData&quot;</span>)
+deconvolution_dir =<span class="st"> &quot;~/scRNAseq_pipelines/psychENCODE/deconvolution&quot;</span>
+gencode_fn =<span class="st"> </span><span class="kw">file.path</span>(deconvolution_dir,<span class="st">&quot;Homo_sapiens.GRCh37.70.processed.gtf&quot;</span>)
+genelength_fn =<span class="st"> </span><span class="kw">file.path</span>(deconvolution_dir,<span class="st">&quot;ExonicGeneLengths_GRCh37.RData&quot;</span>)
 <span class="cf">if</span>( <span class="op">!</span><span class="kw">file.exists</span>(genelength_fn) ){
   exdb =<span class="st"> </span>GenomicFeatures<span class="op">::</span><span class="kw">makeTxDbFromGFF</span>(<span class="dt">file =</span> gencode_fn,
                                           <span class="dt">format=</span><span class="st">&quot;gtf&quot;</span>,<span class="dt">dataSource =</span> gtf_link)
@@ -368,7 +368,7 @@ genelength_fn =<span class="st"> </span><span class="kw">file.path</span>(MTG_di
 <span class="kw">load</span>(genelength_fn)
 <span class="kw">names</span>(exonic.gene.sizes) =<span class="st"> </span><span class="kw">sub</span>(<span class="st">&quot;</span><span class="ch">\\</span><span class="st">.[^.]*&quot;</span>, <span class="st">&quot;&quot;</span>, <span class="kw">names</span>(exonic.gene.sizes))</code></pre></div>
 <div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r"><span class="co"># obtain bulk TPM by parsing from counts</span>
-bulk_count =<span class="st"> </span><span class="kw">readRDS</span>(<span class="st">&quot;CMC_MSSM-Penn-Pitt_Paul_geneExpressionRaw.rds&quot;</span>)<span class="op">$</span>so1
+bulk_count =<span class="st"> </span><span class="kw">readRDS</span>(<span class="kw">file.path</span>(psychENCODE_dir, <span class="st">&quot;CMC_MSSM-Penn-Pitt_Paul_geneExpressionRaw.rds&quot;</span>))<span class="op">$</span>so1
 <span class="kw">dim</span>(bulk_count)</code></pre></div>
 <pre><code>## [1] 56632   613</code></pre>
 <div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r">bulk_count[<span class="dv">1</span><span class="op">:</span><span class="dv">5</span>,<span class="dv">1</span><span class="op">:</span><span class="dv">5</span>]</code></pre></div>
@@ -408,7 +408,7 @@ TPM[<span class="dv">1</span><span class="op">:</span><span class="dv">5</span>,
 ## ENSG00000000457         14.4801590          5.8619844
 ## ENSG00000000460          4.1435438          3.1313224</code></pre>
 <div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r"><span class="co"># read reference TPM by parsing single cell data (note that this is probably in hg38:)</span>
-tpm_signature_genes =<span class="st"> </span><span class="kw">readRDS</span>(<span class="kw">file.path</span>(psychENCODE_dir,<span class="st">&quot;tpm_signature_genes.rds&quot;</span>))
+tpm_signature_genes =<span class="st"> </span><span class="kw">readRDS</span>(<span class="kw">file.path</span>(deconvolution_dir,<span class="st">&quot;tpm_signature_genes.rds&quot;</span>))
 <span class="kw">table</span>(<span class="kw">rownames</span>(tpm_signature_genes) <span class="op">%in%</span><span class="st"> </span><span class="kw">rownames</span>(TPM))</code></pre></div>
 <pre><code>## 
 ## FALSE  TRUE 
@@ -450,8 +450,13 @@ bulk_subset[<span class="dv">1</span><span class="op">:</span><span class="dv">5
 <span class="kw">write.table</span>(<span class="kw">cbind</span>(<span class="dt">rowname=</span><span class="kw">rownames</span>(bulk_subset), bulk_subset), 
             <span class="st">&quot;mixture_brain_from_CMC.txt&quot;</span>,
             <span class="dt">sep=</span><span class="st">&quot;</span><span class="ch">\t</span><span class="st">&quot;</span>, <span class="dt">quote=</span><span class="ot">FALSE</span>, <span class="dt">row.names =</span> <span class="ot">FALSE</span>)
-<span class="co"># read the output generated from CIBERSORT website (no Quantile normalization, 1000 permutations)</span>
-cibersort_results =<span class="st"> </span><span class="kw">read.csv</span>(<span class="kw">file.path</span>(psychENCODE_dir,
+
+<span class="co"># Need to upload the files and run CIBERSORT</span>
+<span class="co"># (no Quantile normalization, 1000 permutations):</span>
+<span class="co"># https://cibersort.stanford.edu/runcibersort.php</span>
+
+<span class="co"># read the output generated from CIBERSORT website </span>
+cibersort_results =<span class="st"> </span><span class="kw">read.csv</span>(<span class="kw">file.path</span>(deconvolution_dir,
             <span class="st">&quot;CIBERSORT.Output_CMC_using_sig_genes_from_psychENCODE600_no_QN.csv&quot;</span>))
 prop_cibersort =<span class="st"> </span>cibersort_results[,<span class="dv">2</span><span class="op">:</span><span class="dv">7</span>]
 prop_cibersort[<span class="dv">1</span><span class="op">:</span><span class="dv">5</span>,<span class="dv">1</span><span class="op">:</span><span class="dv">5</span>]</code></pre></div>
@@ -467,7 +472,8 @@ prop_cibersort[<span class="dv">1</span><span class="op">:</span><span class="dv
 
 
 <span class="co"># run ICeDT</span>
-<span class="cf">if</span> (<span class="op">!</span><span class="kw">file.exists</span>(<span class="kw">file.path</span>(psychENCODE_dir,<span class="st">&quot;CMC_ICeDT_fitw0_genes_from_psychENCODE.rds&quot;</span>))) {
+icedt_file =<span class="st"> </span><span class="kw">file.path</span>(deconvolution_dir,<span class="st">&quot;CMC_ICeDT_fitw0_genes_from_psychENCODE.rds&quot;</span>)
+<span class="cf">if</span> (<span class="op">!</span><span class="kw">file.exists</span>(icedt_file)) {
   <span class="co"># takes 15min on my laptop.</span>
   <span class="kw">date</span>()
   fitw0 =<span class="st"> </span>ICeDT<span class="op">::</span><span class="kw">ICeDT</span>(<span class="dt">Y=</span>bulk_subset, <span class="dt">Z=</span>tpm_signature_genes, 
@@ -475,9 +481,9 @@ prop_cibersort[<span class="dv">1</span><span class="op">:</span><span class="dv
                        <span class="dt">rhoInit=</span><span class="ot">NULL</span>, <span class="dt">maxIter_prop =</span> <span class="dv">500</span>, <span class="dt">maxIter_PP =</span> <span class="dv">250</span>, 
                        <span class="dt">rhoConverge =</span> <span class="fl">1e-2</span>)
   <span class="kw">date</span>()
-  <span class="kw">saveRDS</span>(fitw0, <span class="dt">file =</span> <span class="kw">file.path</span>(psychENCODE_dir,<span class="st">&quot;CMC_ICeDT_fitw0_genes_from_psychENCODE.rds&quot;</span>))
+  <span class="kw">saveRDS</span>(fitw0, <span class="dt">file =</span> icedt_file)
 }
-fitw0 =<span class="st"> </span><span class="kw">readRDS</span>(<span class="kw">file.path</span>(psychENCODE_dir,<span class="st">&quot;CMC_ICeDT_fitw0_genes_from_psychENCODE.rds&quot;</span>))
+fitw0 =<span class="st"> </span><span class="kw">readRDS</span>(icedt_file)
 
 <span class="co"># plot ICeDT</span>
 prop_icedt =<span class="st"> </span><span class="kw">t</span>(fitw0<span class="op">$</span>rho)[,<span class="op">-</span><span class="dv">1</span>]
