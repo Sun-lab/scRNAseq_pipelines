@@ -1,7 +1,5 @@
 
-setwd("~/research/GitHub/scRNAseq_pipelines/MTG")
-
-genes = readRDS("DE_gene_anno.rds")
+genes = readRDS("../MTG/DE_gene_anno.rds")
 dim(genes)
 genes[1:2,]
 
