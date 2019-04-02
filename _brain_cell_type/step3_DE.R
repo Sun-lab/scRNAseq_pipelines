@@ -390,7 +390,7 @@ rds = readRDS("signature.rds")
 gene_anno = rds$anno
 sig_cts = rds$sig_cts
 rm(rds)
-  
+
 # Get gene intersection, subset bulk and sig_cts, matching gene order
 smart_table(rownames(bulk) %in% gene_anno$ensembl_gene_id)
 inter_genes = intersect(rownames(bulk),gene_anno$ensembl_gene_id)
@@ -414,12 +414,14 @@ if( !(pack %in% installed.packages()[,"Package"]) ){
 	devtools::install_github("Sun-lab/ICeDT")
 }
 icedt_fn = "icedt.rds"
+date()
 if( !file.exists(icedt_fn) ){
 	fitw0 = ICeDT::ICeDT(Y = bulk,Z = sig_cts,tumorPurity = rep(0,ncol(bulk)),
 		refVar = NULL,rhoInit = NULL,maxIter_prop = 500,maxIter_PP = 250,
 		rhoConverge = 1e-2)
 	saveRDS(fitw0,icedt_fn)
 }
+date()
 fitw0 = readRDS(icedt_fn)
 p1 = fitw0$cProb
 prop_icedt = t(fitw0$rho)[,-1]
@@ -430,7 +432,7 @@ q90 <- function(v){
 	qs = quantile(v, probs=c(0.10, 0.90))
 	qs[2] - qs[1]
 }
-  
+
 pdf("probConsistent_GeneSet.pdf",width=9,height=4)
 
 par(mar=c(5,4,1,1),bty="n",mfrow=c(1,3),cex=0.8)
@@ -499,6 +501,8 @@ for(ct in cell_types){
 		col=rgb(0,0,0,0.25),xlim=tmp_range,ylim=tmp_range,main=ct)
 	abline(a=0,b=1,lty=2,col="blue",lwd=2)
 }
+
+saveRDS(list(ICeDT = prop_icedt,CIBERSORT = prop_cib),"prop.rds")
 
 dev.off()
 
