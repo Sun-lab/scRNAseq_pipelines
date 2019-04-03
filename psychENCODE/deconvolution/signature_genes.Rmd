@@ -2,8 +2,6 @@
 title: "Identifying signature genes: psychENCODE Dataset"
 author: "Chong Jin, Paul Little"
 date: "`r Sys.Date()`"
-bibliography: [psychENCODE.bib]
-biblio-style: apalike
 output: 
   html_document:
     theme: journal
@@ -18,7 +16,7 @@ output:
 
 This file constructs the the reference matrix "tpm_signature_genes.rds" using psychENCODE single cell data.
 
-# Introduction
+# Cells with high confidence cell type calls
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE, cache=TRUE, cache.lazy=FALSE, autodep=TRUE)
@@ -36,7 +34,7 @@ for(pack1 in bio_packs){
   }
 }
 
-cran_packs = c("data.table","svd","Rtsne","stringi","irlba")
+cran_packs = c("data.table","svd","Rtsne","stringi","irlba","venn")
 for(pack1 in cran_packs){
   if( !pack1 %in% installed.packages()[,"Package"]){
     install.packages(pack1)
@@ -51,6 +49,7 @@ library(SingleCellExperiment)
 # library(scran)
 library(limma)
 library(ggplot2)
+library(venn)
 ```
 
 First we add cell type labels by collapsing together the related cell types identified by the authors.
@@ -126,6 +125,8 @@ dim(sce)
 sce = sce[,w2kp]
 dim(sce)
 ```
+
+# Differential expression using MAST
 
 Finally we use `MAST` to select differentially expressed genes using code provided by Paul Little.
 
@@ -279,11 +280,13 @@ if (FALSE) {
 }
 ```
 
-The following section is an old version dealing with filtered `ssd_*.rds` files. 
+# Select signature genes
 
-**Do not use it.**
+<!-- The following section is an old version dealing with filtered `ssd_*.rds` files. 
 
-```{r postprocessing, eval=FALSE}
+     **Do not use it.**  -->
+
+```{r postprocessing, eval=FALSE, echo=FALSE}
 # ----------
 # VennDiagram and getting/annotating marker genes
 # ----------
@@ -395,7 +398,7 @@ printIntersect(cts_genes$Oligo, cts_genes_MTG$Oligo)
 printIntersect(cts_genes$OPC, cts_genes_MTG$OPC)
 ```
 
-This is the new version which gives the logFC for every gene that we use now.
+The following code chuck is the new version which gives the logFC for every gene that we use now.
 
 ```{r postprocessing_new}
 
@@ -456,6 +459,13 @@ for(ct in cell_types){
       gene_anno[which(gene_anno[paste0("FDR_qvalue.", ct)] < fdr_thres 
 	 			      	      & gene_anno[paste0("logFC.", ct)] > logFC_thres),]
 }
+
+# Venn plot
+pdf(file.path(psychENCODE_dir,"venn.pdf"),width=8,height=8)
+venn(x = sapply(gene_anno_by_cell_type, function(x) x$ensembl_gene_id),
+     ilabels = TRUE,zcolor = "style")
+dev.off()
+
 # remove genes that appear in more than one cell type:
 gene_anno_by_cell_type_dedup = list()
 gene_appearance_counts = table(do.call(rbind, gene_anno_by_cell_type)$ensembl_gene_id)
@@ -475,6 +485,8 @@ for(ct in cell_types){
 }
 saveRDS(ct_anno, file.path(psychENCODE_dir,"DE_ct_anno.rds"))
 ```
+
+# Obtain TPM of signature genes
 
 ```{r tpm_ref}
 # calculate total read count and then TPM for every cell type:

@@ -11,7 +11,7 @@
 
 <meta name="author" content="Chong Jin, Paul Little" />
 
-<meta name="date" content="2019-03-07" />
+<meta name="date" content="2019-04-03" />
 
 <title>Identifying signature genes: psychENCODE Dataset</title>
 
@@ -122,9 +122,7 @@ h6 {
 </style>
 
 
-</head>
 
-<body>
 
 <style type="text/css">
 .main-container {
@@ -155,8 +153,6 @@ summary {
 </style>
 
 
-
-<div class="container-fluid main-container">
 
 <!-- tabsets -->
 
@@ -315,6 +311,16 @@ div.tocify {
 
 </style>
 
+
+
+</head>
+
+<body>
+
+
+<div class="container-fluid main-container">
+
+
 <!-- setup 3col/9col grid for toc_float and main content  -->
 <div class="row-fluid">
 <div class="col-xs-12 col-sm-4 col-md-3">
@@ -332,15 +338,16 @@ div.tocify {
 
 
 <h1 class="title toc-ignore">Identifying signature genes: psychENCODE Dataset</h1>
-<h4 class="author"><em>Chong Jin, Paul Little</em></h4>
-<h4 class="date"><em>2019-03-07</em></h4>
+<h4 class="author">Chong Jin, Paul Little</h4>
+<h4 class="date">2019-04-03</h4>
 
 </div>
 
 
-<div id="introduction" class="section level1">
-<h1><span class="header-section-number">1</span> Introduction</h1>
-<p>We extract the signature genes from the adult single nucleus RNA-seq data produced by <span class="citation">(Wang et al. 2018)</span>, including adult using single-nucleus droplet-based sequencing (snDrop-seq) from PFC <span class="citation">(Lake et al. 2018)</span>.</p>
+<p>This file constructs the the reference matrix “tpm_signature_genes.rds” using psychENCODE single cell data.</p>
+<div id="cells-with-high-confidence-cell-type-calls" class="section level1">
+<h1><span class="header-section-number">1</span> Cells with high confidence cell type calls</h1>
+<p>We extract the signature genes from the adult single nucleus RNA-seq data produced by <span class="citation">[@wang_comprehensive_2018]</span>, including adult using single-nucleus droplet-based sequencing (snDrop-seq) from PFC <span class="citation">[@lake_integrative_2018]</span>.</p>
 <div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r">bio_packs =<span class="st"> </span><span class="kw">c</span>(<span class="st">&quot;SingleCellExperiment&quot;</span>,<span class="st">&quot;DropletUtils&quot;</span>,<span class="st">&quot;biomaRt&quot;</span>,
               <span class="st">&quot;scater&quot;</span>,<span class="st">&quot;scran&quot;</span>,<span class="st">&quot;limma&quot;</span>,<span class="st">&quot;org.Hs.eg.db&quot;</span>)
 <span class="kw">source</span>(<span class="st">&quot;https://bioconductor.org/biocLite.R&quot;</span>)
@@ -350,7 +357,7 @@ div.tocify {
   }
 }
 
-cran_packs =<span class="st"> </span><span class="kw">c</span>(<span class="st">&quot;data.table&quot;</span>,<span class="st">&quot;svd&quot;</span>,<span class="st">&quot;Rtsne&quot;</span>,<span class="st">&quot;stringi&quot;</span>,<span class="st">&quot;irlba&quot;</span>)
+cran_packs =<span class="st"> </span><span class="kw">c</span>(<span class="st">&quot;data.table&quot;</span>,<span class="st">&quot;svd&quot;</span>,<span class="st">&quot;Rtsne&quot;</span>,<span class="st">&quot;stringi&quot;</span>,<span class="st">&quot;irlba&quot;</span>,<span class="st">&quot;venn&quot;</span>)
 <span class="cf">for</span>(pack1 <span class="cf">in</span> cran_packs){
   <span class="cf">if</span>( <span class="op">!</span>pack1 <span class="op">%in%</span><span class="st"> </span><span class="kw">installed.packages</span>()[,<span class="st">&quot;Package&quot;</span>]){
     <span class="kw">install.packages</span>(pack1)
@@ -364,18 +371,25 @@ cran_packs =<span class="st"> </span><span class="kw">c</span>(<span class="st">
 <span class="co"># library(scater)</span>
 <span class="co"># library(scran)</span>
 <span class="kw">library</span>(limma)
-<span class="kw">library</span>(ggplot2)</code></pre></div>
+<span class="kw">library</span>(ggplot2)
+<span class="kw">library</span>(venn)</code></pre></div>
 <p>First we add cell type labels by collapsing together the related cell types identified by the authors.</p>
 <div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r">work_dir =<span class="st"> </span>psychENCODE_dir =<span class="st"> &quot;~/psychENCODE_data&quot;</span>
-sce =<span class="st"> </span><span class="kw">readRDS</span>(<span class="kw">file.path</span>(psychENCODE_dir,<span class="st">&quot;sce.rds&quot;</span>))</code></pre></div>
+sce =<span class="st"> </span><span class="kw">readRDS</span>(<span class="kw">file.path</span>(psychENCODE_dir,<span class="st">&quot;sce.rds&quot;</span>))
+<span class="cf">if</span> (<span class="ot">FALSE</span>) {
+  <span class="kw">tpm</span>(sce) =<span class="st"> </span><span class="kw">counts</span>(sce)<span class="op">/</span><span class="kw">rowData</span>(sce)<span class="op">$</span>gene_length
+  <span class="kw">tpm</span>(sce) =<span class="st"> </span>(<span class="fl">1e6</span>)<span class="op">*</span><span class="kw">t</span>(<span class="kw">t</span>(<span class="kw">tpm</span>(sce))<span class="op">/</span><span class="kw">colSums</span>(<span class="kw">tpm</span>(sce)))
+  <span class="kw">logcounts</span>(sce) =<span class="st"> </span><span class="kw">log2</span>(<span class="dv">1</span> <span class="op">+</span><span class="st"> </span><span class="kw">tpm</span>(sce))
+}
+num_genes =<span class="st"> </span><span class="kw">nrow</span>(sce)</code></pre></div>
 <div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r"><span class="kw">table</span>(<span class="kw">colData</span>(sce)<span class="op">$</span>part_cell_id)</code></pre></div>
 <pre><code>## 
 ##     Astro      Endo       Ex1       Ex2      Ex3e       Ex4      Ex5b 
 ##      2801       139      5035      1427       587      1564      2644 
 ##      Ex6a      Ex6b       Ex8       Ex9      In1a      In1b      In1c 
-##       318      1418       288       124       180       322       612 
+##       318      1418       288       125       180       322       612 
 ##       In3      In4a      In4b      In6a      In6b       In7       In8 
-##       595       245       611       272      1425       282      1306 
+##       596       245       611       272      1425       282      1306 
 ## Microglia     Oligo       OPC       Per 
 ##       300      2609      1240        39</code></pre>
 <div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r"><span class="kw">colData</span>(sce)<span class="op">$</span>cell_type =<span class="st"> </span><span class="kw">colData</span>(sce)<span class="op">$</span>part_cell_id
@@ -389,24 +403,24 @@ sce =<span class="st"> </span><span class="kw">readRDS</span>(<span class="kw">f
 <span class="kw">table</span>(<span class="kw">colData</span>(sce)<span class="op">$</span>cell_type)</code></pre></div>
 <pre><code>## 
 ## Astro  Endo   Exc   Inh Micro Oligo   OPC   Per 
-##  2801   139 13405  5850   300  2609  1240    39</code></pre>
+##  2801   139 13406  5851   300  2609  1240    39</code></pre>
 <p>We then select the subset of cells that are clusted with the cells of the same type.</p>
 <div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r">clusters    =<span class="st">  </span><span class="kw">readRDS</span>(<span class="kw">file.path</span>(psychENCODE_dir, <span class="st">&quot;k25_50_pcs.rds&quot;</span>))
 
 <span class="kw">dim</span>(sce)</code></pre></div>
-<pre><code>## [1] 13389 26414</code></pre>
+<pre><code>## [1] 13376 26416</code></pre>
 <div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r"><span class="kw">dim</span>(<span class="kw">colData</span>(sce))</code></pre></div>
-<pre><code>## [1] 26414    39</code></pre>
+<pre><code>## [1] 26416    39</code></pre>
 <div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r"><span class="kw">colData</span>(sce)[<span class="dv">1</span><span class="op">:</span><span class="dv">2</span>,<span class="dv">1</span><span class="op">:</span><span class="dv">5</span>]</code></pre></div>
 <pre><code>## DataFrame with 2 rows and 5 columns
 ##      sample_name part_cell_id is_cell_control total_features_by_counts
 ##      &lt;character&gt;  &lt;character&gt;       &lt;logical&gt;                &lt;integer&gt;
-## Ex3e        Ex3e         Ex3e           FALSE                     4243
-## Ex2          Ex2          Ex2           FALSE                     2882
+## Ex3e        Ex3e         Ex3e           FALSE                     4239
+## Ex2          Ex2          Ex2           FALSE                     2881
 ##      log10_total_features_by_counts
 ##                           &lt;numeric&gt;
-## Ex3e                3.6277753752293
-## Ex2                3.45984464238821</code></pre>
+## Ex3e               3.62736585659273
+## Ex2                3.45969397647797</code></pre>
 <div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r"><span class="kw">names</span>(<span class="kw">colData</span>(sce))</code></pre></div>
 <pre><code>##  [1] &quot;sample_name&quot;                                   
 ##  [2] &quot;part_cell_id&quot;                                  
@@ -450,9 +464,9 @@ sce =<span class="st"> </span><span class="kw">readRDS</span>(<span class="kw">f
 <div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r"><span class="kw">table</span>(<span class="kw">colData</span>(sce)<span class="op">$</span>donor)</code></pre></div>
 <pre><code>## &lt; table of extent 0 &gt;</code></pre>
 <div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r"><span class="kw">dim</span>(<span class="kw">rowData</span>(sce))</code></pre></div>
-<pre><code>## [1] 13389    18</code></pre>
+<pre><code>## [1] 13376    19</code></pre>
 <div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r"><span class="kw">rowData</span>(sce)[<span class="dv">1</span><span class="op">:</span><span class="dv">2</span>,]</code></pre></div>
-<pre><code>## DataFrame with 2 rows and 18 columns
+<pre><code>## DataFrame with 2 rows and 19 columns
 ##       hgnc_symbol ensembl_gene_id external_gene_name chromosome_name
 ##       &lt;character&gt;     &lt;character&gt;        &lt;character&gt;     &lt;character&gt;
 ## ABCA7       ABCA7 ENSG00000064687              ABCA7              19
@@ -465,22 +479,22 @@ sce =<span class="st"> </span><span class="kw">readRDS</span>(<span class="kw">f
 ##                                                                                &lt;character&gt;
 ## ABCA7           ATP binding cassette subfamily A member 7 [Source:HGNC Symbol;Acc:HGNC:37]
 ## AAMDC adipogenesis associated Mth938 domain containing [Source:HGNC Symbol;Acc:HGNC:30205]
-##       percentage_gene_gc_content   gene_biotype is_feature_control
-##                        &lt;numeric&gt;    &lt;character&gt;          &lt;logical&gt;
-## ABCA7                      60.49 protein_coding              FALSE
-## AAMDC                      41.82 protein_coding              FALSE
-##       is_feature_control_Ri        mean_counts  log10_mean_counts
-##                   &lt;logical&gt;          &lt;numeric&gt;          &lt;numeric&gt;
-## ABCA7                 FALSE 0.0698599153655333 0.0293269160342217
-## AAMDC                 FALSE   0.12498175981322 0.0511454809569934
-##       n_cells_by_counts pct_dropout_by_counts total_counts
-##               &lt;integer&gt;             &lt;numeric&gt;    &lt;integer&gt;
-## ABCA7              1752      93.6086385524588         1915
-## AAMDC              3005      89.0376477455129         3426
-##       log10_total_counts
-##                &lt;numeric&gt;
-## ABCA7   3.28239550474253
-## AAMDC   3.53491410442987</code></pre>
+##       percentage_gene_gc_content   gene_biotype gene_length
+##                        &lt;numeric&gt;    &lt;character&gt;   &lt;integer&gt;
+## ABCA7                      60.49 protein_coding        8367
+## AAMDC                      41.82 protein_coding        1943
+##       is_feature_control is_feature_control_Ri        mean_counts
+##                &lt;logical&gt;             &lt;logical&gt;          &lt;numeric&gt;
+## ABCA7              FALSE                 FALSE 0.0698599153655333
+## AAMDC              FALSE                 FALSE   0.12498175981322
+##        log10_mean_counts n_cells_by_counts pct_dropout_by_counts
+##                &lt;numeric&gt;         &lt;integer&gt;             &lt;numeric&gt;
+## ABCA7 0.0293269160342217              1752      93.6086385524588
+## AAMDC 0.0511454809569934              3005      89.0376477455129
+##       total_counts log10_total_counts
+##          &lt;integer&gt;          &lt;numeric&gt;
+## ABCA7         1915   3.28239550474253
+## AAMDC         3426   3.53491410442987</code></pre>
 <div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r">clusters =<span class="st"> </span><span class="kw">data.frame</span>(<span class="dt">KM25=</span>clusters<span class="op">$</span>cluster)
 clusters<span class="op">$</span>cell_type =<span class="st"> </span><span class="kw">colData</span>(sce)<span class="op">$</span>cell_type
 
@@ -489,62 +503,65 @@ t1 =<span class="st"> </span><span class="kw">table</span>(clusters[,opt_clust],
 t1</code></pre></div>
 <pre><code>##     
 ##      Astro Endo  Exc  Inh Micro Oligo  OPC  Per
-##   1      1    1   17  908     0     1    0    0
-##   2    606    4    5    0    10     0    0    0
-##   3     10    0    0    0     1     0 1050    0
-##   4      3    1    1 1505     1     2    1    0
-##   5      1   12 2513   24    21     2   24    0
-##   6      6    0 1667   26    11    10    4    0
-##   7      9    2  448    7    11    73    6    0
-##   8    905    6    1    0    11     0    0    0
-##   9      0    0    0  696     0     0    0    0
-##   10     2    5 1075    2     0     2    5    0
-##   11     4    1   20 1307     2     2    5    0
-##   12   272    3    0    0     2     0    0    0
-##   13     4    0    3  605     0     0    1    0
-##   14     8    4    5    9    22  1690   21    2
-##   15    45   17 1346  353    30    56   38    8
-##   16   636    0    3    0     2     0    1    1
-##   17     1    9    0    3    28   736   19    0
-##   18     0    8 1604   16     8     2   19    0
-##   19     0    1 1060    8     3     4   13    0
-##   20     4    5 1468    8     4     4    9    1
-##   21   272    0    1    0     4     3    0    0
-##   22     0    0  262    1     0     0    1    0
-##   23     8   13  724  359    15    19   15    8
-##   24     2   43    0    0   112     0    1   19
-##   25     2    4 1182   13     2     3    7    0</code></pre>
-<div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r">clusts =<span class="st"> </span><span class="kw">apply</span>(t1, <span class="dv">2</span>, <span class="cf">function</span>(v){<span class="kw">union</span>(<span class="kw">which.max</span>(v), <span class="kw">which</span>(v <span class="op">&gt;</span><span class="st"> </span><span class="dv">100</span>))})
+##   1      7    2 1116   18     5    10    2    1
+##   2      0    8 1478   17     7     1   17    0
+##   3      3    1   17 1157     0     1    1    0
+##   4      2    0    3  246     0     0    0    0
+##   5      0   13 2373   23    20     1   23    0
+##   6     23   12    0    3    32   749   25    0
+##   7      2    5 1040    2     0     2    5    0
+##   8      3    1  767    7     3     9   10    0
+##   9    301    3    0    0     4     0    0    0
+##   10     2    7 1893   13     5     0   10    0
+##   11     4    0 1388   19     9     6    3    1
+##   12     0    1 1010    7     3     4   12    0
+##   13    16   41  110  487   115    13   26   25
+##   14     9    2  225    5     9    70    4    0
+##   15     1    1    0  588     0     1    0    0
+##   16   957    3    1    0     9     0    0    0
+##   17    10    0    0    0     2     0 1046    0
+##   18   631    0    2    0     3     0    1    1
+##   19    23    6    5    7    29  1676   18    2
+##   20     0    0  264    1     0     0    1    0
+##   21   758    7    4    0    14     0    0    0
+##   22    45   25 1689  344    31    64   31    9
+##   23     1    0    1 1077     0     1    0    0
+##   24     0    0    0  534     0     0    0    0
+##   25     3    1   20 1296     0     1    5    0</code></pre>
+<div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r"><span class="co"># remove cluster 15 &amp; 23 since they belong to multiple clusters</span>
+t1[<span class="kw">c</span>(<span class="dv">15</span>,<span class="dv">23</span>), ] =<span class="st"> </span><span class="dv">0</span>
+
+clusts =<span class="st"> </span><span class="kw">apply</span>(t1, <span class="dv">2</span>, <span class="cf">function</span>(v){<span class="kw">union</span>(<span class="kw">which.max</span>(v), <span class="kw">which</span>(v <span class="op">&gt;</span><span class="st"> </span><span class="dv">100</span>))})
 clusts</code></pre></div>
 <pre><code>## $Astro
-## [1]  8  2 12 16 21
+## [1] 16  9 18 21
 ## 
 ## $Endo
-## [1] 24
+## [1] 13
 ## 
 ## $Exc
-##  [1]  5  6  7 10 15 18 19 20 22 23 25
+##  [1]  5  1  2  7  8 10 11 12 13 14 20 22
 ## 
 ## $Inh
-## [1]  4  1  9 11 13 15 23
+## [1] 25  3  4 13 22 24
 ## 
 ## $Micro
-## [1] 24
+## [1] 13
 ## 
 ## $Oligo
-## [1] 14 17
+## [1] 19  6
 ## 
 ## $OPC
-## [1] 3
+## [1] 17
 ## 
 ## $Per
-## [1] 24</code></pre>
-<div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r">celltypes =<span class="st"> </span><span class="kw">setdiff</span>(<span class="kw">unique</span>(clusters<span class="op">$</span>cell_type), <span class="st">&quot;unknown&quot;</span>)
-celltypes</code></pre></div>
+## [1] 13</code></pre>
+<div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r">cell_types =<span class="st"> </span><span class="kw">setdiff</span>(<span class="kw">unique</span>(clusters<span class="op">$</span>cell_type), <span class="st">&quot;unknown&quot;</span>)
+cell_types</code></pre></div>
 <pre><code>## [1] &quot;Exc&quot;   &quot;Inh&quot;   &quot;Oligo&quot; &quot;Astro&quot; &quot;OPC&quot;   &quot;Endo&quot;  &quot;Micro&quot; NA      &quot;Per&quot;</code></pre>
 <div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r">w2kp =<span class="st"> </span><span class="ot">NULL</span>
 
-<span class="cf">for</span>(ct1 <span class="cf">in</span> celltypes){
+<span class="cf">for</span>(ct1 <span class="cf">in</span> cell_types){
     <span class="co"># ct1 = celltypes[1]</span>
     ct.cond    =<span class="st"> </span>clusters<span class="op">$</span>cell_type <span class="op">==</span><span class="st"> </span>ct1
     clust.cond =<span class="st"> </span>clusters[,opt_clust] <span class="op">%in%</span><span class="st"> </span>clusts[[ct1]]
@@ -552,12 +569,15 @@ celltypes</code></pre></div>
     w2kp =<span class="st"> </span><span class="kw">c</span>(w2kp, <span class="kw">which</span>(ct.cond <span class="op">&amp;</span><span class="st"> </span>clust.cond))
 }
 <span class="kw">length</span>(w2kp)</code></pre></div>
-<pre><code>## [1] 25423</code></pre>
+<pre><code>## [1] 23716</code></pre>
 <div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r"><span class="kw">dim</span>(sce)</code></pre></div>
-<pre><code>## [1] 13389 26414</code></pre>
+<pre><code>## [1] 13376 26416</code></pre>
 <div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r">sce =<span class="st"> </span>sce[,w2kp]
 <span class="kw">dim</span>(sce)</code></pre></div>
-<pre><code>## [1] 13389 25423</code></pre>
+<pre><code>## [1] 13376 23716</code></pre>
+</div>
+<div id="differential-expression-using-mast" class="section level1">
+<h1><span class="header-section-number">2</span> Differential expression using MAST</h1>
 <p>Finally we use <code>MAST</code> to select differentially expressed genes using code provided by Paul Little.</p>
 <div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r"><span class="co"># source(file.path(repo_dir,&quot;SOURCE.R&quot;))</span>
 <span class="cf">if</span>( <span class="op">!</span>(<span class="st">&quot;BiocManager&quot;</span> <span class="op">%in%</span><span class="st"> </span><span class="kw">installed.packages</span>()[,<span class="st">&quot;Package&quot;</span>]) ){
@@ -596,7 +616,7 @@ MAST_DEgenes =<span class="st"> </span><span class="cf">function</span>(work_dir
     sca =<span class="st"> </span>MAST<span class="op">::</span><span class="kw">SceToSingleCellAssay</span>(<span class="dt">sce =</span> sce_obj[<span class="kw">seq</span>(num_genes),])
 
     <span class="co"># Calculate CDS</span>
-    <span class="kw">colData</span>(sca)<span class="op">$</span>cngeneson =<span class="st"> </span><span class="kw">scale</span>(<span class="kw">colSums</span>(<span class="kw">assay</span>(sca) <span class="op">&gt;</span><span class="st"> </span><span class="dv">0</span>))
+    <span class="kw">colData</span>(sca)<span class="op">$</span>cngeneson =<span class="st"> </span><span class="kw">scale</span>(<span class="kw">colSums</span>(<span class="kw">logcounts</span>(sca) <span class="op">&gt;</span><span class="st"> </span><span class="dv">0</span>))
 
     <span class="co"># Calculate Group</span>
     <span class="co"># one_cell_type = &quot;Astro&quot;</span>
@@ -629,6 +649,13 @@ MAST_DEgenes =<span class="st"> </span><span class="cf">function</span>(work_dir
     ssc =<span class="st"> </span>MAST<span class="op">::</span><span class="kw">summary</span>(<span class="dt">object =</span> zlm_output,
         <span class="dt">doLRT =</span> <span class="kw">paste0</span>(<span class="st">&quot;Group&quot;</span>,one_cell_type))
     <span class="kw">print</span>(<span class="kw">date</span>())
+    
+    ssc_fn =<span class="st"> </span><span class="kw">file.path</span>(work_dir,<span class="kw">paste0</span>(<span class="st">&quot;ssc&quot;</span>,
+        <span class="st">&quot;_nG&quot;</span>,num_genes,
+        <span class="st">&quot;_cell&quot;</span>,one_cell_type,
+        <span class="st">&quot;.rds&quot;</span>))
+    <span class="kw">saveRDS</span>(ssc, ssc_fn)
+    
     ssd0 =<span class="st"> </span><span class="kw">data.frame</span>(ssc<span class="op">$</span>datatable, <span class="dt">stringsAsFactors =</span> <span class="ot">FALSE</span>)
     ssd =<span class="st"> </span>ssd0[<span class="kw">which</span>(ssd0<span class="op">$</span>component <span class="op">==</span><span class="st"> &quot;H&quot;</span>),]
     ssd =<span class="st"> </span><span class="kw">name_change</span>(ssd,<span class="st">&quot;Pr..Chisq.&quot;</span>,<span class="st">&quot;pvalue&quot;</span>)
@@ -646,8 +673,11 @@ MAST_DEgenes =<span class="st"> </span><span class="cf">function</span>(work_dir
     <span class="co"># smart_hist(ssd$logFC,breaks=40)</span>
     <span class="co"># plot(ssd[,c(&quot;FDR_qvalue&quot;,&quot;logFC&quot;)],pch=16,col=rgb(0,0,0,0.5))</span>
     <span class="co"># dev.off()</span>
-    ssd =<span class="st"> </span>ssd[<span class="kw">which</span>(ssd<span class="op">$</span>FDR_qvalue <span class="op">&lt;</span><span class="st"> </span>fdr_thres 
-                    <span class="op">&amp;</span><span class="st"> </span>ssd<span class="op">$</span>logFC <span class="op">&gt;</span><span class="st"> </span>logFC_thres),]
+    
+    <span class="co"># filtering before generating ssd files -- do not use now</span>
+    <span class="co"># ssd = ssd[which(ssd$FDR_qvalue &lt; fdr_thres </span>
+    <span class="co">#               &amp; ssd$logFC &gt; logFC_thres),]</span>
+    
     <span class="co"># dim(ssd); smart_table(ssd$logFC &gt; 0); ssd[1:20,]</span>
     ssd =<span class="st"> </span><span class="kw">data.frame</span>(<span class="dt">cell_type=</span>one_cell_type,ssd,<span class="dt">stringsAsFactors =</span> <span class="ot">FALSE</span>)
     
@@ -664,14 +694,14 @@ MAST_DEgenes =<span class="st"> </span><span class="cf">function</span>(work_dir
 <span class="kw">table</span>(<span class="kw">colData</span>(sce)<span class="op">$</span>cell_type, <span class="dt">useNA=</span><span class="st">&quot;ifany&quot;</span>)</code></pre></div>
 <pre><code>## 
 ## Astro  Endo   Exc   Inh Micro Oligo   OPC   Per 
-##  2691    43 13349  5733   112  2426  1050    19</code></pre>
-<div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r">sce =<span class="st"> </span>sce[,<span class="kw">colData</span>(sce)<span class="op">$</span>cell_type <span class="op">!=</span><span class="st"> &quot;Endo&quot;</span>]
+##  2647    41 13353  4064   115  2425  1046    25</code></pre>
+<div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r">sce =<span class="st"> </span>sce[, <span class="op">!</span>(<span class="kw">colData</span>(sce)<span class="op">$</span>cell_type <span class="op">%in%</span><span class="st"> </span><span class="kw">c</span>(<span class="st">&quot;Endo&quot;</span>, <span class="st">&quot;Per&quot;</span>))]
 <span class="kw">table</span>(<span class="kw">colData</span>(sce)<span class="op">$</span>cell_type, <span class="dt">useNA=</span><span class="st">&quot;ifany&quot;</span>)</code></pre></div>
 <pre><code>## 
-## Astro   Exc   Inh Micro Oligo   OPC   Per 
-##  2691 13349  5733   112  2426  1050    19</code></pre>
+## Astro   Exc   Inh Micro Oligo   OPC 
+##  2647 13353  4064   115  2425  1046</code></pre>
 <div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r"><span class="kw">dim</span>(sce)</code></pre></div>
-<pre><code>## [1] 13389 25380</code></pre>
+<pre><code>## [1] 13376 23650</code></pre>
 <div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r"><span class="co"># Get cell type specific marker genes</span>
 <span class="co"># one_ct = &quot;blah_one_ct&quot;</span>
 cts =<span class="st"> </span><span class="kw">c</span>(<span class="st">&quot;Astro&quot;</span>, <span class="st">&quot;Exc&quot;</span>, <span class="st">&quot;Inh&quot;</span>, <span class="st">&quot;Micro&quot;</span>, <span class="st">&quot;Oligo&quot;</span>, <span class="st">&quot;OPC&quot;</span>)
@@ -696,280 +726,186 @@ cts =<span class="st"> </span><span class="kw">c</span>(<span class="st">&quot;A
     <span class="kw">gc</span>()
   }
 }</code></pre></div>
-<div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r"><span class="co"># ----------</span>
-<span class="co"># VennDiagram and getting/annotating marker genes</span>
-<span class="co"># ----------</span>
-<span class="kw">source</span>(<span class="st">&quot;~/scRNAseq_pipelines/SOURCE.R&quot;</span>)
+</div>
+<div id="select-signature-genes" class="section level1">
+<h1><span class="header-section-number">3</span> Select signature genes</h1>
+<!-- The following section is an old version dealing with filtered `ssd_*.rds` files. 
 
+     **Do not use it.**  -->
+<p>The following code chuck is the new version which gives the logFC for every gene that we use now.</p>
+<div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r"><span class="kw">source</span>(<span class="st">&quot;~/scRNAseq_pipelines/SOURCE.R&quot;</span>)
+
+gene_anno =<span class="st"> </span><span class="kw">as.data.frame</span>(<span class="kw">rowData</span>(sce)[, 
+    <span class="kw">c</span>(<span class="st">&quot;ensembl_gene_id&quot;</span>,<span class="st">&quot;external_gene_name&quot;</span>,<span class="st">&quot;chromosome_name&quot;</span>,<span class="st">&quot;start_position&quot;</span>,<span class="st">&quot;end_position&quot;</span>)])
+gene_anno =<span class="st"> </span>dplyr<span class="op">::</span><span class="kw">rename</span>(gene_anno, <span class="dt">gene=</span>external_gene_name)  
+gene_anno<span class="op">$</span>prop_express =<span class="st"> </span><span class="kw">as.numeric</span>(<span class="kw">apply</span>(<span class="kw">assay</span>(sce),<span class="dv">1</span>,<span class="cf">function</span>(xx) <span class="kw">mean</span>(xx <span class="op">&gt;</span><span class="st"> </span><span class="dv">0</span>)))
+
+<span class="co"># For each cell type, gather logFC, qvalues, prop cells expressed in genes</span>
 cell_types =<span class="st"> </span><span class="kw">c</span>(<span class="st">&quot;Astro&quot;</span>,<span class="st">&quot;Exc&quot;</span>,<span class="st">&quot;Inh&quot;</span>,<span class="st">&quot;Micro&quot;</span>,<span class="st">&quot;Oligo&quot;</span>,<span class="st">&quot;OPC&quot;</span>)
-
-ct_genes =<span class="st"> </span><span class="kw">list</span>()
 <span class="cf">for</span>(ct <span class="cf">in</span> cell_types){
-    ct_genes[[ct]] =<span class="st"> </span><span class="kw">readRDS</span>(<span class="kw">file.path</span>(psychENCODE_dir,<span class="st">&quot;fdr1e-2&quot;</span>,<span class="kw">paste0</span>(<span class="st">&quot;ssd_nG13389_cell&quot;</span>,ct,<span class="st">&quot;.rds&quot;</span>)))<span class="op">$</span>gene
+    <span class="co"># ct = &quot;Astro&quot;</span>
+    <span class="kw">cat</span>(<span class="kw">paste0</span>(ct,<span class="st">&quot; &quot;</span>))
+    tmp_df =<span class="st"> </span><span class="kw">readRDS</span>(<span class="kw">file.path</span>(psychENCODE_dir,<span class="kw">paste0</span>(<span class="st">&quot;ssd_nG&quot;</span>,num_genes,<span class="st">&quot;_cell&quot;</span>,ct,<span class="st">&quot;.rds&quot;</span>)))
+    tmp_df =<span class="st"> </span>tmp_df[,<span class="kw">c</span>(<span class="st">&quot;gene&quot;</span>,<span class="st">&quot;pvalue&quot;</span>,<span class="st">&quot;logFC&quot;</span>,<span class="st">&quot;FDR_qvalue&quot;</span>)]
+    <span class="kw">names</span>(tmp_df)[<span class="op">-</span><span class="dv">1</span>] =<span class="st"> </span><span class="kw">paste0</span>(<span class="kw">names</span>(tmp_df)[<span class="op">-</span><span class="dv">1</span>],<span class="st">&quot;.&quot;</span>,ct)
+    <span class="co"># Calculating proportion of cells expressed in a gene and cell_type</span>
+    bb =<span class="st"> </span><span class="kw">apply</span>(<span class="kw">assay</span>(sce[,<span class="kw">colData</span>(sce)<span class="op">$</span>cell_type <span class="op">%in%</span><span class="st"> </span>ct]),<span class="dv">1</span>,
+        <span class="cf">function</span>(xx) <span class="kw">mean</span>(xx <span class="op">&gt;</span><span class="st"> </span><span class="dv">0</span>))
+    bb =<span class="st"> </span><span class="kw">data.frame</span>(<span class="dt">gene =</span> <span class="kw">names</span>(bb),<span class="dt">prop_express =</span> <span class="kw">as.numeric</span>(bb), <span class="dt">stringsAsFactors =</span> <span class="ot">FALSE</span>)
+    <span class="kw">names</span>(bb)[<span class="dv">2</span>] =<span class="st"> </span><span class="kw">paste0</span>(<span class="kw">names</span>(bb)[<span class="dv">2</span>],<span class="st">&quot;.&quot;</span>,ct)
+    bb =<span class="st"> </span><span class="kw">merge</span>(bb,tmp_df,<span class="dt">by=</span><span class="st">&quot;gene&quot;</span>,<span class="dt">all.x=</span><span class="ot">TRUE</span>,<span class="dt">sort=</span><span class="ot">FALSE</span>)
+    <span class="kw">all</span>(bb<span class="op">$</span>gene <span class="op">==</span><span class="st"> </span>gene_anno<span class="op">$</span>gene)
+    bb =<span class="st"> </span>bb[<span class="kw">match</span>(gene_anno<span class="op">$</span>gene,bb<span class="op">$</span>gene),]
+    <span class="kw">all</span>(bb<span class="op">$</span>gene <span class="op">==</span><span class="st"> </span>gene_anno<span class="op">$</span>gene)
+    gene_anno =<span class="st"> </span><span class="kw">cbind</span>(gene_anno, bb[,<span class="kw">names</span>(bb) <span class="op">!=</span><span class="st"> &quot;gene&quot;</span>])
+    <span class="kw">rm</span>(tmp_df,bb)
+}</code></pre></div>
+<pre><code>## Astro Exc Inh Micro Oligo OPC</code></pre>
+<div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r"><span class="kw">dim</span>(gene_anno)</code></pre></div>
+<pre><code>## [1] 13376    30</code></pre>
+<div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r"><span class="kw">head</span>(gene_anno)</code></pre></div>
+<pre><code>##            ensembl_gene_id       gene chromosome_name start_position
+## ABCA7      ENSG00000064687      ABCA7              19        1040101
+## AAMDC      ENSG00000087884      AAMDC              11       77821109
+## AC116050.1 ENSG00000278131 AC116050.1               2       91589494
+## ABHD13     ENSG00000139826     ABHD13              13      108218379
+## AC011754.1 ENSG00000224879 AC011754.1               2       79158374
+## AC016716.2 ENSG00000224731 AC016716.2               2       80028012
+##            end_position prop_express prop_express.Astro pvalue.Astro
+## ABCA7           1065572   0.06646934        0.013600302 8.492638e-15
+## AAMDC          77918432   0.11095137        0.100868908 1.126819e-17
+## AC116050.1     91621421   0.09086681        0.024933887 2.117553e-04
+## ABHD13        108234255   0.07205074        0.021156026 2.109030e-05
+## AC011754.1     79185523   0.01437632        0.001133359 1.852648e-02
+## AC016716.2     80030551   0.17213531        0.340763128 0.000000e+00
+##            logFC.Astro FDR_qvalue.Astro prop_express.Exc   pvalue.Exc
+## ABCA7      -0.31315585     3.063768e-14       0.09578372 4.860885e-20
+## AAMDC       0.68206209     4.521483e-17       0.13120647 3.581015e-19
+## AC116050.1 -0.09674384     3.893151e-04       0.13218003 1.259850e-02
+## ABHD13     -0.21368375     4.311608e-05       0.09967797 1.034635e-03
+## AC011754.1 -0.06205158     2.631788e-02       0.02433910 1.789199e-13
+## AC016716.2  5.12837584     0.000000e+00       0.20152775 1.847429e-57
+##              logFC.Exc FDR_qvalue.Exc prop_express.Inh   pvalue.Inh
+## ABCA7       0.25728040   1.807595e-19      0.056102362 5.177762e-01
+## AAMDC      -0.41484359   1.290400e-18      0.084645669 1.117051e-05
+## AC116050.1  0.05838309   1.831314e-02      0.066190945 2.220767e-01
+## ABHD13      0.10408705   1.699114e-03      0.059301181 2.809419e-03
+## AC011754.1  0.09927447   5.280742e-13      0.000984252 2.287807e-11
+## AC016716.2 -0.92177568   1.443412e-56      0.092519685 5.872741e-33
+##              logFC.Inh FDR_qvalue.Inh prop_express.Micro pvalue.Micro
+## ABCA7       0.02495653   5.325306e-01        0.008695652 1.614757e-01
+## AAMDC      -0.06571287   2.188295e-05        0.017391304 1.086062e-01
+## AC116050.1  0.05839068   2.385942e-01        0.008695652 6.714744e-01
+## ABHD13      0.03647508   3.956911e-03        0.043478261 6.379307e-07
+## AC011754.1 -0.08683190   7.774823e-11        0.000000000           NA
+## AC016716.2 -0.76210249   4.735008e-32        0.000000000           NA
+##            logFC.Micro FDR_qvalue.Micro prop_express.Oligo pvalue.Oligo
+## ABCA7       -0.2485103     1.913046e-01        0.008247423 8.413381e-17
+## AAMDC       -0.4547845     1.335680e-01        0.070515464 2.789003e-21
+## AC116050.1  -0.2081629     7.039905e-01        0.006597938 2.154922e-08
+## ABHD13       0.4819025     4.813047e-06        0.014020619 5.000971e-06
+## AC011754.1          NA               NA        0.002474227 9.825871e-01
+## AC016716.2          NA               NA        0.003711340 1.225264e-69
+##             logFC.Oligo FDR_qvalue.Oligo prop_express.OPC   pvalue.OPC
+## ABCA7      -0.337313224     2.174314e-16      0.007648184 4.165560e-09
+## AAMDC       0.548905849     9.413591e-21      0.084130019 4.601513e-03
+## AC116050.1 -0.385063737     3.332905e-08      0.030592734 1.830027e-02
+## ABHD13     -0.242493322     6.653301e-06      0.035372849 5.967456e-01
+## AC011754.1 -0.005678005     9.828086e-01      0.001912046 4.704442e-01
+## AC016716.2 -1.779454541     1.644225e-68      0.088910134 1.528559e-01
+##               logFC.OPC FDR_qvalue.OPC
+## ABCA7      -0.355438918   2.797507e-08
+## AAMDC       0.378110673   1.234244e-02
+## AC116050.1  0.020034934   4.111226e-02
+## ABHD13      0.007571271   6.831687e-01
+## AC011754.1 -0.040153208   5.720083e-01
+## AC016716.2 -0.090172849   2.394437e-01</code></pre>
+<div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r"><span class="co"># Output</span>
+<span class="kw">saveRDS</span>(gene_anno, <span class="kw">file.path</span>(psychENCODE_dir,<span class="st">&quot;DE_gene_anno.rds&quot;</span>))</code></pre></div>
+<p>We will need to pick top 100 genes for each cell type, and then try to calculate their cell type-specific TPMs.</p>
+<div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r"><span class="co"># how many genes will pass the threshold?</span>
+gene_anno =<span class="st"> </span><span class="kw">readRDS</span>(<span class="kw">file.path</span>(psychENCODE_dir,<span class="st">&quot;DE_gene_anno.rds&quot;</span>))
+cell_types =<span class="st"> </span><span class="kw">c</span>(<span class="st">&quot;Astro&quot;</span>,<span class="st">&quot;Exc&quot;</span>,<span class="st">&quot;Inh&quot;</span>,<span class="st">&quot;Micro&quot;</span>,<span class="st">&quot;Oligo&quot;</span>,<span class="st">&quot;OPC&quot;</span>)
+fdr_thres =<span class="st"> </span><span class="fl">1e-3</span>
+logFC_thres =<span class="st"> </span><span class="kw">log</span>(<span class="dv">2</span>)
+<span class="cf">for</span>(ct <span class="cf">in</span> cell_types){
+  <span class="kw">cat</span>(<span class="kw">sprintf</span>(<span class="st">&quot;%s genes matching fdr and logFC threshold:&quot;</span>, ct))
+  filtered_count =<span class="st"> </span><span class="kw">nrow</span>(gene_anno[<span class="kw">which</span>(gene_anno[<span class="kw">paste0</span>(<span class="st">&quot;FDR_qvalue.&quot;</span>, ct)] <span class="op">&lt;</span><span class="st"> </span>fdr_thres 
+                                <span class="op">&amp;</span><span class="st"> </span>gene_anno[<span class="kw">paste0</span>(<span class="st">&quot;logFC.&quot;</span>, ct)] <span class="op">&gt;</span><span class="st"> </span>logFC_thres),])
+  <span class="kw">cat</span>(<span class="kw">sprintf</span>(<span class="st">&quot; %d</span><span class="ch">\n</span><span class="st">&quot;</span>, filtered_count))
+}</code></pre></div>
+<pre><code>## Astro genes matching fdr and logFC threshold: 1296
+## Exc genes matching fdr and logFC threshold: 863
+## Inh genes matching fdr and logFC threshold: 678
+## Micro genes matching fdr and logFC threshold: 581
+## Oligo genes matching fdr and logFC threshold: 844
+## OPC genes matching fdr and logFC threshold: 868</code></pre>
+<div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r"><span class="co"># Okay, for each cell type we will pick top 100 genes by logFC rank</span>
+<span class="co"># after the fdr threshold has been met:</span>
+<span class="co"># (will need to use the intersection with the gene list from MTG dataset later)</span>
+count_per_each_cell_type =<span class="st"> </span><span class="dv">100</span>
+gene_anno_by_cell_type =<span class="st"> </span><span class="kw">list</span>()
+<span class="cf">for</span>(ct <span class="cf">in</span> cell_types){
+  gene_anno_by_cell_type[[ct]] =<span class="st"> </span>
+<span class="st">      </span>gene_anno[<span class="kw">which</span>(gene_anno[<span class="kw">paste0</span>(<span class="st">&quot;FDR_qvalue.&quot;</span>, ct)] <span class="op">&lt;</span><span class="st"> </span>fdr_thres 
+                              <span class="op">&amp;</span><span class="st"> </span>gene_anno[<span class="kw">paste0</span>(<span class="st">&quot;logFC.&quot;</span>, ct)] <span class="op">&gt;</span><span class="st"> </span>logFC_thres),]
 }
-<span class="kw">saveRDS</span>(ct_genes,<span class="kw">file.path</span>(psychENCODE_dir,<span class="st">&quot;ct_genes.rds&quot;</span>))
 
-<span class="kw">smart_pack</span>(<span class="st">&quot;venn&quot;</span>)
+<span class="co"># Venn plot</span>
 <span class="kw">pdf</span>(<span class="kw">file.path</span>(psychENCODE_dir,<span class="st">&quot;venn.pdf&quot;</span>),<span class="dt">width=</span><span class="dv">8</span>,<span class="dt">height=</span><span class="dv">8</span>)
-<span class="kw">venn</span>(<span class="dt">x =</span> ct_genes,<span class="dt">ilabels =</span> <span class="ot">TRUE</span>,<span class="dt">zcolor =</span> <span class="st">&quot;style&quot;</span>)
+<span class="kw">venn</span>(<span class="dt">x =</span> <span class="kw">sapply</span>(gene_anno_by_cell_type, <span class="cf">function</span>(x) x<span class="op">$</span>ensembl_gene_id),
+     <span class="dt">ilabels =</span> <span class="ot">TRUE</span>,<span class="dt">zcolor =</span> <span class="st">&quot;style&quot;</span>)
 <span class="kw">dev.off</span>()</code></pre></div>
 <pre><code>## png 
 ##   2</code></pre>
-<div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r"><span class="co"># Get marker genes</span>
-cts_genes =<span class="st"> </span><span class="kw">list</span>()
+<div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r"><span class="co"># remove genes that appear in more than one cell type:</span>
+gene_anno_by_cell_type_dedup =<span class="st"> </span><span class="kw">list</span>()
+gene_appearance_counts =<span class="st"> </span><span class="kw">table</span>(<span class="kw">do.call</span>(rbind, gene_anno_by_cell_type)<span class="op">$</span>ensembl_gene_id)
+gene_appeared_once =<span class="st"> </span><span class="kw">names</span>(gene_appearance_counts)[gene_appearance_counts <span class="op">==</span><span class="st"> </span><span class="dv">1</span>]
 <span class="cf">for</span>(ct <span class="cf">in</span> cell_types){
-    <span class="co"># ct = cell_types[1]</span>
-    cts_genes[[ct]] =<span class="st"> </span><span class="kw">sort</span>(<span class="kw">setdiff</span>(ct_genes[[ct]],
-        <span class="kw">unique</span>(<span class="kw">unlist</span>(ct_genes[<span class="kw">which</span>(<span class="kw">names</span>(ct_genes) <span class="op">!=</span><span class="st"> </span>ct)]))))
+  gene_anno_by_cell_type_dedup[[ct]] =<span class="st"> </span>gene_anno_by_cell_type[[ct]][
+      gene_anno_by_cell_type[[ct]]<span class="op">$</span>ensembl_gene_id <span class="op">%in%</span><span class="st"> </span>gene_appeared_once, ]
+  gene_anno_by_cell_type_dedup[[ct]] =<span class="st"> </span>gene_anno_by_cell_type_dedup[[ct]][
+      <span class="kw">order</span>(<span class="op">-</span>gene_anno_by_cell_type_dedup[[ct]][,<span class="kw">paste0</span>(<span class="st">&quot;logFC.&quot;</span>, ct)]), ]
+  <span class="kw">cat</span>(<span class="kw">sprintf</span>(<span class="st">&quot;%s genes after filtering that appear only once:&quot;</span>, ct))
+  <span class="kw">cat</span>(<span class="kw">sprintf</span>(<span class="st">&quot; %d</span><span class="ch">\n</span><span class="st">&quot;</span>, <span class="kw">nrow</span>(gene_anno_by_cell_type_dedup[[ct]])))
+}</code></pre></div>
+<pre><code>## Astro genes after filtering that appear only once: 821
+## Exc genes after filtering that appear only once: 615
+## Inh genes after filtering that appear only once: 388
+## Micro genes after filtering that appear only once: 339
+## Oligo genes after filtering that appear only once: 496
+## OPC genes after filtering that appear only once: 307</code></pre>
+<div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r"><span class="co"># only retain the top 100 or some other number per cell type -- this is the final gene list:</span>
+ct_anno =<span class="st"> </span><span class="kw">list</span>()
+<span class="cf">for</span>(ct <span class="cf">in</span> cell_types){
+  ct_anno[[ct]] =<span class="st"> </span>gene_anno_by_cell_type_dedup[[ct]][<span class="dv">1</span><span class="op">:</span>count_per_each_cell_type, ]
 }
-<span class="kw">saveRDS</span>(cts_genes,<span class="kw">file.path</span>(psychENCODE_dir,<span class="st">&quot;cts_genes.rds&quot;</span>))
-
-<span class="co"># Get gene annotations</span>
-sce =<span class="st"> </span><span class="kw">readRDS</span>(<span class="kw">file.path</span>(psychENCODE_dir,<span class="st">&quot;sce.rds&quot;</span>))
-sce</code></pre></div>
-<pre><code>## class: SingleCellExperiment 
-## dim: 13389 26414 
-## metadata(1): log.exprs.offset
-## assays(2): counts logcounts
-## rownames(13389): ABCA7 AAMDC ... TBCE ZNF883
-## rowData names(18): hgnc_symbol ensembl_gene_id ... total_counts
-##   log10_total_counts
-## colnames(26414): Ex3e Ex2 ... Microglia.315 Microglia.316
-## colData names(39): sample_name part_cell_id ...
-##   pct_counts_in_top_500_features_Ri cell_type
-## reducedDimNames(2): PCA TSNE
-## spikeNames(0):</code></pre>
-<div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r"><span class="kw">rowData</span>(sce)</code></pre></div>
-<pre><code>## DataFrame with 13389 rows and 18 columns
-##            hgnc_symbol ensembl_gene_id external_gene_name chromosome_name
-##            &lt;character&gt;     &lt;character&gt;        &lt;character&gt;     &lt;character&gt;
-## ABCA7            ABCA7 ENSG00000064687              ABCA7              19
-## AAMDC            AAMDC ENSG00000087884              AAMDC              11
-## AC116050.1             ENSG00000278131         AC116050.1               2
-## ABHD13          ABHD13 ENSG00000139826             ABHD13              13
-## AC011754.1             ENSG00000224879         AC011754.1               2
-## ...                ...             ...                ...             ...
-## LINC01115    LINC01115 ENSG00000237667          LINC01115               2
-## LINC01505    LINC01505 ENSG00000234229          LINC01505               9
-## SOD2              SOD2 ENSG00000112096               SOD2               6
-## TBCE              TBCE ENSG00000284770               TBCE               1
-## ZNF883          ZNF883 ENSG00000228623             ZNF883               9
-##            start_position end_position  strand_n
-##                 &lt;integer&gt;    &lt;integer&gt; &lt;integer&gt;
-## ABCA7             1040101      1065572         1
-## AAMDC            77821109     77918432         1
-## AC116050.1       91589494     91621421         1
-## ABHD13          108218379    108234255         1
-## AC011754.1       79158374     79185523         1
-## ...                   ...          ...       ...
-## LINC01115          779840       868608        -1
-## LINC01505       106664754    106702662         1
-## SOD2            159669057    159745186        -1
-## TBCE            235367360    235452443         1
-## ZNF883          112957722    113012227        -1
-##                                                                                     description
-##                                                                                     &lt;character&gt;
-## ABCA7                ATP binding cassette subfamily A member 7 [Source:HGNC Symbol;Acc:HGNC:37]
-## AAMDC      adipogenesis associated Mth938 domain containing [Source:HGNC Symbol;Acc:HGNC:30205]
-## AC116050.1                                                       otopetrin 1 (OTOP1) pseudogene
-## ABHD13                     abhydrolase domain containing 13 [Source:HGNC Symbol;Acc:HGNC:20293]
-## AC011754.1                                                                     novel transcript
-## ...                                                                                         ...
-## LINC01115       long intergenic non-protein coding RNA 1115 [Source:HGNC Symbol;Acc:HGNC:49258]
-## LINC01505       long intergenic non-protein coding RNA 1505 [Source:HGNC Symbol;Acc:HGNC:51186]
-## SOD2                                 superoxide dismutase 2 [Source:HGNC Symbol;Acc:HGNC:11180]
-## TBCE                             tubulin folding cofactor E [Source:HGNC Symbol;Acc:HGNC:11582]
-## ZNF883                              zinc finger protein 883 [Source:HGNC Symbol;Acc:HGNC:27271]
-##            percentage_gene_gc_content                       gene_biotype
-##                             &lt;numeric&gt;                        &lt;character&gt;
-## ABCA7                           60.49                     protein_coding
-## AAMDC                           41.82                     protein_coding
-## AC116050.1                      45.86             unprocessed_pseudogene
-## ABHD13                          35.43                     protein_coding
-## AC011754.1                      39.59                  sense_overlapping
-## ...                               ...                                ...
-## LINC01115                       45.04                            lincRNA
-## LINC01505                       40.08                            lincRNA
-## SOD2                            42.75                     protein_coding
-## TBCE                            44.21                     protein_coding
-## ZNF883                          39.76 transcribed_unprocessed_pseudogene
-##            is_feature_control is_feature_control_Ri         mean_counts
-##                     &lt;logical&gt;             &lt;logical&gt;           &lt;numeric&gt;
-## ABCA7                   FALSE                 FALSE  0.0698599153655333
-## AAMDC                   FALSE                 FALSE    0.12498175981322
-## AC116050.1              FALSE                 FALSE   0.103348898292719
-## ABHD13                  FALSE                 FALSE  0.0789800087552897
-## AC011754.1              FALSE                 FALSE   0.014519188676492
-## ...                       ...                   ...                 ...
-## LINC01115               FALSE                 FALSE 0.00846344666569386
-## LINC01505               FALSE                 FALSE   0.131548227053845
-## SOD2                    FALSE                 FALSE    0.45323216109733
-## TBCE                    FALSE                 FALSE   0.120640595359696
-## ZNF883                  FALSE                 FALSE   0.246388443017656
-##              log10_mean_counts n_cells_by_counts pct_dropout_by_counts
-##                      &lt;numeric&gt;         &lt;integer&gt;             &lt;numeric&gt;
-## ABCA7       0.0293269160342217              1752      93.6086385524588
-## AAMDC       0.0511454809569934              3005      89.0376477455129
-## AC116050.1  0.0427128656980125              2415      91.1899897854954
-## ABHD13      0.0330133981882915              1950      92.8863271559901
-## AC011754.1 0.00626026571880252               355      98.7049467386546
-## ...                        ...               ...                   ...
-## LINC01115   0.0036601611515742               218      99.2047278564133
-## LINC01505   0.0536730684958028              2757      89.9423610097767
-## SOD2         0.162335000553564              8127      70.3524004085802
-## TBCE        0.0494663507938487              2885      89.4754122282212
-## ZNF883      0.0956534134054077              4825      82.3982197577703
-##            total_counts log10_total_counts
-##               &lt;integer&gt;          &lt;numeric&gt;
-## ABCA7              1915   3.28239550474253
-## AAMDC              3426   3.53491410442987
-## AC116050.1         2833   3.45239984591144
-## ABHD13             2165    3.3356584522893
-## AC011754.1          398   2.60097289568675
-## ...                 ...                ...
-## LINC01115           232   2.36735592102602
-## LINC01505          3606   3.55714614231836
-## SOD2              12424   4.09429639740537
-## TBCE               3307   3.51956550088051
-## ZNF883             6754   3.82962535335805</code></pre>
-<div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r"><span class="co"># Import/Prep gtf</span>
-rsem_fn =<span class="st"> </span><span class="kw">file.path</span>(psychENCODE_dir,<span class="st">&quot;rsem_GRCh38.p2.gtf&quot;</span>)
-<span class="cf">if</span>( <span class="op">!</span><span class="kw">file.exists</span>(rsem_fn) ){
-    gtf_link =<span class="st"> &quot;http://celltypes.brain-map.org/api/v2/well_known_file_download/502175284&quot;</span>
-    gtf_fn0 =<span class="st"> </span><span class="kw">strsplit</span>(gtf_link,<span class="st">&quot;/&quot;</span>)[[<span class="dv">1</span>]]
-    gtf_fn0 =<span class="st"> </span>gtf_fn0[<span class="kw">length</span>(gtf_fn0)]
-    gtf_fn =<span class="st"> </span><span class="kw">file.path</span>(psychENCODE_dir,gtf_fn0)
-    <span class="kw">sprintf</span>(<span class="st">&quot;cd %s; wget %s; unzip %s&quot;</span>,psychENCODE_dir,gtf_link,gtf_fn)
-}
-rsem =<span class="st"> </span><span class="kw">smart_RT</span>(rsem_fn,<span class="dt">sep=</span><span class="st">&quot;</span><span class="ch">\t</span><span class="st">&quot;</span>,<span class="dt">header=</span><span class="ot">FALSE</span>)
-<span class="kw">names</span>(rsem) =<span class="st"> </span><span class="kw">c</span>(<span class="st">&quot;seqname&quot;</span>,<span class="st">&quot;source&quot;</span>,<span class="st">&quot;feature&quot;</span>,<span class="st">&quot;start_position&quot;</span>,<span class="st">&quot;end_position&quot;</span>,
-    <span class="st">&quot;score&quot;</span>,<span class="st">&quot;strand&quot;</span>,<span class="st">&quot;frame&quot;</span>,<span class="st">&quot;attributes&quot;</span>)
-<span class="kw">smart_table</span>(rsem<span class="op">$</span>feature)</code></pre></div>
+<span class="kw">saveRDS</span>(ct_anno, <span class="kw">file.path</span>(psychENCODE_dir,<span class="st">&quot;DE_ct_anno.rds&quot;</span>))</code></pre></div>
+</div>
+<div id="obtain-tpm-of-signature-genes" class="section level1">
+<h1><span class="header-section-number">4</span> Obtain TPM of signature genes</h1>
+<div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r"><span class="co"># calculate total read count and then TPM for every cell type:</span>
+<span class="kw">table</span>(<span class="kw">colData</span>(sce)<span class="op">$</span>cell_type)</code></pre></div>
 <pre><code>## 
-##               exon               gene               mRNA 
-##            1490144              50283              94250 
-##              ncRNA primary_transcript               rRNA 
-##              28763               1879                 19 
-##         transcript               tRNA 
-##              11165                 22</code></pre>
-<div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r">rsem =<span class="st"> </span>rsem[rsem<span class="op">$</span>feature <span class="op">==</span><span class="st"> &quot;gene&quot;</span>,]
-rsem<span class="op">$</span>gene_id =<span class="st"> </span><span class="kw">sapply</span>(rsem<span class="op">$</span>attributes,<span class="cf">function</span>(xx) 
-    <span class="kw">gsub</span>(<span class="st">&quot;gene_id &quot;</span>,<span class="st">&quot;&quot;</span>,<span class="kw">strsplit</span>(xx,<span class="st">&quot;;&quot;</span>)[[<span class="dv">1</span>]][<span class="dv">1</span>]),<span class="dt">USE.NAMES=</span><span class="ot">FALSE</span>)
-rsem<span class="op">$</span>symbol =<span class="st"> </span><span class="kw">sapply</span>(rsem<span class="op">$</span>attributes,<span class="cf">function</span>(xx) 
-    <span class="kw">gsub</span>(<span class="st">&quot; gene_symbol &quot;</span>,<span class="st">&quot;&quot;</span>,<span class="kw">strsplit</span>(xx,<span class="st">&quot;;&quot;</span>)[[<span class="dv">1</span>]][<span class="dv">2</span>]),<span class="dt">USE.NAMES=</span><span class="ot">FALSE</span>)
-rsem =<span class="st"> </span>rsem[,<span class="kw">c</span>(<span class="st">&quot;symbol&quot;</span>,<span class="st">&quot;gene_id&quot;</span>,<span class="st">&quot;start_position&quot;</span>,<span class="st">&quot;end_position&quot;</span>)]
-<span class="kw">all</span>(<span class="kw">rownames</span>(sce) <span class="op">%in%</span><span class="st"> </span>rsem<span class="op">$</span>symbol)</code></pre></div>
-<pre><code>## [1] FALSE</code></pre>
-<div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r"><span class="kw">all</span>(<span class="kw">rowData</span>(sce)<span class="op">$</span>entrez_id <span class="op">%in%</span><span class="st"> </span>rsem<span class="op">$</span>gene_id)</code></pre></div>
-<pre><code>## [1] TRUE</code></pre>
-<div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r"><span class="co"># patch</span>
-<span class="kw">rowData</span>(sce)<span class="op">$</span>gene =<span class="st"> </span><span class="kw">rownames</span>(sce)
-
-rsem =<span class="st"> </span>rsem[<span class="kw">which</span>(rsem<span class="op">$</span>symbol <span class="op">%in%</span><span class="st"> </span><span class="kw">rowData</span>(sce)<span class="op">$</span>gene),]
-rsem[<span class="dv">1</span><span class="op">:</span><span class="dv">10</span>,]</code></pre></div>
-<pre><code>##         symbol   gene_id start_position end_position
-## 548   MTND1P23 100887749         629062       629440
-## 604  LINC01128    643837         827591       859446
-## 680      NOC2L     26155         944203       959299
-## 906       HES4     57801         998962      1001285
-## 926      ISG15      9636        1013467      1014540
-## 1751  TNFRSF18      8784        1203508      1206709
-## 1769   TNFRSF4      7293        1211326      1214638
-## 1801      SDF4     51150        1216908      1232067
-## 1824   B3GALT6    126792        1232249      1235041
-## 1864    UBE2J2    118424        1253912      1273854</code></pre>
-<div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r">rsem =<span class="st"> </span>rsem[<span class="kw">match</span>(<span class="kw">rowData</span>(sce)<span class="op">$</span>gene,rsem<span class="op">$</span>symbol),]
-<span class="kw">rownames</span>(rsem) =<span class="st"> </span><span class="ot">NULL</span>
-rsem[<span class="dv">1</span><span class="op">:</span><span class="dv">10</span>,]</code></pre></div>
-<pre><code>##    symbol gene_id start_position end_position
-## 1   ABCA7   10347        1040103      1065572
-## 2   AAMDC   28971       77821107     77872354
-## 3    &lt;NA&gt;    &lt;NA&gt;             NA           NA
-## 4  ABHD13   84945      108218415    108234255
-## 5    &lt;NA&gt;    &lt;NA&gt;             NA           NA
-## 6    &lt;NA&gt;    &lt;NA&gt;             NA           NA
-## 7    AARD  441376      116938225    116944000
-## 8    &lt;NA&gt;    &lt;NA&gt;             NA           NA
-## 9   ACAD9   28976      128879490    128913114
-## 10  ADAM7    8756       24440996     24512760</code></pre>
-<div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r"><span class="kw">all</span>(<span class="kw">rowData</span>(sce)<span class="op">$</span>gene <span class="op">==</span><span class="st"> </span>rsem<span class="op">$</span>symbol)</code></pre></div>
-<pre><code>## [1] NA</code></pre>
-<div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r"><span class="co"># all(rowData(sce)$entrez_id == rsem$gene_id)</span>
-<span class="kw">rowData</span>(sce)<span class="op">$</span>start_position =<span class="st"> </span>rsem<span class="op">$</span>start_position
-<span class="kw">rowData</span>(sce)<span class="op">$</span>end_position =<span class="st"> </span>rsem<span class="op">$</span>end_position
-
-<span class="co"># gene_anno = smart_df(rowData(sce)[,c(&quot;gene&quot;,&quot;chromosome&quot;,</span>
-<span class="co">#   &quot;entrez_id&quot;,&quot;start_position&quot;,&quot;end_position&quot;)])</span>
-
-gene_anno =<span class="st"> </span><span class="kw">smart_df</span>(<span class="kw">rowData</span>(sce)[,<span class="kw">c</span>(<span class="st">&quot;gene&quot;</span>,<span class="st">&quot;chromosome_name&quot;</span>,
-     <span class="st">&quot;start_position&quot;</span>,<span class="st">&quot;end_position&quot;</span>)])
-<span class="kw">rownames</span>(gene_anno) =<span class="st"> </span><span class="ot">NULL</span>
-
-res_de =<span class="st"> </span><span class="kw">c</span>()
+## Astro   Exc   Inh Micro Oligo   OPC 
+##  2647 13353  4064   115  2425  1046</code></pre>
+<div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r">ct_counts =<span class="st"> </span><span class="kw">matrix</span>(<span class="dt">nrow=</span><span class="kw">nrow</span>(sce), <span class="dt">ncol=</span><span class="kw">length</span>(cell_types))
+<span class="kw">colnames</span>(ct_counts) =<span class="st"> </span>cell_types
+<span class="kw">rownames</span>(ct_counts) =<span class="st"> </span><span class="kw">rownames</span>(sce)
 <span class="cf">for</span>(ct <span class="cf">in</span> cell_types){
-    <span class="co"># ct = cell_types[1]</span>
-    one_ct_genes =<span class="st"> </span>cts_genes[[ct]]
-    one_res =<span class="st"> </span><span class="kw">readRDS</span>(<span class="kw">file.path</span>(psychENCODE_dir,<span class="st">&quot;fdr1e-2&quot;</span>,<span class="kw">paste0</span>(<span class="st">&quot;ssd_nG13389_cell&quot;</span>,ct,<span class="st">&quot;.rds&quot;</span>)))
-    one_res =<span class="st"> </span>one_res[one_res<span class="op">$</span>gene <span class="op">%in%</span><span class="st"> </span>one_ct_genes,]
-    <span class="co"># one_res[1:10,]</span>
-    res_de =<span class="st"> </span><span class="kw">rbind</span>(res_de,one_res)
-        <span class="kw">gc</span>()
+  ct_counts[,ct] =<span class="st"> </span><span class="kw">rowSums</span>(<span class="kw">counts</span>(sce)[, <span class="kw">colData</span>(sce)<span class="op">$</span>cell_type <span class="op">==</span><span class="st"> </span>ct])
 }
-
-gene_anno =<span class="st"> </span>gene_anno[gene_anno<span class="op">$</span>gene <span class="op">%in%</span><span class="st"> </span>res_de<span class="op">$</span>gene,]
-gene_anno =<span class="st"> </span>gene_anno[<span class="kw">match</span>(res_de<span class="op">$</span>gene,gene_anno<span class="op">$</span>gene),]
-<span class="kw">all</span>(gene_anno<span class="op">$</span>gene <span class="op">==</span><span class="st"> </span>res_de<span class="op">$</span>gene)</code></pre></div>
-<pre><code>## [1] TRUE</code></pre>
-<div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r">gene_anno =<span class="st"> </span><span class="kw">cbind</span>(gene_anno,res_de[,<span class="kw">names</span>(res_de) <span class="op">!=</span><span class="st"> &quot;gene&quot;</span>])
-<span class="kw">saveRDS</span>(gene_anno,<span class="kw">file.path</span>(psychENCODE_dir,<span class="st">&quot;anno_marker_genes.rds&quot;</span>))
-
-<span class="co"># comparison with Paul's MTG results</span>
-cts_genes_MTG =<span class="st"> </span><span class="kw">readRDS</span>(<span class="st">&quot;~/scRNAseq_pipelines/MTG/cts_genes.rds&quot;</span>)
-cts_genes =<span class="st"> </span><span class="kw">readRDS</span>(<span class="st">&quot;~/psychENCODE_data/cts_genes.rds&quot;</span>)
-<span class="kw">sapply</span>(cts_genes_MTG, length)</code></pre></div>
-<pre><code>## Astro   Exc   Inh Micro Oligo   OPC 
-##  1223   924   968   679   926   407</code></pre>
-<div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r"><span class="kw">sapply</span>(cts_genes, length)</code></pre></div>
-<pre><code>## Astro   Exc   Inh Micro Oligo   OPC 
-##   138    72    29   122   159    68</code></pre>
-<div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r">printIntersect =<span class="st"> </span><span class="cf">function</span>(x, y) {
-  <span class="kw">print</span>(<span class="kw">length</span>(<span class="kw">intersect</span>(x,y)))
-  <span class="kw">print</span>(<span class="kw">length</span>(<span class="kw">setdiff</span>(x,y)))
-  <span class="kw">print</span>(<span class="kw">length</span>(<span class="kw">setdiff</span>(y,x)))
-}
-
-<span class="kw">printIntersect</span>(cts_genes<span class="op">$</span>Astro, cts_genes_MTG<span class="op">$</span>Astro)</code></pre></div>
-<pre><code>## [1] 66
-## [1] 72
-## [1] 1157</code></pre>
-<div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r"><span class="kw">printIntersect</span>(cts_genes<span class="op">$</span>Exc, cts_genes_MTG<span class="op">$</span>Exc)</code></pre></div>
-<pre><code>## [1] 47
-## [1] 25
-## [1] 877</code></pre>
-<div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r"><span class="kw">printIntersect</span>(cts_genes<span class="op">$</span>Inh, cts_genes_MTG<span class="op">$</span>Inh)</code></pre></div>
-<pre><code>## [1] 26
-## [1] 3
-## [1] 942</code></pre>
-<div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r"><span class="kw">printIntersect</span>(cts_genes<span class="op">$</span>Micro, cts_genes_MTG<span class="op">$</span>Micro)</code></pre></div>
-<pre><code>## [1] 49
-## [1] 73
-## [1] 630</code></pre>
-<div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r"><span class="kw">printIntersect</span>(cts_genes<span class="op">$</span>Oligo, cts_genes_MTG<span class="op">$</span>Oligo)</code></pre></div>
-<pre><code>## [1] 94
-## [1] 65
-## [1] 832</code></pre>
-<div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r"><span class="kw">printIntersect</span>(cts_genes<span class="op">$</span>OPC, cts_genes_MTG<span class="op">$</span>OPC)</code></pre></div>
-<pre><code>## [1] 27
-## [1] 41
-## [1] 380</code></pre>
-<div id="refs" class="references">
-<div id="ref-lake_integrative_2018">
-<p>Lake, Blue B., Song Chen, Brandon C. Sos, Jean Fan, Gwendolyn E. Kaeser, Yun C. Yung, Thu E. Duong, et al. 2018. “Integrative Single-Cell Analysis of Transcriptional and Epigenetic States in the Human Adult Brain.” <em>Nature Biotechnology</em> 36 (1): 70–80. doi:<a href="https://doi.org/10.1038/nbt.4038">10.1038/nbt.4038</a>.</p>
-</div>
-<div id="ref-wang_comprehensive_2018">
-<p>Wang, Daifeng, Shuang Liu, Jonathan Warrell, Hyejung Won, Xu Shi, Fabio C. P. Navarro, Declan Clarke, et al. 2018. “Comprehensive Functional Genomic Resource and Integrative Model for the Human Brain.” <em>Science</em> 362 (6420): eaat8464. doi:<a href="https://doi.org/10.1126/science.aat8464">10.1126/science.aat8464</a>.</p>
-</div>
-</div>
+<span class="kw">dim</span>(ct_counts)</code></pre></div>
+<pre><code>## [1] 13376     6</code></pre>
+<div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r">ct_tpm =<span class="st"> </span>ct_counts<span class="op">/</span><span class="kw">rowData</span>(sce)<span class="op">$</span>gene_length
+ct_tpm =<span class="st"> </span>(<span class="fl">1e6</span>)<span class="op">*</span><span class="kw">t</span>(<span class="kw">t</span>(ct_tpm)<span class="op">/</span><span class="kw">colSums</span>(ct_tpm))
+tpm_signature_genes =<span class="st"> </span>ct_tpm[<span class="kw">do.call</span>(rbind, ct_anno)<span class="op">$</span>gene, ]
+<span class="co"># change the row names to ensembl gene id for better matching in downstream:</span>
+<span class="kw">rownames</span>(tpm_signature_genes) =<span class="st"> </span>gene_anno[<span class="kw">rownames</span>(tpm_signature_genes), <span class="st">&quot;ensembl_gene_id&quot;</span>]
+<span class="kw">dim</span>(tpm_signature_genes)</code></pre></div>
+<pre><code>## [1] 600   6</code></pre>
+<div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r"><span class="kw">saveRDS</span>(tpm_signature_genes, <span class="kw">file.path</span>(psychENCODE_dir,<span class="st">&quot;tpm_signature_genes.rds&quot;</span>))</code></pre></div>
 </div>
 
 
