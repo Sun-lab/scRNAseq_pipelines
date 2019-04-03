@@ -183,6 +183,7 @@ rsem_fn = "rsem_GRCh38.p2.gtf"
 gtf = GTF_calc_gene_length(work_dir = MTG_dir,rsem_gtf_fn = rsem_fn)
 
 sce = readRDS(file.path(rawData_dir,"final_sce_filtered_by_kmeans.rds"))
+# sce = readRDS(file.path(MTG_dir,"final_sce_filtered_by_kmeans.rds"))
 sce
 
 # Append gene_lengths to sce
@@ -376,7 +377,7 @@ gene_anno = biomaRt::getBM(attributes = attr_string,
 gene_anno = unique(gene_anno)
 dim(gene_anno); gene_anno[1:5,]
 smart_table(rownames(sig_cts) %in% gene_anno$hgnc_symbol)
-  
+
 # What are the missing genes?
 miss_genes = setdiff(rownames(sig_cts),gene_anno$hgnc_symbol)
 miss_genes
@@ -391,13 +392,13 @@ saveRDS(list(anno = gene_anno,sig_cts = sig_cts),"signature.rds")
 # Import CMC Bulk RNA, get gene lengths, calculate TPM
 bulk = readRDS("CMC_MSSM-Penn-Pitt_Paul_geneExpressionRaw.rds")$so1
 dim(bulk); bulk[1:5,1:5]
-  
+
 gtf_fn = "Homo_sapiens.GRCh37.70.processed.gtf"
 exdb = GenomicFeatures::makeTxDbFromGFF(file = gtf_fn,format = "gtf")
 exons_list_per_gene = GenomicFeatures::exonsBy(exdb,by = "gene")
 tmp_df = smart_df(ensembl_gene_id = names(exons_list_per_gene),
 				gene_length = as.numeric(sum(width(GenomicRanges::reduce(exons_list_per_gene)))))
-  
+
 all(tmp_df$ensembl_gene_id %in% rownames(bulk))
 all(tmp_df$ensembl_gene_id == rownames(bulk))
 bulk = bulk / tmp_df$gene_length
@@ -426,7 +427,7 @@ all(rownames(bulk) == gene_anno$ensembl_gene_id)
 
 # Rename rownames of sig_cts to match bulk
 rownames(sig_cts) = gene_anno$ensembl_gene_id
-  
+
 # Run ICeDT
 pack = "ICeDT"
 if( !(pack %in% installed.packages()[,"Package"]) ){
@@ -487,7 +488,7 @@ plot_log1p(x = c(predicted_bulk_w0)[p1 > p1_cutoffs[2]],
 		sub = "model w/ weight",main = "high prob of being consistent")
 
 dev.off()
-  
+
 # Run CIBERSORT
 write.table(cbind(rowname=rownames(sig_cts),sig_cts),
 			file = file.path(MTG_dir,"signature_MTG.txt"),
