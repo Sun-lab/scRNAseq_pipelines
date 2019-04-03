@@ -297,6 +297,7 @@ saveRDS(cts_genes,"cts_genes.rds")
 ## Rather than arbitrarily selecting 100 genes, I apply 
 ##	a quantile threshold on both logFC and FDR_qvalue to 
 ##	select approximately 100 genes per cell type.
+set.seed(1)
 mark_genes = list()
 for(ct in cell_types){
 	# ct = cell_types[1]
@@ -435,12 +436,10 @@ if( !(pack %in% installed.packages()[,"Package"]) ){
 }
 icedt_fn = "icedt.rds"
 date()
-if( !file.exists(icedt_fn) ){
-	fitw0 = ICeDT::ICeDT(Y = bulk,Z = sig_cts,tumorPurity = rep(0,ncol(bulk)),
-		refVar = NULL,rhoInit = NULL,maxIter_prop = 500,maxIter_PP = 250,
-		rhoConverge = 1e-2)
-	saveRDS(fitw0,icedt_fn)
-}
+fitw0 = ICeDT::ICeDT(Y = bulk,Z = sig_cts,tumorPurity = rep(0,ncol(bulk)),
+	refVar = NULL,rhoInit = NULL,maxIter_prop = 500,maxIter_PP = 250,
+	rhoConverge = 1e-2)
+saveRDS(fitw0,icedt_fn)
 date()
 fitw0 = readRDS(icedt_fn)
 p1 = fitw0$cProb
@@ -475,15 +474,15 @@ plot_log1p = function(x, y, ...) {
 }
 par(mar=c(5,4,1,1),bty="n",mfrow=c(1,3),cex=0.6)
 plot_log1p(x = c(predicted_bulk_w0)[p1 < p1_cutoffs[1]],
-		y = bulk[p1 < p1_cutoffs[1]], 
+		y = c(bulk)[p1 < p1_cutoffs[1]], 
 		xlab = "Predicted gene expression",ylab = "Observed gene expression",
 		sub = "model w/ weight",main = "low prob of being consistent")
 plot_log1p(x = c(predicted_bulk_w0)[p1 >= p1_cutoffs[1] & p1 <= p1_cutoffs[2]],
-		y = bulk[p1 >= p1_cutoffs[1] & p1 <= p1_cutoffs[2]], 
+		y = c(bulk)[p1 >= p1_cutoffs[1] & p1 <= p1_cutoffs[2]], 
 		xlab = "Predicted gene expression",ylab = "Observed gene expression",
 		sub = "model w/ weight",main = "med prob of being consistent")
 plot_log1p(x = c(predicted_bulk_w0)[p1 > p1_cutoffs[2]],
-		y = bulk[p1 > p1_cutoffs[2]],
+		y = c(bulk)[p1 > p1_cutoffs[2]],
 		xlab = "Predicted gene expression",ylab = "Observed gene expression",
 		sub = "model w/ weight",main = "high prob of being consistent")
 
