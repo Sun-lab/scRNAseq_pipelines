@@ -4,7 +4,7 @@
 
 - `script_MAST.R`
 
-    Script to run MAST and identify differentially expressed genes between inferred cell types using psychENCODE single cell data. Need to run on a computing cluster.
+    Script to run MAST and identify differentially expressed genes between inferred cell types using psychENCODE single cell data. Need to run on a computing cluster with preferably 80GB of memory.
 
 - `signature_genes.Rmd`
 
@@ -51,3 +51,7 @@
 - `mixture_brain_from_CMC.txt`
 
     Bulk tissue expression in TPM parsed from CMC data. Input of CIBERSORT.
+
+- `venn.pdf`
+    
+    Venn diagram of genes that pass the cutoff of logFC > log(2) and FDR < 0.001, after using MAST to derive differentially expressed genes from psychENCODE dataset.
