@@ -5,4 +5,7 @@
 *.csv
 *.pdf
 *.rds
+*.RData
+*.Rout
+*.gtf
 .DS_Store
