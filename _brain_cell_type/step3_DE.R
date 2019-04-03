@@ -1,18 +1,32 @@
-# scRNAseq differential expression
 
-# ----------
+# scRNAseq differential expression
+# NOTE: the code require large amount of memory and may not work 
+#       on a laptop or a desktop. 
+
+# ------------------------------------------------------------
 # Shortcuts
-# ----------
+# ------------------------------------------------------------
+
 rm(list=ls())
-repo_dir = "/pine/scr/p/l/pllittle/CS_eQTL/s3_Real/scRNAseq_pipelines"
+# repo_dir = "/pine/scr/p/l/pllittle/CS_eQTL/s3_Real/scRNAseq_pipelines"
+repo_dir = file.path("..") # relative path of repo directory from this R code
+
+source(file.path(repo_dir,"SOURCE.R"))
 MTG_dir = file.path(repo_dir,"MTG")
 setwd(MTG_dir)
 
+# ------------------------------------------------------------
+# a raw data needed for the analysis is too large ()
+# final_sce_filtered_by_kmeans.rds
+# ------------------------------------------------------------
 
-# ----------
+rawData_dir = "human_MTG_gene_expression_matrices_2018-06-14"
+rawData_dir = file.path("~/research/scRNAseq/data/Allen_BI/", rawData_dir)
+rawData_dir
+
+# ------------------------------------------------------------
 # Libraries/Functions
-# ----------
-source(file.path(repo_dir,"SOURCE.R"))
+# ------------------------------------------------------------
 
 if( !("BiocManager" %in% installed.packages()[,"Package"]) ){
   install.packages("BiocManager",repos = "https://mirrors.nics.utk.edu/cran/")
@@ -23,7 +37,10 @@ if( !("MAST" %in% installed.packages()[,"Package"]) ){
   BiocManager::install("MAST")
 }
 
-library(ggplot2); library(data.table)
+library(ggplot2)
+library(data.table)
+library(scater)
+
 GTF_calc_gene_length = function(work_dir,rsem_gtf_fn){
 	if(FALSE){
 		work_dir = MTG_dir
@@ -158,18 +175,20 @@ MAST_DEgenes = function(work_dir,num_genes=NULL,sce_obj,one_cell_type){
 }
 
 
-# ----------
+# ------------------------------------------------------------
 # Import and Prep Data
-# ----------
+# ------------------------------------------------------------
 # Import gtf with gene lengths
 rsem_fn = "rsem_GRCh38.p2.gtf"
 gtf = GTF_calc_gene_length(work_dir = MTG_dir,rsem_gtf_fn = rsem_fn)
 
-sce = readRDS(file.path(MTG_dir,"final_sce_filtered_by_kmeans.rds"))
+sce = readRDS(file.path(rawData_dir,"final_sce_filtered_by_kmeans.rds"))
 sce
 
 # Append gene_lengths to sce
 inter_genes = intersect(rownames(sce),gtf$gene_symbol)
+length(inter_genes)
+
 sce = sce[inter_genes,]
 gtf = gtf[which(gtf$gene_symbol %in% inter_genes),]
 gtf = gtf[match(rownames(sce),gtf$gene_symbol),]
@@ -182,10 +201,9 @@ smart_table(colData(sce)$cell_type)
 dim(sce)
 cell_types 	= c("Astro","Exc","Inh","Micro","Oligo","OPC")
 
-
-# ----------
+# ------------------------------------------------------------
 # Outlined Steps
-# ----------
+# ------------------------------------------------------------
 # Run MAST to get differentially expressed genes
 # Get disjoint set of marker genes per cell type (filter on logFC and qvalue), 
 #    subset approximately 100 genes per cell type
@@ -193,9 +211,9 @@ cell_types 	= c("Astro","Exc","Inh","Micro","Oligo","OPC")
 # Bulk RNAseq deconvolution: Run CIBERSORT, ICEDT
 
 
-# ----------
+# ------------------------------------------------------------
 # Run MAST: Run each cell type as it's own job
-# ----------
+# ------------------------------------------------------------
 num_genes = nrow(sce)
 for(ct in cell_types){
 	print(ct)
@@ -205,10 +223,10 @@ for(ct in cell_types){
 				one_cell_type = one_ct)
 }
 
-
-# ----------
-# Combine all genes with annotations and proportion of expressed cells per cell type
-# ----------
+# ------------------------------------------------------------
+# Combine all genes with annotations and proportion of 
+# expressed cells per cell type
+# ------------------------------------------------------------
 # Get gene annotations
 all(rowData(sce)$gene == gtf$gene_symbol)
 gtf$chromosome = rowData(sce)$chromosome
@@ -238,9 +256,10 @@ for(ct in cell_types){
 saveRDS(gtf,"DE_gene_anno.rds")
 
 
-# ----------
+# ------------------------------------------------------------
 # Get marker genes per cell type
-# ----------
+# ------------------------------------------------------------
+
 dat = smart_df(rowData(sce)[,c("gene","chromosome","entrez_id")])
 fdr_thres = 1e-3
 logFC_thres = log(2)
@@ -315,9 +334,9 @@ venn(x = ct_genes,ilabels = TRUE,zcolor = "style")
 dev.off()
 
 
-# ----------
+# ------------------------------------------------------------
 # Calculate TPM and get signature matrix: From Chong Jin's code
-# ----------
+# ------------------------------------------------------------
 table(colData(sce)$cell_type)
 sig_cts = matrix(nrow = nrow(sce),ncol = length(cell_types))
 colnames(sig_cts) = cell_types
@@ -366,9 +385,9 @@ miss_genes
 saveRDS(list(anno = gene_anno,sig_cts = sig_cts),"signature.rds")
 
 
-# ----------
+# ------------------------------------------------------------
 # Deconvolution: Based on Chong Jin's deconvolution.Rmd code
-# ----------
+# ------------------------------------------------------------
 # Import CMC Bulk RNA, get gene lengths, calculate TPM
 bulk = readRDS("CMC_MSSM-Penn-Pitt_Paul_geneExpressionRaw.rds")$so1
 dim(bulk); bulk[1:5,1:5]
