@@ -180,7 +180,12 @@ MAST_DEgenes = function(work_dir,num_genes=NULL,sce_obj,one_cell_type){
 # ------------------------------------------------------------
 # Import gtf with gene lengths
 rsem_fn = "rsem_GRCh38.p2.gtf"
-gtf = GTF_calc_gene_length(work_dir = MTG_dir,rsem_gtf_fn = rsem_fn)
+gtf_fn = "rsem_GRCh38.p2.rds"
+if( !file.exists(gtf_fn) ){
+	gtf = GTF_calc_gene_length(work_dir = MTG_dir,rsem_gtf_fn = rsem_fn)
+	saveRDS(gtf,gtf_fn)
+}
+gtf = readRDS(gtf_fn)
 
 sce = readRDS(file.path(rawData_dir,"final_sce_filtered_by_kmeans.rds"))
 # sce = readRDS(file.path(MTG_dir,"final_sce_filtered_by_kmeans.rds"))
@@ -524,6 +529,316 @@ for(ct in cell_types){
 saveRDS(list(ICeDT = prop_icedt,CIBERSORT = prop_cib),"prop.rds")
 
 dev.off()
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+# ------------------------------------------------------------
+# Re-run deconvolution with intersection of MTG and psychENCODE signature genes
+# ------------------------------------------------------------
+fdr_thres = 1e-3
+logFC_thres = log(2)
+
+# Import MTG cts_genes (cts = cell type specific genes)
+mtg_genes = readRDS("cts_genes.rds")
+sapply(mtg_genes,length)
+
+# Get psychENCODE cts_genes
+DE_gene_anno = readRDS("../psychENCODE/deconvolution/DE_gene_anno.rds")
+ct_genes = list()
+for(ct in cell_types){
+	# ct = cell_types[1]
+	print(ct)
+	tmp_df = DE_gene_anno[which(DE_gene_anno[,paste0("logFC.",ct)] > logFC_thres 
+					& DE_gene_anno[,paste0("FDR_qvalue.",ct)] < fdr_thres
+					& DE_gene_anno$chromosome %in% c(1:22,"X","Y")
+					# & !grepl("^LOC10",DE_gene_anno$gene)
+					),]
+	ct_genes[[ct]] = tmp_df$gene
+}
+sapply(ct_genes,length)
+
+# smart_pack("venn")
+# venn(x = ct_genes,ilabels = TRUE,zcolor = "style")
+# Able to replicate the psychENCODE venndiagram
+
+# Get the disjoint set of psychENCODE genes
+psy_genes = list()
+for(ct in cell_types){
+	# ct = cell_types[1]
+	print(ct)
+	psy_genes[[ct]] = sort(setdiff(ct_genes[[ct]],
+		unique(unlist(ct_genes[which(names(ct_genes) != ct)]))))
+}
+sapply(psy_genes,length)
+
+# Intersect MTG/psychENCODE genes
+int_genes = list()
+for(ct in cell_types){
+	int_genes[[ct]] = intersect(mtg_genes[[ct]],psy_genes[[ct]])
+}
+sapply(int_genes,length)
+saveRDS(int_genes,"int_MTG_psychENCODE_genes.rds")
+
+# Select top 100 marker genes (using MTG's logFC and FDR values to filter)
+set.seed(1)
+num_genes = nrow(sce)
+int_mark_genes = list()
+for(ct in cell_types){
+	# ct = cell_types[1]
+	cat(paste0(ct,": "))
+	rds_fn = paste0("ssd_nG",num_genes,"_cell",ct,".rds")
+	rds = readRDS(rds_fn)
+	rds = rds[which(rds$logFC > logFC_thres 
+					& rds$FDR_qvalue < fdr_thres
+					& rds$gene %in% int_genes[[ct]]),]
+	# dim(rds)
+	low_bound = 0
+	while(TRUE){
+		# qu = 0.25
+		qu = runif(1,low_bound,1)
+		num_rows = nrow(rds[which(rds$logFC > quantile(rds$logFC,qu) 
+			& rds$FDR_qvalue < quantile(rds$FDR_qvalue,1-qu)),])
+		if( num_rows > 100 ){
+			# Tighten bounds
+			low_bound = qu
+			cat(paste0(round(low_bound,3)," "))
+			if( num_rows <= 110 ) break
+		}
+	}
+	cat("\n")
+	opt_qu = qu
+	rds = rds[which(rds$logFC > quantile(rds$logFC,opt_qu) 
+					& rds$FDR_qvalue < quantile(rds$FDR_qvalue,1-opt_qu)),]
+	int_mark_genes[[ct]] = rds$gene; rm(rds)
+}
+sapply(int_mark_genes,length)
+saveRDS(int_mark_genes,"int_mark_genes.rds")
+
+# Make intersected genes signature matrix
+table(colData(sce)$cell_type)
+sig_cts = matrix(nrow = nrow(sce),ncol = length(cell_types))
+colnames(sig_cts) = cell_types
+rownames(sig_cts) = rownames(sce)
+for(ct in cell_types){
+	print(ct)
+	sig_cts[,ct] = rowSums(counts(sce)[,colData(sce)$cell_type == ct])
+}
+dim(sig_cts)
+sig_cts = sig_cts/rowData(sce)$gene_length
+sig_cts = 1e6 * t(t(sig_cts)/colSums(sig_cts))
+# This line is the main difference from previous code (replace mark_genes with int_mark_genes)
+sig_cts = sig_cts[sort(as.character(unlist(int_mark_genes))),]
+
+# Get ENSG id
+dat	= smart_df(rowData(sce)[,c("gene","chromosome","entrez_id")])
+dat = dat[which(dat$gene %in% rownames(sig_cts)),]
+rownames(dat) = NULL
+dat = dat[match(rownames(sig_cts),dat$gene),]
+
+biomaRt::listEnsembl()
+ensembl = biomaRt::useMart("ensembl")
+dd = biomaRt::listDatasets(ensembl)
+	dim(dd); dd[1:5,]
+	dd[grep("hsap",dd$dataset),]
+ee = biomaRt::useDataset("hsapiens_gene_ensembl",mart = ensembl)
+ff = biomaRt::listFilters(ee)
+	dim(ff); ff[1:5,]
+aa = biomaRt::listAttributes(ee)
+	dim(aa); aa[1:5,]
+
+attr_string = c("hgnc_symbol","ensembl_gene_id","external_gene_name",
+				"entrezgene","chromosome_name","start_position",
+				"end_position","strand","gene_biotype")
+filters = c("hgnc_symbol","chromosome_name","entrezgene")
+values = list(dat$gene,dat$chromosome,dat$entrez_id)
+gene_anno = biomaRt::getBM(attributes = attr_string,
+						filters = filters, 
+						values = values,
+						mart = ee)
+gene_anno = unique(gene_anno)
+dim(gene_anno); gene_anno[1:5,]
+smart_table(rownames(sig_cts) %in% gene_anno$hgnc_symbol)
+
+# What are the missing genes?
+miss_genes = setdiff(rownames(sig_cts),gene_anno$hgnc_symbol)
+miss_genes
+
+# Output
+saveRDS(list(anno = gene_anno,sig_cts = sig_cts),"int_signature.rds")
+
+# Import CMC Bulk RNA, get gene lengths, calculate TPM
+bulk = readRDS("CMC_MSSM-Penn-Pitt_Paul_geneExpressionRaw.rds")$so1
+dim(bulk); bulk[1:5,1:5]
+
+rds_fn = "Homo_sapiens.GRCh37.70.processed.rds"
+if( !file.exists(rds_fn) ){
+	gtf_fn = "Homo_sapiens.GRCh37.70.processed.gtf"
+	exdb = GenomicFeatures::makeTxDbFromGFF(file = gtf_fn,format = "gtf")
+	exons_list_per_gene = GenomicFeatures::exonsBy(exdb,by = "gene")
+	rds = smart_df(ensembl_gene_id = names(exons_list_per_gene),
+					gene_length = as.numeric(sum(width(GenomicRanges::reduce(exons_list_per_gene)))))
+	saveRDS(rds,rds_fn)
+}
+rds = readRDS(rds_fn)
+
+all(rds$ensembl_gene_id %in% rownames(bulk))
+all(rds$ensembl_gene_id == rownames(bulk))
+bulk = bulk / rds$gene_length
+bulk = 1e6 * t(t(bulk/colSums(bulk)))
+bulk[1:5,1:5] # tpm unit
+
+# Import signature matrix and annotation
+rds = readRDS("int_signature.rds")
+gene_anno = rds$anno
+sig_cts = rds$sig_cts
+rm(rds)
+
+# Get gene intersection, subset bulk and sig_cts, matching gene order
+smart_table(rownames(bulk) %in% gene_anno$ensembl_gene_id)
+inter_genes = intersect(rownames(bulk),gene_anno$ensembl_gene_id)
+gene_anno = gene_anno[which(gene_anno$ensembl_gene_id %in% inter_genes),]
+
+bulk = bulk[which(rownames(bulk) %in% inter_genes),]
+bulk = bulk[match(gene_anno$ensembl_gene_id,rownames(bulk)),]
+
+sig_cts = sig_cts[which(rownames(sig_cts) %in% gene_anno$hgnc_symbol),]
+sig_cts = sig_cts[match(gene_anno$hgnc_symbol,rownames(sig_cts)),]
+
+all(rownames(sig_cts) == gene_anno$hgnc_symbol)
+all(rownames(bulk) == gene_anno$ensembl_gene_id)
+
+# Rename rownames of sig_cts to match bulk
+rownames(sig_cts) = gene_anno$ensembl_gene_id
+
+# Run ICeDT
+pack = "ICeDT"
+if( !(pack %in% installed.packages()[,"Package"]) ){
+	devtools::install_github("Sun-lab/ICeDT")
+}
+icedt_fn = "int_icedt.rds"
+date()
+fitw0 = ICeDT::ICeDT(Y = bulk,Z = sig_cts,tumorPurity = rep(0,ncol(bulk)),
+	refVar = NULL,rhoInit = NULL,maxIter_prop = 500,maxIter_PP = 250,
+	rhoConverge = 1e-2)
+saveRDS(fitw0,icedt_fn)
+date()
+fitw0 = readRDS(icedt_fn)
+p1 = fitw0$cProb
+prop_icedt = t(fitw0$rho)[,-1]
+dim(p1)
+p1[1:2,1:5]
+p1 = data.matrix(p1)
+q90 <- function(v){
+	qs = quantile(v, probs=c(0.10, 0.90))
+	qs[2] - qs[1]
+}
+
+pdf("probConsistent_int_GeneSet.pdf",width=9,height=4)
+
+par(mar=c(5,4,1,1),bty="n",mfrow=c(1,3),cex=0.8)
+plot(density(c(p1))$y,main="",xlim=c(0,1),xlab="probability consistent",
+	ylab="density",type="n")
+lines(density(c(p1)), lty=1, col="black")
+legend("topright", c("no weight"), lty=c(1,2),col=c("black"), bty="n")
+plot(apply(p1,1,median),apply(p1,1,q90),xlab="median prob. consistent",
+	ylab="90 percentile - 10 percentile",main="Gene Consistency across subjects")
+boxplot(prop_icedt,main = "MTG - ICeDT")
+par(mfrow=c(1,1))
+
+# Predicted vs Observed gene expression
+predicted_bulk_w0 = sig_cts %*% t(prop_icedt)
+p1_cutoffs = quantile(p1,c(1/3,2/3)); p1_cutoffs
+plot_log1p = function(x, y, ...) {
+	smoothScatter(log(x+1e-5), log(y+1e-5), xlim=c(-5, 10), ylim=c(-5, 10), ...)
+	legend("bottomright",bty="n",legend=sprintf("Pearson correlation = %.2f",
+		cor(log(x+1e-5), log(y+1e-5))))
+}
+par(mar=c(5,4,1,1),bty="n",mfrow=c(1,3),cex=0.6)
+plot_log1p(x = c(predicted_bulk_w0)[p1 < p1_cutoffs[1]],
+		y = c(bulk)[p1 < p1_cutoffs[1]], 
+		xlab = "Predicted gene expression",ylab = "Observed gene expression",
+		sub = "model w/ weight",main = "low prob of being consistent")
+plot_log1p(x = c(predicted_bulk_w0)[p1 >= p1_cutoffs[1] & p1 <= p1_cutoffs[2]],
+		y = c(bulk)[p1 >= p1_cutoffs[1] & p1 <= p1_cutoffs[2]], 
+		xlab = "Predicted gene expression",ylab = "Observed gene expression",
+		sub = "model w/ weight",main = "med prob of being consistent")
+plot_log1p(x = c(predicted_bulk_w0)[p1 > p1_cutoffs[2]],
+		y = c(bulk)[p1 > p1_cutoffs[2]],
+		xlab = "Predicted gene expression",ylab = "Observed gene expression",
+		sub = "model w/ weight",main = "high prob of being consistent")
+
+dev.off()
+
+# Run CIBERSORT
+write.table(cbind(rowname=rownames(sig_cts),sig_cts),
+			file = "signature_INT.txt",
+			sep = "\t",quote = FALSE,row.names = FALSE)
+write.table(cbind(rowname=rownames(bulk),bulk),
+			file = "mixture_CMC_INT.txt",
+			sep = "\t",quote = FALSE,row.names = FALSE)
+# Login to CIBERSORT website, uploaded above two files, 
+#	specified no quantile normalization, ran 1000 permutations
+cib = smart_RT(file.path(MTG_dir,"CIBERSORT.Output_Job3.txt"),
+			sep = "\t",header = TRUE)
+dim(cib); cib[1:5,]
+prop_cib = as.matrix(cib[,2:7])
+
+# Compare proportions
+pdf("compare_props_int.pdf",width=9,height=5)
+
+# Proportions across cell types
+par(mfrow=c(1,2),mar=c(5,4,1,1))
+boxplot(prop_icedt,main = "MTG - ICeDT")
+boxplot(prop_cib,main = "MTG - CIBERSORT")
+
+# Proportions by cell type
+cell_types = colnames(prop_cib)
+par(mar=c(5,4,1,1),bty="n",mfrow=c(2,3),cex=0.8)
+for(ct in cell_types){
+	tmp_range = range(c(prop_icedt[,ct],prop_cib[,ct]))
+	plot(prop_icedt[,ct],prop_cib[,ct],xlab="prop est in ICeDT",
+		ylab="prop est in CIBERSORT",pch=16,cex=1.1,cex.lab=1.1,
+		col=rgb(0,0,0,0.25),xlim=tmp_range,ylim=tmp_range,main=ct)
+	abline(a=0,b=1,lty=2,col="blue",lwd=2)
+}
+
+saveRDS(list(ICeDT = prop_icedt,CIBERSORT = prop_cib),"prop_int.rds")
+
+dev.off()
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 sessionInfo()
 
