@@ -79,6 +79,11 @@ TPM[1:5,1:5]
 tpm_signature_genes = readRDS(file.path(deconvolution_dir,"tpm_signature_genes.rds"))
 table(rownames(tpm_signature_genes) %in% rownames(TPM))
 tpm_signature_genes = tpm_signature_genes[rownames(tpm_signature_genes) %in% rownames(TPM),]
+
+# read reference variance inferred from single cell data using decomposeVar():
+var_signature_genes = readRDS(file.path(deconvolution_dir,"var_signature_genes.rds"))
+table(rownames(var_signature_genes) %in% rownames(TPM))
+var_signature_genes = var_signature_genes[rownames(var_signature_genes) %in% rownames(TPM),]
 ```
 
 
@@ -87,7 +92,7 @@ bulk_subset = TPM[rownames(tpm_signature_genes), ]
 all(rownames(bulk_subset) == rownames(tpm_signature_genes))
 ```
 
-# Deconvolution
+# Deconvolution using CIBERSORT and ICeDT without weight
 
 ```{r run_deconvolution, fig.width=8, fig.height=4}
 par(mar=c(5,4,1,1), bty="n", mfrow=c(1,2), cex=0.8)
@@ -115,23 +120,22 @@ prop_cibersort[1:5,1:5]
 dim(prop_cibersort)
 boxplot(prop_cibersort, main="CIBERSORT")
 
-
-# run ICeDT
-icedt_file = file.path(deconvolution_dir,"CMC_ICeDT_fitw0_genes_from_psychENCODE.rds")
+# run ICeDT (no weight)
+icedt_file = file.path(deconvolution_dir,"CMC_ICeDT_fitnw_genes_from_psychENCODE.rds")
 if (!file.exists(icedt_file)) {
   # takes 15min on my laptop.
   date()
-  fitw0 = ICeDT::ICeDT(Y=bulk_subset, Z=tpm_signature_genes, 
+  fitnw = ICeDT::ICeDT(Y=bulk_subset, Z=tpm_signature_genes, 
                        tumorPurity=rep(0, ncol(bulk_subset)), refVar=NULL,
                        rhoInit=NULL, maxIter_prop = 500, maxIter_PP = 250, 
                        rhoConverge = 1e-2)
   date()
-  saveRDS(fitw0, file = icedt_file)
+  saveRDS(fitnw, file = icedt_file)
 }
-fitw0 = readRDS(icedt_file)
+fitnw = readRDS(icedt_file)
 
-# plot ICeDT
-prop_icedt = t(fitw0$rho)[,-1]
+# plot ICeDT (no weight)
+prop_icedt = t(fitnw$rho)[,-1]
 prop_icedt[1:5,1:5]
 dim(prop_icedt)
 boxplot(prop_icedt, main="ICeDT")
@@ -158,15 +162,58 @@ for (i in colnames(prop_cibersort)) {
 }
 ```
 
+# Deconvolution using ICeDT with weight
+
+The weights are obtained after subsetting `sce` by cell types and using the total variance tabulated by `scran::decomposeVar`.
+
+```{r visualize_weights, fig.width=3.5, fig.height=5, fig.show='hold'}
+library(pheatmap)
+# library(grid)
+# library(gridExtra)
+
+p1 = pheatmap(log2(1+tpm_signature_genes), cluster_rows=FALSE, cluster_cols=FALSE, show_rownames = FALSE)
+p2 = pheatmap(var_signature_genes, cluster_rows=FALSE, cluster_cols=FALSE, show_rownames = FALSE)
+# grid.arrange(arrangeGrob(grobs=list(p1[[4]], p2[[4]])))
+```
+
+```{r run_deconvolution_w_weight_icedt, fig.width=8, fig.height=4}
+par(mar=c(5,4,1,1), bty="n", mfrow=c(1,2), cex=0.8)
+
+# run ICeDT (with weight)
+icedt_with_weight_file = file.path(deconvolution_dir,"CMC_ICeDT_fitw0_genes_from_psychENCODE.rds")
+if (!file.exists(icedt_with_weight_file)) {
+  # takes 15min on my laptop.
+  date()
+  fitw0 = ICeDT::ICeDT(Y=bulk_subset, Z=tpm_signature_genes, 
+                       tumorPurity=rep(0, ncol(bulk_subset)), refVar=var_signature_genes,
+                       rhoInit=NULL, maxIter_prop = 500, maxIter_PP = 250, 
+                       rhoConverge = 1e-2)
+  date()
+  saveRDS(fitw0, file = icedt_with_weight_file)
+}
+fitw0 = readRDS(icedt_with_weight_file)
+
+# plot ICeDT (no weight)
+prop_icedt_fitw0 = t(fitw0$rho)[,-1]
+prop_icedt_fitw0[1:5,1:5]
+dim(prop_icedt_fitw0)
+boxplot(prop_icedt_fitw0, main="ICeDT with weight")
+#> table(colData(sce)$cell_type)
+#
+#Astro   Exc   Inh Micro Oligo   OPC 
+# 2647 13353  4064   115  2425  1046 
+```
+
 # More analysis based on ICeDT results
 
+## Without weight
 
 ```{r fig.width=8, fig.height=4}
 par(mar=c(5,4,1,1), bty="n", mfrow=c(1,2), cex=0.8)
 Geneset = "psychENCODE600"
 # dir.create("./figures")
 
-p1 = fitw0$cProb
+p1 = fitnw$cProb
 dim(p1)
 
 p1[1:2,1:5]
@@ -193,6 +240,77 @@ plot(apply(p1, 1, median), apply(p1, 1, q90),
 # dev.off()
 
 # Scatterplot of predicted vs. observed gene expression
+dim(fitnw$rho[-1,])
+dim(tpm_signature_genes)
+dim(bulk_subset)
+predicted_bulk_nw = tpm_signature_genes %*% fitnw$rho[-1,]
+p1_cutoffs = quantile(p1, c(0.333,0.666))
+
+cat(sprintf("Consistent probability cutoffs for model w/ weight: %.3f, %.3f \n", 
+            p1_cutoffs[1], p1_cutoffs[2]))
+```
+
+
+```{r plotting_results_ICeDT, fig.width=8, fig.height=3}
+# pdf(sprintf("./figures/ExpectedVsObservedExpr_GeneSet%s.pdf", 
+#             Geneset), width=9, height=6)
+par(mar=c(5,4,1,1), bty="n", mfrow=c(1,3), cex=0.6)
+
+# plot observed vs. expected expression, stratified by 3-quantiles
+plot_log1p = function(x, y, ...) {
+  smoothScatter(log(x+1e-5), log(y+1e-5), xlim=c(-5, 10), ylim=c(-5, 10), ...)
+  legend("bottomright", bty="n",
+         legend=sprintf("Pearson correlation = %.2f", cor(log(x+1e-5), log(y+1e-5))))
+}
+
+plot_log1p(c(predicted_bulk_nw)[p1 < p1_cutoffs[1]], c(bulk_subset)[p1 < p1_cutoffs[1]], 
+     xlab="Predicted gene expression", ylab="Observed gene expression",
+     sub="model w/o weight", main="low prob of being consistent")
+plot_log1p(c(predicted_bulk_nw)[p1 >= p1_cutoffs[1] & p1 <= p1_cutoffs[2]], 
+           c(bulk_subset)[p1 >= p1_cutoffs[1] & p1 <= p1_cutoffs[2]], 
+     xlab="Predicted gene expression", ylab="Observed gene expression",
+     sub="model w/o weight", main="med prob of being consistent")
+plot_log1p(c(predicted_bulk_nw)[p1 > p1_cutoffs[2]], c(bulk_subset)[p1 > p1_cutoffs[2]], 
+     xlab="Predicted gene expression", ylab="Observed gene expression",
+     sub="model w/o weight", main="high prob of being consistent")
+
+# dev.off()
+```
+
+## With weight
+
+```{r fig.width=8, fig.height=4}
+par(mar=c(5,4,1,1), bty="n", mfrow=c(1,2), cex=0.8)
+Geneset = "psychENCODE600"
+# dir.create("./figures")
+
+p1 = fitw0$cProb
+dim(p1)
+
+p1[1:2,1:5]
+
+p1 = data.matrix(p1)
+
+q90 <- function(v){
+  qs = quantile(v, probs=c(0.10, 0.90))
+  qs[2] - qs[1]
+}
+
+# pdf(sprintf("./figures/probConsistent_GeneSet%s.pdf",Geneset), 
+#     width=9, height=3)
+plot(density(c(p1))$y, main="", xlim=c(0,1),
+     xlab="probability consistent", ylab="density", type="n")
+lines(density(c(p1)), lty=1, col="black")
+legend("topright", c("with weight"), lty=c(1,2), 
+       col=c("black"), bty="n")
+
+plot(apply(p1, 1, median), apply(p1, 1, q90), 
+     xlab="median prob. consistent", ylab="90 percentile - 10 percentile")
+
+
+# dev.off()
+
+# Scatterplot of predicted vs. observed gene expression
 dim(fitw0$rho[-1,])
 dim(tpm_signature_genes)
 dim(bulk_subset)
@@ -204,7 +322,7 @@ cat(sprintf("Consistent probability cutoffs for model w/ weight: %.3f, %.3f \n",
 ```
 
 
-```{r plotting_results_ICeDT, fig.width=8, fig.height=3}
+```{r plotting_results_ICeDT_w0, fig.width=8, fig.height=3}
 # pdf(sprintf("./figures/ExpectedVsObservedExpr_GeneSet%s.pdf", 
 #             Geneset), width=9, height=6)
 par(mar=c(5,4,1,1), bty="n", mfrow=c(1,3), cex=0.6)
@@ -228,6 +346,20 @@ plot_log1p(c(predicted_bulk_w0)[p1 > p1_cutoffs[2]], c(bulk_subset)[p1 > p1_cuto
      sub="model w/ weight", main="high prob of being consistent")
 
 # dev.off()
+```
+
+The following code chunk has a comparison between CIBERSORT results and ICeDT results with weight: 
+```{r, fig.width=6, fig.height=3}
+par(mar=c(5,4,1,1), bty="n", mfrow=c(1,2), cex=0.6)
+predicted_bulk_cibersort = tpm_signature_genes %*% t(as.matrix(prop_cibersort))
+
+plot_log1p(c(predicted_bulk_w0), c(bulk_subset), 
+     xlab="Predicted gene expression", ylab="Observed gene expression",
+     main="ICeDT w/weight results")
+
+plot_log1p(c(predicted_bulk_cibersort), c(bulk_subset), 
+     xlab="Predicted gene expression", ylab="Observed gene expression",
+     main="CIBERSORT results")
 ```
 
 ```{r}
