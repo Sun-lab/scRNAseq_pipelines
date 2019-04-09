@@ -506,3 +506,55 @@ rownames(tpm_signature_genes) = gene_anno[rownames(tpm_signature_genes), "ensemb
 dim(tpm_signature_genes)
 saveRDS(tpm_signature_genes, file.path(psychENCODE_dir,"tpm_signature_genes.rds"))
 ```
+# Obtain variance of log-transformed TPM from single cell data
+
+Obviously, we only have single cell data and we would not be able to obtain across-sample variance, but we can still obtain variance estimates
+to use in ICeDT based on variance on single cell level restricted to each high-confidence cell types.
+
+```{r variance,fig.dim = c(8,6)}
+library(scran)
+
+par(mfrow=c(2,3), mar=c(5,4,2,1), bty="n")
+dec_by_cell_type = list()
+
+for (ct in cell_types) {
+
+  sce_group_by_cell_type = sce[, colData(sce)$cell_type == ct]
+  
+  sce_group_by_cell_type = computeSumFactors(sce_group_by_cell_type, min.mean=0.1)
+  
+  new_trend = makeTechTrend(x=sce_group_by_cell_type)
+  fit = trendVar(sce_group_by_cell_type, use.spikes=FALSE, loess.args=list(span=0.05))
+  
+  plot(fit$mean, fit$var, pch=20, col=rgb(0.1,0.2,0.7,0.6), 
+       xlab=paste("log(mean) of", ct), ylab="var")
+  curve(fit$trend(x), col="orange", lwd=2, add=TRUE)
+  curve(new_trend(x), col="red", lwd=2, add=TRUE)
+  legend("top", legend=c("Poisson noise", "observed trend"), 
+         lty=1, lwd=2, col=c("red", "orange"), bty="n")
+  
+  fit$trend = new_trend
+  
+  dec     = decomposeVar(fit=fit) 
+  
+  dec_by_cell_type[[ct]] = dec
+}
+
+# TODO: do trendVar() after separating cells into cell types 
+# We assume that the total variance obtained here can be used in ICeDT to
+# as weights to do deconvolution 
+# (since the curve resembles the variance-mean relation we see elsewhere,
+#  e.g. DESeq2 paper.)
+saveRDS(dec_by_cell_type, file.path(psychENCODE_dir,"psychENCODE_decomposeVar.rds"))
+```
+
+```{r variance_summary}
+var_signature_genes = tpm_signature_genes
+var_signature_genes[] = NA
+for (ct in cell_types) {
+  rownames(dec_by_cell_type[[ct]]) = rowData(sce)$ensembl_gene_id
+  var_signature_genes[,ct] = dec_by_cell_type[[ct]][rownames(tpm_signature_genes), "total"]
+}
+dim(var_signature_genes)
+saveRDS(var_signature_genes, file.path(psychENCODE_dir,"var_signature_genes.rds"))
+```

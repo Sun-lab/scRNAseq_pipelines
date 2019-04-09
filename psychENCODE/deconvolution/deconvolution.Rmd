@@ -43,6 +43,7 @@ its own cell type labels, we take the intersect of cell type labels in agreement
 ```{r prep, results='hide', message=FALSE, warning=FALSE, echo=TRUE}
 library(AnnotationDbi)
 library(GenomicFeatures)
+library(ICeDT)
 ```
 
 ```{r gene_lengths}
