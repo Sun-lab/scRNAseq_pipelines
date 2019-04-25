@@ -223,10 +223,12 @@ cell_types 	= c("Astro","Exc","Inh","Micro","Oligo","OPC")
 num_genes = nrow(sce)
 for(ct in cell_types){
 	print(ct)
+	if(FALSE){
 	MAST_DEgenes(work_dir = MTG_dir,
 				num_genes = num_genes,
 				sce_obj = sce,
 				one_cell_type = one_ct)
+	}
 }
 
 # ------------------------------------------------------------
@@ -457,7 +459,7 @@ q90 <- function(v){
 	qs[2] - qs[1]
 }
 
-pdf("probConsistent_GeneSet.pdf",width=9,height=4)
+pdf("probConsistent_GeneSet.pdf",width=11,height=4)
 
 par(mar=c(5,4,1,1),bty="n",mfrow=c(1,3),cex=0.8)
 plot(density(c(p1))$y,main="",xlim=c(0,1),xlab="probability consistent",
@@ -745,7 +747,7 @@ q90 <- function(v){
 	qs[2] - qs[1]
 }
 
-pdf("probConsistent_int_GeneSet.pdf",width=9,height=4)
+pdf("probConsistent_int_GeneSet.pdf",width=11,height=4)
 
 par(mar=c(5,4,1,1),bty="n",mfrow=c(1,3),cex=0.8)
 plot(density(c(p1))$y,main="",xlim=c(0,1),xlab="probability consistent",
