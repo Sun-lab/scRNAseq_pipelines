@@ -398,7 +398,7 @@ pdf
 > sessionInfo()
 R version 3.5.0 (2018-04-23)
 Platform: x86_64-apple-darwin15.6.0 (64-bit)
-Running under: macOS  10.14.3
+Running under: macOS  10.14.4
 
 Matrix products: default
 BLAS: /Library/Frameworks/R.framework/Versions/3.5/Resources/lib/libRblas.0.dylib
@@ -424,4 +424,4 @@ loaded via a namespace (and not attached):
 > q(save="no")
 > proc.time()
    user  system elapsed 
-  1.933   0.185   2.204 
+  1.922   0.228   2.179 
