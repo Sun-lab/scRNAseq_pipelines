@@ -1,0 +1,167 @@
+# source: https://www.genenames.org/cgi-bin/genefamilies/set/1054
+# https://www.genenames.org/cgi-bin/genefamilies/set/1054/download/branch
+HGNC ID	Approved Symbol	Approved Name	Status	Previous Symbols	Synonyms	Chromosome	Accession Numbers	RefSeq IDs	Gene Family Tag	Gene family description	Gene family ID
+10298	RPL10	ribosomal protein L10	Approved		NOV, QM, DXS648E, DXS648, FLJ23544, L10	Xq28	AB007170	NM_006013	RPL	L ribosomal proteins	729
+10299	RPL10A	ribosomal protein L10a	Approved	NEDD6	Csa-19, L10A	6p21.31	U12404	NM_007104	RPL	L ribosomal proteins	729
+17976	RPL10L	ribosomal protein L10 like	Approved			14q21.2	AB063608		RPL	L ribosomal proteins	729
+10301	RPL11	ribosomal protein L11	Approved		L11, uL5	1p36.11	L05092	NM_000975	RPL	L ribosomal proteins	729
+10302	RPL12	ribosomal protein L12	Approved		L12	9q33.3			RPL	L ribosomal proteins	729
+10304	RPL13A	ribosomal protein L13a	Approved	TSTA1	L13A	19q13.33	X56932		RPL	L ribosomal proteins	729
+10305	RPL14	ribosomal protein L14	Approved		L14, hRL14, RL14, CTG-B33	3p22.1	D87735	NM_003973	RPL	L ribosomal proteins	729
+10306	RPL15	ribosomal protein L15	Approved		RPL10, RPLY10, RPYL10, EC45, L15	3p24.2	AB007173	NM_002948	RPL	L ribosomal proteins	729
+10307	RPL17	ribosomal protein L17	Approved		rpL23, L17	18q21.1	AB007174	NM_000985	RPL	L ribosomal proteins	729
+10311	RPL18A	ribosomal protein L18a	Approved		L18A	19p13.11	AB007175	NM_000980	RPL	L ribosomal proteins	729
+10312	RPL19	ribosomal protein L19	Approved		FLJ27452, MGC71997, DKFZp779D216, L19	17q12		NM_000981	RPL	L ribosomal proteins	729
+10313	RPL21	ribosomal protein L21	Approved		L21, FLJ27458, MGC71252, MGC104274, MGC104275, DKFZp686C06101	13q12.2	AB007176	NM_000982	RPL	L ribosomal proteins	729
+10315	RPL22	ribosomal protein L22	Approved		EAP, L22	1p36.31	BC058887	NM_000983	RPL	L ribosomal proteins	729
+10316	RPL23	ribosomal protein L23	Approved		rpL17, L23	17q12	X52839	NM_000978	RPL	L ribosomal proteins	729
+10317	RPL23A	ribosomal protein L23a	Approved		L23A	17q11.2	U43701	NM_000984	RPL	L ribosomal proteins	729
+10325	RPL24	ribosomal protein L24	Approved		L24	3q12.3	AB007177	NM_000986	RPL	L ribosomal proteins	729
+10327	RPL26	ribosomal protein L26	Approved		L26	17p13.1		NM_000987	RPL	L ribosomal proteins	729
+17050	RPL26L1	ribosomal protein L26 like 1	Approved	RPL26P1		5q35.1	AF083248	NM_016093	RPL	L ribosomal proteins	729
+10328	RPL27	ribosomal protein L27	Approved		L27	17q21		NM_000988	RPL	L ribosomal proteins	729
+10329	RPL27A	ribosomal protein L27a	Approved		L27A	11p15	U14968	NM_000990	RPL	L ribosomal proteins	729
+10330	RPL28	ribosomal protein L28	Approved		FLJ43307, L28	19q13.4	U14969	NM_000991	RPL	L ribosomal proteins	729
+10331	RPL29	ribosomal protein L29	Approved	RPL29P10	HIP, HUMRPL29, L29	3p21.2	U10248	NM_000992	RPL	L ribosomal proteins	729
+10332	RPL3	ribosomal protein L3	Approved		L3	22q13.1	AB007166	NM_000967	RPL	L ribosomal proteins	729
+10333	RPL30	ribosomal protein L30	Approved		L30	8q22.2			RPL	L ribosomal proteins	729
+10334	RPL31	ribosomal protein L31	Approved		L31	2q11.2	X15940	NM_001098577	RPL	L ribosomal proteins	729
+10336	RPL32	ribosomal protein L32	Approved		L32	3p25.2	CA436299, CF124158, CR608027	NM_000994	RPL	L ribosomal proteins	729
+10340	RPL34	ribosomal protein L34	Approved		L34	4q25	AB007181	NM_033625, NM_000995	RPL	L ribosomal proteins	729
+10344	RPL35	ribosomal protein L35	Approved		L35	9q33.3	U12465	NM_007209	RPL	L ribosomal proteins	729
+10345	RPL35A	ribosomal protein L35a	Approved		L35A, eL33, GIG33	3q29	X52966	NM_000996	RPL	L ribosomal proteins	729
+13631	RPL36	ribosomal protein L36	Approved		DKFZp566B023, L36	19p13.2		NM_015414	RPL	L ribosomal proteins	729
+10359	RPL36A	ribosomal protein L36a	Approved	RPL44	L36A	Xq22.1	BC001781	NM_021029	RPL	L ribosomal proteins	729
+10346	RPL36AL	ribosomal protein L36a like	Approved	RPL36A		14q21.3	BC000741		RPL	L ribosomal proteins	729
+10347	RPL37	ribosomal protein L37	Approved		L37	5p13.1	L11567	NM_000997	RPL	L ribosomal proteins	729
+10348	RPL37A	ribosomal protein L37a	Approved		L37A	2q35		NM_000998	RPL	L ribosomal proteins	729
+10349	RPL38	ribosomal protein L38	Approved		L38	17q25.1	AB007185	NM_000999	RPL	L ribosomal proteins	729
+10350	RPL39	ribosomal protein L39	Approved	RPL39P42	L39	Xq24		NM_001000	RPL	L ribosomal proteins	729
+17094	RPL39L	ribosomal protein L39 like	Approved	RPL39L1		3q27.3	BC012328	NM_052969	RPL	L ribosomal proteins	729
+10351	RPL3L	ribosomal protein L3 like	Approved			16p13.3	U65581	NM_005061	RPL	L ribosomal proteins	729
+10353	RPL4	ribosomal protein L4	Approved		L4	15q22.31	AB007167	NM_000968	RPL	L ribosomal proteins	729
+12458	UBA52	ubiquitin A-52 residue ribosomal protein fusion product 1	Approved		RPL40, CEP52, HUBCEP52, MGC57125, MGC126879, MGC126881, L40	19p13.1-p12		NM_003333	RPL	L ribosomal proteins	729
+10354	RPL41	ribosomal protein L41	Approved		L41	12q13	AB007186		RPL	L ribosomal proteins	729
+10360	RPL5	ribosomal protein L5	Approved		L5, PPP1R135, uL18	1p22.1	U14966	NM_000969	RPL	L ribosomal proteins	729
+10362	RPL6	ribosomal protein L6	Approved	TXREB1	TAXREB107, L6	12q24.13	X69391		RPL	L ribosomal proteins	729
+10363	RPL7	ribosomal protein L7	Approved		humL7-1, L7	8q21.11	L16557	NM_000971	RPL	L ribosomal proteins	729
+10364	RPL7A	ribosomal protein L7a	Approved		SURF3, TRUP, L7A	9q34.2	BC005128	NM_000972	RPL	L ribosomal proteins	729
+21370	RPL7L1	ribosomal protein L7 like 1	Approved		dJ475N16.4	6p21.1		XM_209769	RPL	L ribosomal proteins	729
+10368	RPL8	ribosomal protein L8	Approved		L8	8q24.3	Z28407	NM_000973	RPL	L ribosomal proteins	729
+10369	RPL9	ribosomal protein L9	Approved		L9	4p14	D14531		RPL	L ribosomal proteins	729
+10371	RPLP0	ribosomal protein lateral stalk subunit P0	Approved		PRLP0, P0, L10E, RPP0, LP0	12q24.23	AB007187	NM_053275	RPL	L ribosomal proteins	729
+10372	RPLP1	ribosomal protein lateral stalk subunit P1	Approved		LP1	15q23		NM_001003	RPL	L ribosomal proteins	729
+10377	RPLP2	ribosomal protein lateral stalk subunit P2	Approved	D11S2243E	P2, RPP2, MGC71408, LP2	11p15.5	M17887	NM_001004	RPL	L ribosomal proteins	729
+14275	MRPL1	mitochondrial ribosomal protein L1	Approved		BM022	4q21.1	AB049474	NM_020236	MRPL, MRPS	Mitochondrial ribosomal proteins	646
+14055	MRPL10	mitochondrial ribosomal protein L10	Approved		RPML8, MRP-L8, L10MT, MRP-L10, MRPL8, MGC17973	17q21.32	AB051618	NM_145255	MRPL, MRPS	Mitochondrial ribosomal proteins	646
+14042	MRPL11	mitochondrial ribosomal protein L11	Approved			11q13.2	AB051338	NM_016050	MRPL, MRPS	Mitochondrial ribosomal proteins	646
+10378	MRPL12	mitochondrial ribosomal protein L12	Approved	RPML12	MRPL7/L12, MRPL7	17q25.3	X79865	NM_002949	MRPL, MRPS	Mitochondrial ribosomal proteins	646
+14278	MRPL13	mitochondrial ribosomal protein L13	Approved		L13, RPL13, L13mt, RPML13, L13A	8q24.12	AB049640	NM_014078	MRPL, MRPS	Mitochondrial ribosomal proteins	646
+14279	MRPL14	mitochondrial ribosomal protein L14	Approved		RPML32, MRP-L32	6p21.1	AB051339	NM_032111	MRPL, MRPS	Mitochondrial ribosomal proteins	646
+14054	MRPL15	mitochondrial ribosomal protein L15	Approved		RPML7, MRP-L7, HSPC145, L15mt, MRP-L15	8q11.23	AB051619	NM_014175	MRPL, MRPS	Mitochondrial ribosomal proteins	646
+14476	MRPL16	mitochondrial ribosomal protein L16	Approved		FLJ20484, PNAS-111	11q12.1	AF183428	NM_017840	MRPL, MRPS	Mitochondrial ribosomal proteins	646
+14053	MRPL17	mitochondrial ribosomal protein L17	Approved		RPML26, MRP-L26	11p15.5-p15.4	AB051620	NM_022061	MRPL, MRPS	Mitochondrial ribosomal proteins	646
+14477	MRPL18	mitochondrial ribosomal protein L18	Approved		HSPC071	6q25.3	AF161556		MRPL, MRPS	Mitochondrial ribosomal proteins	646
+14052	MRPL19	mitochondrial ribosomal protein L19	Approved		MRP-L15, RPML15, KIAA0104, RLX1	2p12	AB051621	NM_014763	MRPL, MRPS	Mitochondrial ribosomal proteins	646
+14056	MRPL2	mitochondrial ribosomal protein L2	Approved		MRP-L14, RPML14, CGI-22	6p21.1	AB051617		MRPL, MRPS	Mitochondrial ribosomal proteins	646
+14478	MRPL20	mitochondrial ribosomal protein L20	Approved		FLJ10024	1p36.33	AB049644	NM_017971	MRPL, MRPS	Mitochondrial ribosomal proteins	646
+14479	MRPL21	mitochondrial ribosomal protein L21	Approved			11q13.3	AK096756	NM_181512	MRPL, MRPS	Mitochondrial ribosomal proteins	646
+14480	MRPL22	mitochondrial ribosomal protein L22	Approved		MRP-L25, RPML25, HSPC158	5q33.2	AB051622		MRPL, MRPS	Mitochondrial ribosomal proteins	646
+10322	MRPL23	mitochondrial ribosomal protein L23	Approved	RPL23L	L23MRP	11p15.5	AB051340	NM_021134	MRPL, MRPS	Mitochondrial ribosomal proteins	646
+14037	MRPL24	mitochondrial ribosomal protein L24	Approved		MRP-L18	1q23.1	AB051341	NM_145729	MRPL, MRPS	Mitochondrial ribosomal proteins	646
+14483	MRPL27	mitochondrial ribosomal protein L27	Approved			17q21.33	AB049647		MRPL, MRPS	Mitochondrial ribosomal proteins	646
+14484	MRPL28	mitochondrial ribosomal protein L28	Approved	MAAT1	p15	16p13.3	U19796		MRPL, MRPS	Mitochondrial ribosomal proteins	646
+10379	MRPL3	mitochondrial ribosomal protein L3	Approved	RPML3	MRL3	3q22.1	X06323	NM_007208	MRPL, MRPS	Mitochondrial ribosomal proteins	646
+14036	MRPL30	mitochondrial ribosomal protein L30	Approved		MRP-L28, RPML28	2q11.2	AB051342		MRPL, MRPS	Mitochondrial ribosomal proteins	646
+14035	MRPL32	mitochondrial ribosomal protein L32	Approved		HSPC283, L32mt, MRP-L32, bMRP-59b	7p14.1	AB051343	NM_031903	MRPL, MRPS	Mitochondrial ribosomal proteins	646
+14487	MRPL33	mitochondrial ribosomal protein L33	Approved	C2orf1	RPL33L	2p23.2	AB051623	NM_004891	MRPL, MRPS	Mitochondrial ribosomal proteins	646
+14488	MRPL34	mitochondrial ribosomal protein L34	Approved		L34mt, MGC2633, MGC24974	19p13.1	AB049652	NM_023937	MRPL, MRPS	Mitochondrial ribosomal proteins	646
+14489	MRPL35	mitochondrial ribosomal protein L35	Approved			2p11.2	AF208849	NM_016622	MRPL, MRPS	Mitochondrial ribosomal proteins	646
+14490	MRPL36	mitochondrial ribosomal protein L36	Approved		BRIP1, RPMJ, L36mt, PRPL36, MRP-L36	5p15.33	AB049654	NM_032479	MRPL, MRPS	Mitochondrial ribosomal proteins	646
+14034	MRPL37	mitochondrial ribosomal protein L37	Approved		RPML2, MRP-L2	1p32.3	AB051344	NM_016491	MRPL, MRPS	Mitochondrial ribosomal proteins	646
+14033	MRPL38	mitochondrial ribosomal protein L38	Approved		RPML3, MRP-L3, HSPC262, MGC4810	17q25.1	AB051345	NM_032478	MRPL, MRPS	Mitochondrial ribosomal proteins	646
+14027	MRPL39	mitochondrial ribosomal protein L39	Approved		RPML5, MRP-L5, MGC104174, PRED66, PRED22, C21orf92, L39mt, MSTP003, MGC3400, FLJ20451	21q21.3	AB051346	NM_017446	MRPL, MRPS	Mitochondrial ribosomal proteins	646
+14276	MRPL4	mitochondrial ribosomal protein L4	Approved		CGI-28	19p13.2	AB049635		MRPL, MRPS	Mitochondrial ribosomal proteins	646
+14491	MRPL40	mitochondrial ribosomal protein L40	Approved	NLVCF	MRP-L22	22q11.21	AB051624	NM_003776	MRPL, MRPS	Mitochondrial ribosomal proteins	646
+14492	MRPL41	mitochondrial ribosomal protein L41	Approved		MRP-L27, RPML27, BMRP, PIG3, MRPL27	9q34.3	AB051625	NM_032477	MRPL, MRPS	Mitochondrial ribosomal proteins	646
+14493	MRPL42	mitochondrial ribosomal protein L42	Approved		MRPS32, MRP-L31, RPML31, PTD007, HSPC204, MRPL31	12q22	AB051626	NM_014050	MRPL, MRPS	Mitochondrial ribosomal proteins	646
+14517	MRPL43	mitochondrial ribosomal protein L43	Approved		bMRP36a	10q24.31	AB049656		MRPL, MRPS	Mitochondrial ribosomal proteins	646
+16650	MRPL44	mitochondrial ribosomal protein L44	Approved		FLJ12701, FLJ13990	2q36.1	AK022763	NM_022915	MRPL, MRPS	Mitochondrial ribosomal proteins	646
+16651	MRPL45	mitochondrial ribosomal protein L45	Approved		MGC11321	17q12	BC006235	NM_032351	MRPL, MRPS	Mitochondrial ribosomal proteins	646
+1192	MRPL46	mitochondrial ribosomal protein L46	Approved	C15orf4	LIECG2, P2ECSL	15q25.3	AF210056	NM_022163	MRPL, MRPS	Mitochondrial ribosomal proteins	646
+16652	MRPL47	mitochondrial ribosomal protein L47	Approved		CGI-204, NCM1	3q26.33	AF285120	NM_020409	MRPL, MRPS	Mitochondrial ribosomal proteins	646
+16653	MRPL48	mitochondrial ribosomal protein L48	Approved		CGI-118	11q13.4	AF151876	NM_016055	MRPL, MRPS	Mitochondrial ribosomal proteins	646
+1176	MRPL49	mitochondrial ribosomal protein L49	Approved	C11orf4	NOF, NOF1, L49mt	11q13.1		NM_004927	MRPL, MRPS	Mitochondrial ribosomal proteins	646
+16654	MRPL50	mitochondrial ribosomal protein L50	Approved		FLJ20493, MRP-L50	9q31.1	AK000500	NM_019051	MRPL, MRPS	Mitochondrial ribosomal proteins	646
+14044	MRPL51	mitochondrial ribosomal protein L51	Approved	MRP64	CDA09, HSPC241, bMRP64	12p13.31	AB051355	NM_016497	MRPL, MRPS	Mitochondrial ribosomal proteins	646
+16655	MRPL52	mitochondrial ribosomal protein L52	Approved			14q11.2	AK000450	NM_180982	MRPL, MRPS	Mitochondrial ribosomal proteins	646
+16684	MRPL53	mitochondrial ribosomal protein L53	Approved			2p13.1	BC012163	NM_053050	MRPL, MRPS	Mitochondrial ribosomal proteins	646
+16685	MRPL54	mitochondrial ribosomal protein L54	Approved			19p13.3		NM_172251	MRPL, MRPS	Mitochondrial ribosomal proteins	646
+16686	MRPL55	mitochondrial ribosomal protein L55	Approved			1q42.13	AK056987	XM_059233	MRPL, MRPS	Mitochondrial ribosomal proteins	646
+16468	LACTB	lactamase beta	Approved	MRPL56	FLJ14902	15q22.2	AK027808	NM_032857	MRPL, MRPS	Mitochondrial ribosomal proteins	646
+14514	MRPL57	mitochondrial ribosomal protein L57	Approved	MRP63		13q12.11	AB049957	NM_024026	MRPL, MRPS	Mitochondrial ribosomal proteins	646
+14277	MRPL9	mitochondrial ribosomal protein L9	Approved			1q21.3	AK026363	NM_031420	MRPL, MRPS	Mitochondrial ribosomal proteins	646
+14502	MRPS10	mitochondrial ribosomal protein S10	Approved		FLJ10567	6p21.1			MRPL, MRPS	Mitochondrial ribosomal proteins	646
+14050	MRPS11	mitochondrial ribosomal protein S11	Approved		FLJ23406, HCC-2, FLJ22512	15q25.3	AB051349	NM_022839	MRPL, MRPS	Mitochondrial ribosomal proteins	646
+10380	MRPS12	mitochondrial ribosomal protein S12	Approved	RPMS12	RPS12, RPSM12	19q13.2	Y11681		MRPL, MRPS	Mitochondrial ribosomal proteins	646
+14049	MRPS14	mitochondrial ribosomal protein S14	Approved		HSMRPS14	1q25.1	AB051350	NM_022100	MRPL, MRPS	Mitochondrial ribosomal proteins	646
+14504	MRPS15	mitochondrial ribosomal protein S15	Approved		FLJ11564	1p34.3	AB049946	NM_031280	MRPL, MRPS	Mitochondrial ribosomal proteins	646
+14048	MRPS16	mitochondrial ribosomal protein S16	Approved		CGI-132	10q22.2	AB051351		MRPL, MRPS	Mitochondrial ribosomal proteins	646
+14047	MRPS17	mitochondrial ribosomal protein S17	Approved		HSPC011, RPMS17, MRP-S17	7p11.2	AB051352	NM_015969	MRPL, MRPS	Mitochondrial ribosomal proteins	646
+14515	MRPS18A	mitochondrial ribosomal protein S18A	Approved		FLJ10548, MRPS18-3	6p21.1	AB049952	NM_018135	MRPL, MRPS	Mitochondrial ribosomal proteins	646
+14516	MRPS18B	mitochondrial ribosomal protein S18B	Approved		MRPS18-2, PTD017, C6orf14, HSPC183	6p21.33	AF100761		MRPL, MRPS	Mitochondrial ribosomal proteins	646
+16633	MRPS18C	mitochondrial ribosomal protein S18C	Approved		MRPS18-1, CGI-134, FLJ11146, FLJ22967	4q21.23			MRPL, MRPS	Mitochondrial ribosomal proteins	646
+14495	MRPS2	mitochondrial ribosomal protein S2	Approved		CGI-91	9q34.3	AB051627		MRPL, MRPS	Mitochondrial ribosomal proteins	646
+14046	MRPS21	mitochondrial ribosomal protein S21	Approved			1q21.2	AB051353	NM_018997	MRPL, MRPS	Mitochondrial ribosomal proteins	646
+14508	MRPS22	mitochondrial ribosomal protein S22	Approved		MRP-S22, GK002, C3orf5, GIBT	3q23	AF226045	NM_020191	MRPL, MRPS	Mitochondrial ribosomal proteins	646
+14509	MRPS23	mitochondrial ribosomal protein S23	Approved		MRP-S23, CGI-138, HSPC329	17q22	AB061206	NM_016070	MRPL, MRPS	Mitochondrial ribosomal proteins	646
+14510	MRPS24	mitochondrial ribosomal protein S24	Approved		MRP-S24, HSPC335	7p13	AB061207	NM_032014	MRPL, MRPS	Mitochondrial ribosomal proteins	646
+14511	MRPS25	mitochondrial ribosomal protein S25	Approved		MRP-S25, FLJ00023, DKFZp313H0817, RPMS25	3p25.1	AB061208	NM_022497	MRPL, MRPS	Mitochondrial ribosomal proteins	646
+14045	MRPS26	mitochondrial ribosomal protein S26	Approved	C20orf193	MRP-S13, MRP-S26, RPMS13, dJ534B8.3	20p13	AB051354	NM_030811	MRPL, MRPS	Mitochondrial ribosomal proteins	646
+14512	MRPS27	mitochondrial ribosomal protein S27	Approved		KIAA0264	5q13.2	D87453	NM_015084	MRPL, MRPS	Mitochondrial ribosomal proteins	646
+14513	MRPS28	mitochondrial ribosomal protein S28	Approved		MRP-S28, HSPC007, MRPS35	8q21.13	AB061209	NM_014018	MRPL, MRPS	Mitochondrial ribosomal proteins	646
+2673	DAP3	death associated protein 3	Approved		MRPS29, DAP-3, MRP-S29, bMRP-10, MGC126058, MGC126059, DKFZp686G12159	1q22	X83544	NM_004632	MRPL, MRPS	Mitochondrial ribosomal proteins	646
+8769	MRPS30	mitochondrial ribosomal protein S30	Approved	PDCD9	PAP	5p12	AF146192	NM_016640	MRPL, MRPS	Mitochondrial ribosomal proteins	646
+16632	MRPS31	mitochondrial ribosomal protein S31	Approved		IMOGN38	13q14.11	Z68747		MRPL, MRPS	Mitochondrial ribosomal proteins	646
+16634	MRPS33	mitochondrial ribosomal protein S33	Approved		CGI-139	7q34	AF078858	NM_053035	MRPL, MRPS	Mitochondrial ribosomal proteins	646
+16618	MRPS34	mitochondrial ribosomal protein S34	Approved		MRP-S12, MGC2616	16p13.3	BC001182	NM_023936	MRPL, MRPS	Mitochondrial ribosomal proteins	646
+16635	MRPS35	mitochondrial ribosomal protein S35	Approved		MRPS28, MDS023	12p11.22	AF182422	NM_021821	MRPL, MRPS	Mitochondrial ribosomal proteins	646
+16631	MRPS36	mitochondrial ribosomal protein S36	Approved		DC47, MRP-S36	5q13.2		NM_033281	MRPL, MRPS	Mitochondrial ribosomal proteins	646
+14498	MRPS5	mitochondrial ribosomal protein S5	Approved		MRP-S5, S5mt	2q11.1	AB049940	NM_031902	MRPL, MRPS	Mitochondrial ribosomal proteins	646
+14051	MRPS6	mitochondrial ribosomal protein S6	Approved	C21orf101	MRP-S6, RPMS6	21q22.11	AB051347	NM_032476	MRPL, MRPS	Mitochondrial ribosomal proteins	646
+14499	MRPS7	mitochondrial ribosomal protein S7	Approved		MRP-S, RP-S7, RPMS7	17q25.1	AB051348	NM_015971	MRPL, MRPS	Mitochondrial ribosomal proteins	646
+14501	MRPS9	mitochondrial ribosomal protein S9	Approved		RPMS9, MRP-S9, S9mt	2q12.1		NM_182640	MRPL, MRPS	Mitochondrial ribosomal proteins	646
+10383	RPS10	ribosomal protein S10	Approved		MGC88819, S10	6p21.31	U14972		RPS	S ribosomal proteins	728
+10384	RPS11	ribosomal protein S11	Approved		S11	19q13.3	AB007152	NM_001015	RPS	S ribosomal proteins	728
+10385	RPS12	ribosomal protein S12	Approved		S12	6q23.2	X53505	NM_001016	RPS	S ribosomal proteins	728
+10386	RPS13	ribosomal protein S13	Approved		S13	11p15.1	X79239	NM_001017	RPS	S ribosomal proteins	728
+10387	RPS14	ribosomal protein S14	Approved		EMTB, S14	5q33.1		NM_001025071	RPS	S ribosomal proteins	728
+10388	RPS15	ribosomal protein S15	Approved		RIG, MGC111130, S15	19p13.3		NM_001018	RPS	S ribosomal proteins	728
+10389	RPS15A	ribosomal protein S15a	Approved		S15A	16p12.3	AB007154	NM_001019	RPS	S ribosomal proteins	728
+10396	RPS16	ribosomal protein S16	Approved		S16	19q13.1	M60854	NM_001020	RPS	S ribosomal proteins	728
+10397	RPS17	ribosomal protein S17	Approved	RPS17L	RPS17L1, RPS17L2, MGC72007, S17	15q25.2	M18000	NM_001021	RPS	S ribosomal proteins	728
+10401	RPS18	ribosomal protein S18	Approved	D6S218E	KE3, KE-3, HKE3, S18	6p21.32	X69150		RPS	S ribosomal proteins	728
+10402	RPS19	ribosomal protein S19	Approved		DBA, S19, eS19	19q13.2	BC000023	NM_001022	RPS	S ribosomal proteins	728
+10404	RPS2	ribosomal protein S2	Approved		LLREP3, S2	16p13.3	AB007147	NM_002952	RPS	S ribosomal proteins	728
+10405	RPS20	ribosomal protein S20	Approved		S20, uS10	8q12.1	L06498	NM_001023	RPS	S ribosomal proteins	728
+10409	RPS21	ribosomal protein S21	Approved		S21	20q13.33	L04483	NM_001024	RPS	S ribosomal proteins	728
+10410	RPS23	ribosomal protein S23	Approved		S23, uS12	5q14.2	AB007158	NM_001025	RPS	S ribosomal proteins	728
+10411	RPS24	ribosomal protein S24	Approved		S24, eS24	10q22.3	AB007159	NM_001026	RPS	S ribosomal proteins	728
+10413	RPS25	ribosomal protein S25	Approved		S25	11q23.3	M64716	NM_001028	RPS	S ribosomal proteins	728
+10414	RPS26	ribosomal protein S26	Approved		S26, eS26	12q13.2	AB007160	NM_001029	RPS	S ribosomal proteins	728
+10416	RPS27	ribosomal protein S27	Approved		MPS-1, MPS1, S27	1q21.3	U57847	NM_001030	RPS	S ribosomal proteins	728
+10417	RPS27A	ribosomal protein S27a	Approved		UBCEP80, Uba80, S27A	2p16.1	AB007163		RPS	S ribosomal proteins	728
+18476	RPS27L	ribosomal protein S27 like	Approved			15q22.2	BC003667	NM_015920	RPS	S ribosomal proteins	728
+10418	RPS28	ribosomal protein S28	Approved		S28, eS28	19p13.2	D14530	NM_001031	RPS	S ribosomal proteins	728
+10419	RPS29	ribosomal protein S29	Approved		S29, uS14	14q21.3	L31610	NM_001030001	RPS	S ribosomal proteins	728
+10420	RPS3	ribosomal protein S3	Approved		FLJ26283, FLJ27450, MGC87870, S3	11q13.4		NM_001005	RPS	S ribosomal proteins	728
+3597	FAU	FAU, ubiquitin like and ribosomal protein S30 fusion	Approved		RPS30, FLJ22986, Fub1, Fubi, MNSFbeta, asr1, S30	11q13.1	AK026639	NM_001997	RPS	S ribosomal proteins	728
+10421	RPS3A	ribosomal protein S3A	Approved	MFTL	S3A	4q31.3	X87373		RPS	S ribosomal proteins	728
+10424	RPS4X	ribosomal protein S4 X-linked	Approved		DXS306, CCG2, SCAR, SCR10, FLJ40595, RPS4, S4	Xq13.1		NM_001007	RPS	S ribosomal proteins	728
+10425	RPS4Y1	ribosomal protein S4 Y-linked 1	Approved	RPS4Y	MGC5070, MGC119100, S4	Yp11.2		NM_001008	RPS	S ribosomal proteins	728
+18501	RPS4Y2	ribosomal protein S4 Y-linked 2	Approved	RPS4Y2P		Yq11.223	AF497481		RPS	S ribosomal proteins	728
+10426	RPS5	ribosomal protein S5	Approved		S5	19q13.4	U14970	NM_001009	RPS	S ribosomal proteins	728
+10429	RPS6	ribosomal protein S6	Approved		S6	9p22.1		NM_001010	RPS	S ribosomal proteins	728
+10440	RPS7	ribosomal protein S7	Approved		S7, eS7	2p25.3		NM_001011	RPS	S ribosomal proteins	728
+10441	RPS8	ribosomal protein S8	Approved		S8	1p34.1	BC070875	NM_001012	RPS	S ribosomal proteins	728
+10442	RPS9	ribosomal protein S9	Approved		S9	19q13.42	U14971	NM_001013	RPS	S ribosomal proteins	728

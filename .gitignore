@@ -1,11 +1,1 @@
-*.gz
-*.tar
-*.txt
-*.rds
-*.csv
-*.pdf
-*.rds
-*.RData
-*.Rout
-*.gtf
 .DS_Store
