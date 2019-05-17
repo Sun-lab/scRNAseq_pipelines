@@ -356,9 +356,7 @@ for(ct in cell_types){
 }
 dim(sig_cts)
 sig_cts = sig_cts / rowData(sce)$gene_length
-# sig_cts = 1e6 * t(t(sig_cts)/colSums(sig_cts))
 sig_cts = 1e6 * apply(sig_cts,2,function(xx) xx / sum(xx)) 
-	# does the same TPM calculation as above code, just clearer
 sig_cts = sig_cts[sort(as.character(unlist(mark_genes))),]
 
 # Get ENSG id
@@ -413,7 +411,6 @@ tmp_df[1:5,]
 all(tmp_df$ensembl_gene_id %in% rownames(bulk))
 all(tmp_df$ensembl_gene_id == rownames(bulk))
 bulk = bulk / tmp_df$gene_length
-# bulk = 1e6 * t(t(bulk)/colSums(bulk))
 bulk = 1e6 * apply(bulk,2,function(xx) xx/sum(xx))
 bulk[1:5,1:5] # tpm unit
 
@@ -508,7 +505,7 @@ write.table(cbind(rowname=rownames(bulk),bulk),
 			sep = "\t",quote = FALSE,row.names = FALSE)
 # Login to CIBERSORT website, uploaded above two files, 
 #	specified no quantile normalization, ran 1000 permutations
-cib = smart_RT(file.path(MTG_dir,"CIBERSORT.Output_Job2.txt"),
+cib = smart_RT(file.path(MTG_dir,"CIBERSORT.Output_Job4.txt"),
 			sep = "\t",header = TRUE)
 dim(cib); cib[1:5,]
 prop_cib = as.matrix(cib[,2:7])
@@ -643,8 +640,7 @@ for(ct in cell_types){
 }
 dim(sig_cts)
 sig_cts = sig_cts/rowData(sce)$gene_length
-sig_cts = 1e6 * apply(sig_cts,2,function(xx) xx/sum(xx)) # t(t(sig_cts)/colSums(sig_cts))
-# This line is the main difference from previous code (replace mark_genes with int_mark_genes)
+sig_cts = 1e6 * apply(sig_cts,2,function(xx) xx/sum(xx))
 sig_cts = sig_cts[sort(as.character(unlist(int_mark_genes))),]
 
 # Get ENSG id
@@ -702,7 +698,7 @@ rds = readRDS(rds_fn)
 all(rds$ensembl_gene_id %in% rownames(bulk))
 all(rds$ensembl_gene_id == rownames(bulk))
 bulk = bulk / rds$gene_length
-bulk = 1e6 * apply(bulk,2,function(xx) xx/sum(xx)) # t(t(bulk)/colSums(bulk))
+bulk = 1e6 * apply(bulk,2,function(xx) xx/sum(xx))
 bulk[1:5,1:5] # tpm unit
 
 # Import signature matrix and annotation
