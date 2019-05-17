@@ -344,7 +344,7 @@ dev.off()
 
 
 # ------------------------------------------------------------
-# Calculate TPM and get signature matrix: From Chong Jin's code
+# Calculate TPM and get signature matrix: Based on Chong Jin's code
 # ------------------------------------------------------------
 table(colData(sce)$cell_type)
 sig_cts = matrix(nrow = nrow(sce),ncol = length(cell_types))
@@ -355,8 +355,10 @@ for(ct in cell_types){
 	sig_cts[,ct] = rowSums(counts(sce)[,colData(sce)$cell_type == ct])
 }
 dim(sig_cts)
-sig_cts = sig_cts/rowData(sce)$gene_length
-sig_cts = 1e6 * t(t(sig_cts)/colSums(sig_cts))
+sig_cts = sig_cts / rowData(sce)$gene_length
+# sig_cts = 1e6 * t(t(sig_cts)/colSums(sig_cts))
+sig_cts = 1e6 * apply(sig_cts,2,function(xx) xx / sum(xx)) 
+	# does the same TPM calculation as above code, just clearer
 sig_cts = sig_cts[sort(as.character(unlist(mark_genes))),]
 
 # Get ENSG id
@@ -364,7 +366,7 @@ dat	= smart_df(rowData(sce)[,c("gene","chromosome","entrez_id")])
 dat = dat[which(dat$gene %in% rownames(sig_cts)),]
 rownames(dat) = NULL
 dat = dat[match(rownames(sig_cts),dat$gene),]
-  
+
 biomaRt::listEnsembl()
 ensembl = biomaRt::useMart("ensembl")
 dd = biomaRt::listDatasets(ensembl); dim(dd); dd[1:5,]
@@ -406,13 +408,15 @@ exdb = GenomicFeatures::makeTxDbFromGFF(file = gtf_fn,format = "gtf")
 exons_list_per_gene = GenomicFeatures::exonsBy(exdb,by = "gene")
 tmp_df = smart_df(ensembl_gene_id = names(exons_list_per_gene),
 				gene_length = as.numeric(sum(width(GenomicRanges::reduce(exons_list_per_gene)))))
+tmp_df[1:5,]
 
 all(tmp_df$ensembl_gene_id %in% rownames(bulk))
 all(tmp_df$ensembl_gene_id == rownames(bulk))
 bulk = bulk / tmp_df$gene_length
-bulk = 1e6 * t(t(bulk/colSums(bulk)))
+# bulk = 1e6 * t(t(bulk)/colSums(bulk))
+bulk = 1e6 * apply(bulk,2,function(xx) xx/sum(xx))
 bulk[1:5,1:5] # tpm unit
-  
+
 # Import signature matrix and annotation
 rds = readRDS("signature.rds")
 gene_anno = rds$anno
@@ -444,10 +448,10 @@ if( !(pack %in% installed.packages()[,"Package"]) ){
 icedt_fn = "icedt.rds"
 date()
 fitw0 = ICeDT::ICeDT(Y = bulk,Z = sig_cts,tumorPurity = rep(0,ncol(bulk)),
-	refVar = NULL,rhoInit = NULL,maxIter_prop = 500,maxIter_PP = 250,
+	refVar = NULL,rhoInit = NULL,maxIter_prop = 4e3,maxIter_PP = 4e3,
 	rhoConverge = 1e-2)
-saveRDS(fitw0,icedt_fn)
 date()
+saveRDS(fitw0,icedt_fn)
 fitw0 = readRDS(icedt_fn)
 p1 = fitw0$cProb
 prop_icedt = t(fitw0$rho)[,-1]
@@ -459,7 +463,7 @@ q90 <- function(v){
 	qs[2] - qs[1]
 }
 
-pdf("probConsistent_GeneSet.pdf",width=11,height=4)
+pdf("probConsistent_GeneSet.pdf",width=13,height=4)
 
 par(mar=c(5,4,1,1),bty="n",mfrow=c(1,3),cex=0.8)
 plot(density(c(p1))$y,main="",xlim=c(0,1),xlab="probability consistent",
@@ -639,7 +643,7 @@ for(ct in cell_types){
 }
 dim(sig_cts)
 sig_cts = sig_cts/rowData(sce)$gene_length
-sig_cts = 1e6 * t(t(sig_cts)/colSums(sig_cts))
+sig_cts = 1e6 * apply(sig_cts,2,function(xx) xx/sum(xx)) # t(t(sig_cts)/colSums(sig_cts))
 # This line is the main difference from previous code (replace mark_genes with int_mark_genes)
 sig_cts = sig_cts[sort(as.character(unlist(int_mark_genes))),]
 
@@ -698,7 +702,7 @@ rds = readRDS(rds_fn)
 all(rds$ensembl_gene_id %in% rownames(bulk))
 all(rds$ensembl_gene_id == rownames(bulk))
 bulk = bulk / rds$gene_length
-bulk = 1e6 * t(t(bulk/colSums(bulk)))
+bulk = 1e6 * apply(bulk,2,function(xx) xx/sum(xx)) # t(t(bulk)/colSums(bulk))
 bulk[1:5,1:5] # tpm unit
 
 # Import signature matrix and annotation
