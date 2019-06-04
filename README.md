@@ -13,3 +13,7 @@ This repository include the following pipelines for scRNAseq data analysis
 3. PBMC_68k: a general purpose pipeline using PBMC 68k data (10x Genomics, Zheng et al. 2017) as an demonstration. 
 
     Zheng, Grace XY, et al. "Massively parallel digital transcriptional profiling of single cells." Nature communications 8 (2017): 14049.
+
+4. psychENCODE: analyze single-nucleus RNA-seq data from psychENCODE project as well as a few existing studies. 
+
+    Wang, Daifeng, et al. "Comprehensive functional genomic resource and integrative model for the human brain." Science 362.6420 (2018): eaat8464.
