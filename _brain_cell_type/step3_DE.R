@@ -384,7 +384,7 @@ sapply(mark_genes,length)
 saveRDS(mark_genes,"mark_genes.rds")
 
 smart_pack("venn")
-pdf("ct_genes.pdf",width=8,height=8)
+pdf("ct_genes_MTG.pdf",width=8,height=8)
 venn(x = ct_genes,ilabels = TRUE,zcolor = "style")
 dev.off()
 
@@ -567,16 +567,293 @@ pdf("MTG_bulk_deconvolution_summary.pdf",height=8,width=12)
 dev.off()
 
 saveRDS(list(ICeDT = pp_hat_icedt,CIBERSORT = pp_hat_ciber),"prop_MTG.rds")
+rm(sce)
 
 
+# ------------------------------------------------------------
+# Run deconvolution using Chong's psychENCODE scRNA clustering results (copying small lines of code from signature_genes.Rmd)
+# ------------------------------------------------------------
+options(width=150)
+psychENCODE_dir = "/pine/scr/c/h/chongjin/psychENCODE_data"
 
+# Import psychENCODE data
+sce = readRDS(file.path(psychENCODE_dir,"sce.rds"))
+sce
+rowData(sce)[1:3,] 
+	# Columns ensembl_gene_id, hgnc_symbol, 
+	#		chromosome_name, gene_length available
+colData(sce)[1:3,]
+	table(colData(sce)$part_cell_id)
+	colData(sce)$cell_type = colData(sce)$part_cell_id
+	colData(sce)$cell_type[grep("In", colData(sce)$part_cell_id)] = "Inh"
+	colData(sce)$cell_type[grep("Ex", colData(sce)$part_cell_id)] = "Exc"
+	colData(sce)$cell_type[grep("Oligo", colData(sce)$part_cell_id)] = "Oligo"  # no change
+	colData(sce)$cell_type[grep("OPC", colData(sce)$part_cell_id)] = "OPC"  # no change
+	colData(sce)$cell_type[grep("Astro", colData(sce)$part_cell_id)] = "Astro"  # no change
+	colData(sce)$cell_type[grep("Microglia", colData(sce)$part_cell_id)] = "Micro"  #   no change
+	colData(sce)$cell_type[grep("Endo", colData(sce)$part_cell_id)] = "Endo"  #   no change
+	table(colData(sce)$cell_type)
 
+# Import cluster results
+clusters = readRDS(file.path(psychENCODE_dir,"k25_50_pcs.rds"))
+clusters = data.frame(KM25=clusters$cluster)
+clusters$cell_type = colData(sce)$cell_type
+opt_clust = paste0("KM",25) # our clustering results differ slightly
+t1 = table(clusters[,opt_clust], clusters$cell_type)
+t1
+t1[c(15,23),] = 0
+clusts = apply(t1, 2, function(v){union(which.max(v), which(v > 100))})
+clusts
+cell_types = setdiff(unique(clusters$cell_type), "unknown")
+cell_types
+w2kp = NULL
+for(ct1 in cell_types){
+	# ct1 = celltypes[1]
+	ct.cond    = clusters$cell_type == ct1
+	clust.cond = clusters[,opt_clust] %in% clusts[[ct1]]
+	# Intersect previous clustering result with ours
+	w2kp = c(w2kp, which(ct.cond & clust.cond))
+}
+length(w2kp)
+sce = sce[,w2kp]
+dim(sce)
 
+# Import gene annotation with differential expression results 
+gene_anno = as.data.frame(rowData(sce)[,c("ensembl_gene_id",
+	"external_gene_name","chromosome_name","start_position","end_position",
+	"gene_length")])
+gene_anno = dplyr::rename(gene_anno, gene=external_gene_name)  
+gene_anno$prop_express = as.numeric(apply(assay(sce),1,function(xx) mean(xx > 0)))
 
+# For each cell type, gather logFC, qvalues, prop cells expressed in genes
+cell_types = c("Astro","Exc","Inh","Micro","Oligo","OPC")
+num_genes = nrow(sce)
+for(ct in cell_types){
+	# ct = "Astro"
+	cat(paste0(ct," "))
+	tmp_df = readRDS(file.path(psychENCODE_dir,paste0("ssd_nG",num_genes,"_cell",ct,".rds")))
+	tmp_df = tmp_df[,c("gene","pvalue","logFC","FDR_qvalue")]
+	names(tmp_df)[-1] = paste0(names(tmp_df)[-1],".",ct)
+	# Calculating proportion of cells expressed in a gene and cell_type
+	bb = apply(assay(sce[,colData(sce)$cell_type %in% ct]),1,
+			function(xx) mean(xx > 0))
+	bb = data.frame(gene = names(bb),prop_express = as.numeric(bb), stringsAsFactors = FALSE)
+	names(bb)[2] = paste0(names(bb)[2],".",ct)
+	bb = merge(bb,tmp_df,by="gene",all.x=TRUE,sort=FALSE)
+	all(bb$gene == gene_anno$gene)
+	bb = bb[match(gene_anno$gene,bb$gene),]
+	all(bb$gene == gene_anno$gene)
+	gene_anno = cbind(gene_anno, bb[,names(bb) != "gene"])
+	rm(tmp_df,bb)
+}
+dim(gene_anno)
+head(gene_anno)
+saveRDS(gene_anno,file.path(MTG_dir,"DE_gene_anno_psychENCODE.rds"))
 
+# Get each cell type's differentially expressed genes
+fdr_thres 		= 1e-3
+logFC_thres	 	= log(2)
+ct_genes = list()
+for(ct in cell_types){
+	# ct = cell_types[1]
+	print(ct)
+	ct_genes[[ct]] = gene_anno$gene[which(
+		gene_anno[,sprintf("logFC.%s",ct)] > logFC_thres
+		& gene_anno[,sprintf("FDR_qvalue.%s",ct)] < fdr_thres
+		& gene_anno$chromosome_name %in% c(1:22,"X","Y")
+		)]
+}
+sapply(ct_genes,length)
 
+# Get each cell type's disjoint set of differentially expressed genes
+cts_genes = list()
+for(ct in cell_types){
+	# ct = cell_types[1]
+	print(ct)
+	cts_genes[[ct]] = sort(setdiff(ct_genes[[ct]],
+		unique(unlist(ct_genes[which(names(ct_genes) != ct)]))))
+}
+sapply(cts_genes,length)
 
+# Get approximate top 120 marker genes per cell type
+## Rather than arbitrarily selecting 120 genes, I apply 
+##	a quantile threshold on both logFC and FDR_qvalue to 
+##	select approximately 120 genes per cell type.
+set.seed(1)
+mark_genes = list()
+num_mgene_per_ct = 120 # number of marker genes selected per cell type
+for(ct in cell_types){
+	# ct = cell_types[1]
+	cat(paste0(ct,": "))
+	rds_fn = file.path(psychENCODE_dir,paste0("ssd_nG",num_genes,"_cell",ct,".rds"))
+	rds = readRDS(rds_fn)
+	rds = rds[which(rds$logFC > logFC_thres 
+					& rds$FDR_qvalue < fdr_thres
+					& rds$gene %in% cts_genes[[ct]]),]
+	# dim(rds)
+	low_bound = 0
+	while(TRUE){
+		# qu = 0.25
+		qu = runif(1,low_bound,1)
+		num_rows = nrow(rds[which(rds$logFC > quantile(rds$logFC,qu) 
+			& rds$FDR_qvalue < quantile(rds$FDR_qvalue,1-qu)),])
+		if( num_rows > num_mgene_per_ct ){
+			# Tighten bounds
+			low_bound = qu # mean(c(low_bound[1],qu))
+			cat(paste0(round(low_bound,3)," "))
+			if( num_rows <= num_mgene_per_ct+10 ) break
+		}
+	}
+	cat("\n")
+	opt_qu = qu
+	rds = rds[which(rds$logFC > quantile(rds$logFC,opt_qu) 
+					& rds$FDR_qvalue < quantile(rds$FDR_qvalue,1-opt_qu)),]
+	mark_genes[[ct]] = rds$gene; rm(rds)
+}
+sapply(mark_genes,length)
 
+smart_pack("venn")
+pdf("ct_genes_psychENCODE.pdf",width=8,height=8)
+venn(x = ct_genes,ilabels = TRUE,zcolor = "style")
+dev.off()
+
+# Construct signature matrix
+table(colData(sce)$cell_type)
+SIG = matrix(NA,nrow=nrow(sce),ncol=length(cell_types))
+colnames(SIG) = cell_types
+rownames(SIG) = rownames(sce)
+for(ct in cell_types){
+	cat(paste0(ct,"\n"))
+  SIG[,ct] = rowSums(counts(sce)[, colData(sce)$cell_type == ct])
+}
+dim(SIG)
+head(SIG)
+summary(SIG)
+
+# Subset marker genes
+SIG = SIG[sort(as.character(unlist(mark_genes))),]
+dim(SIG)
+head(SIG)
+
+# Subset and order genes
+inter_genes = intersect(rownames(SIG),gene_anno$gene)
+gene_anno = gene_anno[which(gene_anno$gene %in% inter_genes),]
+SIG = SIG[which(rownames(SIG) %in% inter_genes),]
+gene_anno = gene_anno[match(rownames(SIG),gene_anno$gene),]
+
+# Output
+saveRDS(list(anno = gene_anno,SIG = SIG),"signature_psychENCODE.rds")
+
+# Import CMC Bulk RNA, get gene lengths
+bulk = readRDS("CMC_MSSM-Penn-Pitt_Paul_geneExpressionRaw.rds")$so1
+dim(bulk); bulk[1:5,1:5]
+gtf_fn = "Homo_sapiens.GRCh37.70.processed.gtf"
+exdb = GenomicFeatures::makeTxDbFromGFF(file = gtf_fn,format = "gtf")
+exons_list_per_gene = GenomicFeatures::exonsBy(exdb,by = "gene")
+tmp_df = smart_df(ensembl_gene_id = names(exons_list_per_gene),
+	gene_length = as.numeric(sum(width(GenomicRanges::reduce(exons_list_per_gene)))))
+tmp_df[1:5,]
+all(tmp_df$ensembl_gene_id %in% rownames(bulk))
+all(tmp_df$ensembl_gene_id == rownames(bulk))
+
+# Subset/Order marker genes
+inter_genes2 	= intersect(tmp_df$ensembl_gene_id,gene_anno$ensembl_gene_id)
+gene_anno2 		= gene_anno[which(gene_anno$ensembl_gene_id %in% inter_genes2),]
+bulk 					= bulk[which(rownames(bulk) %in% inter_genes2),]
+bulk 					= bulk[match(gene_anno2$ensembl_gene_id,rownames(bulk)),]
+tmp_df 				= tmp_df[which(tmp_df$ensembl_gene_id %in% inter_genes2),]
+tmp_df 				= tmp_df[match(gene_anno2$ensembl_gene_id,tmp_df$ensembl_gene_id),]
+saveRDS(list(anno = tmp_df,bulk = bulk),"bulk_marker_psychENCODE.rds")
+
+# Refer to EPIC paper for variable definitions (bb = bulk,cc = signature,pp = cell type proportions)
+bulk_rds 	= readRDS("bulk_marker_psychENCODE.rds")
+sig_rds 	= readRDS("signature_psychENCODE.rds")
+inter_genes3 	= intersect(bulk_rds$anno$ensembl_gene_id,sig_rds$anno$ensembl_gene_id)
+bulk_rds$anno = bulk_rds$anno[which(bulk_rds$anno$ensembl_gene_id %in% inter_genes3),]
+bulk_rds$bulk = bulk_rds$bulk[which(rownames(bulk_rds$bulk) %in% inter_genes3),]
+sig_rds$anno 	= sig_rds$anno[which(sig_rds$anno$ensembl_gene_id %in% inter_genes3),]
+sig_rds$SIG 	= sig_rds$SIG[which(rownames(sig_rds$SIG) %in% sig_rds$anno$gene),]
+rownames(sig_rds$SIG) = sig_rds$anno$ensembl_gene_id
+
+bb_tpm = apply(bulk_rds$bulk,2,function(xx) xx / bulk_rds$anno$gene_length)
+bb_tpm = 1e6 * apply(bb_tpm,2,function(xx) xx / sum(xx))
+cc_tpm = apply(sig_rds$SIG,2,function(xx) xx / sig_rds$anno$gene_length)
+cc_tpm = 1e6 * apply(cc_tpm,2,function(xx) xx / sum(xx))
+
+cell_sizes = colSums(apply(sig_rds$SIG,2,function(xx) xx / sig_rds$anno$gene_length))
+
+# Run ICeDT
+pack = "ICeDT"
+if( !(pack %in% installed.packages()[,"Package"]) ){
+	devtools::install_github("Sun-lab/ICeDT")
+}
+date()
+fit = ICeDT::ICeDT(Y = bb_tpm,Z = cc_tpm,tumorPurity = rep(0,ncol(bb_tpm)),
+	refVar = NULL,rhoInit = NULL,maxIter_prop = 4e3,maxIter_PP = 4e3,
+	rhoConverge = 1e-2)
+date()
+pp_bar_icedt = t(fit$rho)[,-1]
+# calculate p_hat using cell_sizes
+pp_hat_icedt = t(apply(pp_bar_icedt,1,function(xx){yy = xx / cell_sizes; yy / sum(yy)}))
+# Look at distribution of pp_bar and pp_hat
+summary(pp_bar_icedt)
+summary(pp_hat_icedt)
+
+# Run CIBERSORT
+sig_fn = file.path(MTG_dir,"signature_psychENCODE.txt")
+mix_fn = file.path(MTG_dir,"mixture_CMC.txt")
+write.table(cbind(rowname=rownames(cc_tpm),cc_tpm),
+	file = sig_fn,sep = "\t",quote = FALSE,row.names = FALSE)
+write.table(cbind(rowname=rownames(bb_tpm),bb_tpm),
+	file = mix_fn,sep = "\t",quote = FALSE,row.names = FALSE)
+# Login to CIBERSORT website, uploaded above two files, 
+#	specified no quantile normalization, ran 1000 permutations
+# OR Request CIBERSORT.R file from website, install dependent packages
+cibersort_src_fn = "~/github/CSeQTL/R/CIBERSORT.R"
+# cibersort_src_fn = "." # whichever directory contains CIBERSORT.R
+source(cibersort_src_fn)
+print(date())
+results = CIBERSORT(sig_matrix = sig_fn,mixture_file = mix_fn,
+	perm = 0,QN = FALSE,absolute = FALSE,abs_method = 'sig.score')
+print(date())
+unlink(sig_fn)
+unlink(mix_fn)
+QQ = ncol(cc_tpm)
+pp_bar_ciber = results[,seq(QQ)]
+# calculate p_hat using cell sizes
+pp_hat_ciber = t(apply(pp_bar_ciber,1,function(xx){yy = xx / cell_sizes; yy / sum(yy)}))
+summary(pp_bar_ciber)
+summary(pp_hat_ciber)
+
+# Output MTG deconvolution results
+pdf("psychENCODE_bulk_deconvolution_summary.pdf",height=8,width=12)
+	
+	ICeDT_consistency(sig = cc_tpm,bulk = bb_tpm,ICeDT_out = fit)
+	
+	par(mfrow=c(1,2),mar=c(4,4,1,0.5),oma=c(0,0,2,0),bty="n")
+	boxplot(pp_bar_icedt,main="Expression Proportions",ylim=c(0,1))
+	boxplot(pp_hat_icedt,main="Cell type Proportions",ylim=c(0,1))
+	mtext("ICeDT Results",outer=TRUE,cex=1.3)
+	par(mfrow=c(1,1),mar=c(5,4,4,2)+0.1,oma=rep(0,4),bty="o")
+	
+	par(mfrow=c(1,2),mar=c(4,4,1,0.5),oma=c(0,0,2,0),bty="n")
+	boxplot(pp_bar_ciber,main="Expression Proportions",ylim=c(0,1))
+	boxplot(pp_hat_ciber,main="Cell type Proportions",ylim=c(0,1))
+	mtext("CIBERSORT Results",outer=TRUE,cex=1.3)
+	par(mfrow=c(1,1),mar=c(5,4,4,2)+0.1,oma=rep(0,4),bty="o")
+	
+	par(mfrow=c(2,3),mar=c(4,4,1,0.5),bty="n")
+	for(ct in seq(QQ)){
+		tmp_range = range(c(pp_hat_ciber[,ct],pp_hat_icedt[,ct]))
+		plot(pp_hat_ciber[,ct],pp_hat_icedt[,ct],xlim=tmp_range,ylim=tmp_range,
+			xlab="CIBERSORT",ylab="ICeDT",main=colnames(pp_hat_ciber)[ct])
+		abline(a=0,b=1,lty=2,lwd=2,col="red")
+	}
+	par(mfrow=c(1,1),mar=c(5,4,4,2)+0.1,bty="o")
+	
+dev.off()
+
+saveRDS(list(ICeDT = pp_hat_icedt,CIBERSORT = pp_hat_ciber),"prop_psychENCODE.rds")
 
 
 
