@@ -312,7 +312,6 @@ saveRDS(gtf,"DE_gene_anno.rds")
 # ------------------------------------------------------------
 # Get marker genes per cell type
 # ------------------------------------------------------------
-
 dat = smart_df(rowData(sce)[,c("gene","chromosome","entrez_id")])
 fdr_thres 		= 1e-3
 logFC_thres	 	= log(2)
@@ -567,7 +566,6 @@ pdf("MTG_bulk_deconvolution_summary.pdf",height=8,width=12)
 dev.off()
 
 saveRDS(list(ICeDT = pp_hat_icedt,CIBERSORT = pp_hat_ciber),"prop_MTG.rds")
-rm(sce)
 
 
 # ------------------------------------------------------------
