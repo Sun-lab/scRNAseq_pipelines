@@ -8,8 +8,8 @@
 # ------------------------------------------------------------
 
 rm(list=ls())
-# repo_dir = "/pine/scr/p/l/pllittle/CS_eQTL/s3_Real/scRNAseq_pipelines"
-repo_dir = file.path("..") # relative path of repo directory from this R code
+repo_dir = "/pine/scr/p/l/pllittle/CS_eQTL/s3_Real/scRNAseq_pipelines"
+# repo_dir = file.path("..") # relative path of repo directory from this R code
 
 source(file.path(repo_dir,"SOURCE.R"))
 MTG_dir = file.path(repo_dir,"MTG")
@@ -228,12 +228,11 @@ ICeDT_consistency = function(sig,bulk,ICeDT_out){
 # ------------------------------------------------------------
 # Import gtf with gene lengths
 rsem_fn = "rsem_GRCh38.p2.gtf"
-# gtf_fn = "rsem_GRCh38.p2.rds"
 gtf = GTF_calc_gene_length(work_dir = MTG_dir,rsem_gtf_fn = rsem_fn)
 head(gtf)
 
-sce = readRDS(file.path(rawData_dir,"final_sce_filtered_by_kmeans.rds"))
-# sce = readRDS(file.path(MTG_dir,"final_sce_filtered_by_kmeans.rds"))
+# sce = readRDS(file.path(rawData_dir,"final_sce_filtered_by_kmeans.rds"))
+sce = readRDS(file.path(MTG_dir,"final_sce_filtered_by_kmeans.rds"))
 sce
 
 # Append gene_lengths to sce
@@ -251,6 +250,8 @@ sce = sce[,colData(sce)$cell_type != "Endo"]
 smart_table(colData(sce)$cell_type)
 dim(sce)
 cell_types 	= c("Astro","Exc","Inh","Micro","Oligo","OPC")
+num_genes = nrow(sce)
+
 
 # ------------------------------------------------------------
 # Outlined Steps
@@ -265,7 +266,6 @@ cell_types 	= c("Astro","Exc","Inh","Micro","Oligo","OPC")
 # ------------------------------------------------------------
 # Run MAST: Run each cell type as it's own job
 # ------------------------------------------------------------
-num_genes = nrow(sce)
 for(ct in cell_types){
 	print(ct)
 	if(FALSE){
@@ -399,13 +399,17 @@ colnames(SIG) = cell_types
 rownames(SIG) = rownames(sce)
 for(ct in cell_types){
 	print(ct)
-	SIG[,ct] = rowSums(counts(sce)[,colData(sce)$cell_type == ct])
+	# SIG[,ct] = rowSums(counts(sce)[,colData(sce)$cell_type == ct])
+	SIG[,ct] = rowMeans(counts(sce)[,colData(sce)$cell_type == ct])
 }
 dim(SIG)
+head(SIG)
 
 # Subset marker genes
 SIG = SIG[sort(as.character(unlist(mark_genes))),]
 dim(SIG)
+head(SIG)
+summary(SIG)
 
 # Get ENSG id
 dat	= gtf[,c("gene_symbol","chromosome","entrez_id")]
@@ -445,6 +449,8 @@ gtf2 = gtf[,c("gene_symbol","gene_length")]
 	gtf2 = name_change(gtf2,"gene_symbol","hgnc_symbol")
 gene_anno = smart_merge(gene_anno,gtf2[,c("hgnc_symbol","gene_length")])
 gene_anno = gene_anno[match(rownames(SIG),gene_anno$hgnc_symbol),]
+dim(gene_anno)
+head(gene_anno)
 
 # Output
 saveRDS(list(anno = gene_anno,SIG = SIG),"signature_MTG.rds")
@@ -466,6 +472,7 @@ all(tmp_df$ensembl_gene_id %in% rownames(bulk))
 all(tmp_df$ensembl_gene_id == rownames(bulk))
 
 # Subset/Order marker genes
+gene_anno 		= readRDS("signature_MTG.rds")$anno
 inter_genes2 	= intersect(tmp_df$ensembl_gene_id,gene_anno$ensembl_gene_id)
 gene_anno2 		= gene_anno[which(gene_anno$ensembl_gene_id %in% inter_genes2),]
 bulk 					= bulk[which(rownames(bulk) %in% inter_genes2),]
@@ -495,6 +502,7 @@ cc_tpm = apply(sig_rds$SIG,2,function(xx) xx / sig_rds$anno$gene_length)
 cc_tpm = 1e6 * apply(cc_tpm,2,function(xx) xx / sum(xx))
 
 cell_sizes = colSums(apply(sig_rds$SIG,2,function(xx) xx / sig_rds$anno$gene_length))
+cell_sizes
 
 # Run ICeDT
 pack = "ICeDT"
@@ -528,15 +536,20 @@ cibersort_src_fn = "~/github/CSeQTL/R/CIBERSORT.R"
 source(cibersort_src_fn)
 print(date())
 results = CIBERSORT(sig_matrix = sig_fn,mixture_file = mix_fn,
-	perm = 0,QN = FALSE,absolute = FALSE,abs_method = 'sig.score')
+	perm = 0,QN = FALSE,absolute = FALSE,abs_method = 'sig.score',
+	filename = "MTG") # added filename argument for function
 print(date())
 unlink(sig_fn)
 unlink(mix_fn)
+ciber_fn = sprintf("CIBERSORT-Results_%s.txt","MTG")
+unlink(ciber_fn)
 QQ = ncol(cc_tpm)
 pp_bar_ciber = results[,seq(QQ)]
 # calculate p_hat using cell sizes
 pp_hat_ciber = t(apply(pp_bar_ciber,1,function(xx){yy = xx / cell_sizes; yy / sum(yy)}))
-	
+summary(pp_bar_ciber)
+summary(pp_hat_ciber)
+
 # Output MTG deconvolution results
 pdf("MTG_bulk_deconvolution_summary.pdf",height=8,width=12)
 	
@@ -554,14 +567,21 @@ pdf("MTG_bulk_deconvolution_summary.pdf",height=8,width=12)
 	mtext("CIBERSORT Results",outer=TRUE,cex=1.3)
 	par(mfrow=c(1,1),mar=c(5,4,4,2)+0.1,oma=rep(0,4),bty="o")
 	
-	par(mfrow=c(2,3),mar=c(4,4,1,0.5),bty="n")
+	par(mfrow=c(2,3),mar=c(4,4,1,0.5),oma=c(0,0,2,0),bty="n")
 	for(ct in seq(QQ)){
-		tmp_range = range(c(pp_hat_ciber[,ct],pp_hat_icedt[,ct]))
-		plot(pp_hat_ciber[,ct],pp_hat_icedt[,ct],xlim=tmp_range,ylim=tmp_range,
-			xlab="CIBERSORT",ylab="ICeDT",main=colnames(pp_hat_ciber)[ct])
+		v1 = pp_hat_ciber[,ct]
+		v2 = pp_hat_icedt[,ct]
+		tmp_range = range(c(v1,v2))
+		pcor = round(cor(v1,v2),4)
+		scor = round(cor(v1,v2,method="spear"),4)
+		plot(v1,v2,xlim=tmp_range,ylim=tmp_range,
+			xlab="CIBERSORT",ylab="ICeDT",
+			main=sprintf("%s:Pear=%s;Spear=%s",colnames(pp_hat_ciber)[ct],
+				pcor,scor))
 		abline(a=0,b=1,lty=2,lwd=2,col="red")
 	}
-	par(mfrow=c(1,1),mar=c(5,4,4,2)+0.1,bty="o")
+	mtext("CIBERSORT v. ICeDT",outer=TRUE,cex=1.4)
+	par(mfrow=c(1,1),mar=c(5,4,4,2)+0.1,oma=rep(0,4),bty="o")
 	
 dev.off()
 
@@ -722,7 +742,8 @@ colnames(SIG) = cell_types
 rownames(SIG) = rownames(sce)
 for(ct in cell_types){
 	cat(paste0(ct,"\n"))
-  SIG[,ct] = rowSums(counts(sce)[, colData(sce)$cell_type == ct])
+  # SIG[,ct] = rowSums(counts(sce)[, colData(sce)$cell_type == ct])
+	SIG[,ct] = rowMeans(counts(sce)[, colData(sce)$cell_type == ct])
 }
 dim(SIG)
 head(SIG)
@@ -732,6 +753,7 @@ summary(SIG)
 SIG = SIG[sort(as.character(unlist(mark_genes))),]
 dim(SIG)
 head(SIG)
+summary(SIG)
 
 # Subset and order genes
 inter_genes = intersect(rownames(SIG),gene_anno$gene)
@@ -779,6 +801,7 @@ cc_tpm = apply(sig_rds$SIG,2,function(xx) xx / sig_rds$anno$gene_length)
 cc_tpm = 1e6 * apply(cc_tpm,2,function(xx) xx / sum(xx))
 
 cell_sizes = colSums(apply(sig_rds$SIG,2,function(xx) xx / sig_rds$anno$gene_length))
+cell_sizes
 
 # Run ICeDT
 pack = "ICeDT"
@@ -804,18 +827,18 @@ write.table(cbind(rowname=rownames(cc_tpm),cc_tpm),
 	file = sig_fn,sep = "\t",quote = FALSE,row.names = FALSE)
 write.table(cbind(rowname=rownames(bb_tpm),bb_tpm),
 	file = mix_fn,sep = "\t",quote = FALSE,row.names = FALSE)
-# Login to CIBERSORT website, uploaded above two files, 
-#	specified no quantile normalization, ran 1000 permutations
-# OR Request CIBERSORT.R file from website, install dependent packages
 cibersort_src_fn = "~/github/CSeQTL/R/CIBERSORT.R"
 # cibersort_src_fn = "." # whichever directory contains CIBERSORT.R
 source(cibersort_src_fn)
 print(date())
 results = CIBERSORT(sig_matrix = sig_fn,mixture_file = mix_fn,
-	perm = 0,QN = FALSE,absolute = FALSE,abs_method = 'sig.score')
+	perm = 0,QN = FALSE,absolute = FALSE,abs_method = 'sig.score',
+	filename = "psychENCODE")
 print(date())
 unlink(sig_fn)
 unlink(mix_fn)
+ciber_fn = sprintf("CIBERSORT-Results_%s.txt","psychENCODE")
+unlink(ciber_fn)
 QQ = ncol(cc_tpm)
 pp_bar_ciber = results[,seq(QQ)]
 # calculate p_hat using cell sizes
@@ -840,14 +863,21 @@ pdf("psychENCODE_bulk_deconvolution_summary.pdf",height=8,width=12)
 	mtext("CIBERSORT Results",outer=TRUE,cex=1.3)
 	par(mfrow=c(1,1),mar=c(5,4,4,2)+0.1,oma=rep(0,4),bty="o")
 	
-	par(mfrow=c(2,3),mar=c(4,4,1,0.5),bty="n")
+	par(mfrow=c(2,3),mar=c(4,4,1,0.5),oma=c(0,0,2,0),bty="n")
 	for(ct in seq(QQ)){
-		tmp_range = range(c(pp_hat_ciber[,ct],pp_hat_icedt[,ct]))
-		plot(pp_hat_ciber[,ct],pp_hat_icedt[,ct],xlim=tmp_range,ylim=tmp_range,
-			xlab="CIBERSORT",ylab="ICeDT",main=colnames(pp_hat_ciber)[ct])
+		v1 = pp_hat_ciber[,ct]
+		v2 = pp_hat_icedt[,ct]
+		tmp_range = range(c(v1,v2))
+		pcor = round(cor(v1,v2),4)
+		scor = round(cor(v1,v2,method="spear"),4)
+		plot(v1,v2,xlim=tmp_range,ylim=tmp_range,
+			xlab="CIBERSORT",ylab="ICeDT",
+			main=sprintf("%s:Pear=%s;Spear=%s",colnames(pp_hat_ciber)[ct],
+				pcor,scor))
 		abline(a=0,b=1,lty=2,lwd=2,col="red")
 	}
-	par(mfrow=c(1,1),mar=c(5,4,4,2)+0.1,bty="o")
+	mtext("CIBERSORT v. ICeDT",outer=TRUE,cex=1.4)
+	par(mfrow=c(1,1),mar=c(5,4,4,2)+0.1,oma=rep(0,4),bty="o")
 	
 dev.off()
 
