@@ -59,7 +59,7 @@ work_dir = psychENCODE_dir = "~/psychENCODE_data"
 sce = readRDS(file.path(psychENCODE_dir,"sce.rds"))
 if (FALSE) {
   tpm(sce) = counts(sce)/rowData(sce)$gene_length
-  tpm(sce) = (1e6)*t(t(tpm(sce))/colSums(tpm(sce)))
+  tpm(sce) = t(t(tpm(sce))*1e6/colSums(tpm(sce)))
   logcounts(sce) = log2(1 + tpm(sce))
 }
 num_genes = nrow(sce)
@@ -499,7 +499,7 @@ for(ct in cell_types){
 }
 dim(ct_counts)
 ct_tpm = ct_counts/rowData(sce)$gene_length
-ct_tpm = (1e6)*t(t(ct_tpm)/colSums(ct_tpm))
+ct_tpm = t(t(ct_tpm)*1e6/colSums(ct_tpm))
 tpm_signature_genes = ct_tpm[do.call(rbind, ct_anno)$gene, ]
 # change the row names to ensembl gene id for better matching in downstream:
 rownames(tpm_signature_genes) = gene_anno[rownames(tpm_signature_genes), "ensembl_gene_id"]

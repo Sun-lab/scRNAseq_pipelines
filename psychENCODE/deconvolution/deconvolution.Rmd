@@ -73,7 +73,7 @@ length(rownames(bulk_count))
 all(names(exonic.gene.sizes) %in% rownames(bulk_count))
 all(names(exonic.gene.sizes) == rownames(bulk_count))
 TPM = bulk_count/unlist(exonic.gene.sizes)
-TPM = (1e6)*t(t(TPM/colSums(TPM)))
+TPM = t(t(TPM)*1e6/colSums(TPM))
 TPM[1:5,1:5]
 
 # read reference TPM by parsing single cell data (note that this is probably in hg38:)
