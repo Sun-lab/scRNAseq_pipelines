@@ -21,3 +21,5 @@ meta10=meta[seq(1,10455)*10,]
 saveRDS(meta100,"../Data_PRJNA434002/meta10.rds")
 exprM3k10=exprM[1:3000,seq(1,10455)*10]
 saveRDS(exprM3k10,"../Data_PRJNA434002/exprMatrix3k10.rds")
+exprM1k10=exprM[1:1000,seq(1,10455)*10]
+saveRDS(exprM1k10,"../Data_PRJNA434002/exprMatrix1k10.rds")
