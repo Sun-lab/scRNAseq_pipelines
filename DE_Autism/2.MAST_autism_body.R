@@ -65,6 +65,8 @@ if(perm_tag>0){
 
 b=zlm(formula=~diagnosis + ( 1 | ind ) + cngeneson + age + sex + RIN + PMI + region + Capbatch + Seqbatch 
       + ribo_perc, sca=sca, method = "glmer", ebayes = F, silent=T)
-bs=MAST::summary(b)
+saveRDS(b, paste0("../Data_PRJNA434002/zlm_3k10_",cluster_tag,"_",perm_tag,".rds"))
+bs=summary(b,logFC=TRUE,doLRT = paste0("diagnosis","Control"), level = 0.95)
+saveRDS(bs, paste0("../Data_PRJNA434002/zlms_3k10_",cluster_tag,"_",perm_tag,".rds"))
 
-saveRDS(bs, paste0("../Data_PRJNA434002/zlm_3k10_",cluster_tag,"_",perm_tag,".rds"))
+bs$datatable
