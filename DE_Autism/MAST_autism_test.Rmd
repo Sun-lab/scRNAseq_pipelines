@@ -1,0 +1,97 @@
+---
+title: "A workflow for scRNA-seq data analysis: autism dataset from Velmeshev et al, 2019"
+author: "Mengqi"
+date: "`r Sys.Date()`"
+output: 
+  html_document:
+    theme: journal
+    highlight: tango
+    toc: true
+    toc_depth: 3
+    toc_float:
+      collapsed: true
+      smooth_scroll: false
+    number_sections: true
+editor_options: 
+  chunk_output_type: console
+---
+
+# Introduction
+
+This markdown is for analyzing the paper [Single-cell genomics identifies cell type–specific molecular changes in autism](https://science.sciencemag.org/content/364/6441/685.abstract). Some details of their analysis is provided [here](https://science.sciencemag.org/content/suppl/2019/05/15/364.6441.685.DC1). Briefly, there analysis are doing individual case-control study using the [MAST](https://www.bioconductor.org/packages/release/bioc/html/MAST.html) packages.
+
+This pipeline using some alternative strategies for data processing and analysis, mostly based on [bioconductor workflows for scRNAseq](https://bioconductor.org/packages/release/workflows/html/simpleSingleCell.html). 
+
+The packages required for the analysis are as follows:
+- scater: collection of tools for doing quality control analyses of scRNA-seq
+- scran: methods provide normalization of cell-specific biases, correcting batch effects, identify marker genes
+- SC3: package for single cell consensus clustering.
+
+# data preprocessing. 
+
+
+Before running this R markdown, please first download the datafile exprMatrix.tsv.gz and meta.tsv from  Single-cell genomics identifies cell type–specific molecular changes in autism to your local computer, under a folder called Data_PRJNA434002, and unzip the files. Then set another folder as the working directory, beside the folder Data_PRJNA434002. The following code help generate a R-friendly file and some smaller test samples. 
+
+```{r global_options, include=FALSE}
+knitr::opts_chunk$set(fig.width=8, fig.height=8, fig.path='Figs/',
+                      echo=TRUE, warning=FALSE, message=FALSE)
+```
+# MAST and permutation results
+
+To detect the type I error controls of the individual level case-control method, we apply the MAST regresion steps and permutated the diagnosis information among the individuals. To do so, we:
+
+## Establish the sca files from the matrix
+
+For each of the 17 clusters, we do the analysis separately.
+
+```{r establish_sca}
+#something from the header file
+cluster_tag=1 #this tag indicate the clusters it can be choose in 1 to 17
+perm_tag=0    #this tage indicate the permutation tags, 0 means no permutation, otherwise, permutation id
+
+library("MAST")
+library("lme4")
+
+meta=readRDS("../Data_PRJNA434002/meta10.rds")
+exprM=readRDS("../Data_PRJNA434002/exprMatrix3k10.rds")
+cur_cluster=as.character(unique(meta$cluster)[cluster_tag])
+exprM=as.matrix(exprM[,meta$cluster==cur_cluster])
+meta=meta[meta$cluster==cur_cluster,]
+
+dim(exprM)
+exprM[1:10,1:10]
+cell_list=colnames(exprM)
+gene_list=rownames(exprM)
+rownames(exprM)=gene_list
+
+fData=data.frame(primerid=gene_list)
+
+cData=data.frame(wellKey=cell_list)
+colnames(meta)
+length(fData)
+length(cData)
+
+sca=FromMatrix(exprM, cData, fData)
+
+colData(sca)$cngeneson = as.numeric((colSums(exprM > 0))/nrow(exprM)) #from Chong and Paul
+colData(sca)$diagnosis = as.factor(meta$diagnosis)
+colData(sca)$ind = as.factor(meta$individual)
+colData(sca)$age = as.numeric(meta$age)
+colData(sca)$sex = as.factor(meta$sex)
+colData(sca)$RIN = as.numeric(meta$RNA.Integrity.Number)
+colData(sca)$PMI = as.numeric(meta$post.mortem.interval..hours.)
+colData(sca)$region = as.factor(meta$region)
+colData(sca)$Capbatch = as.factor(meta$Capbatch)
+colData(sca)$Seqbatch = as.factor(meta$Seqbatch)
+colData(sca)$ribo_perc = as.numeric(meta$RNA.ribosomal.percent)
+
+colData(sca)
+```
+
+# Session information
+```{r}
+sessionInfo()
+```
+
+# Reference
+
