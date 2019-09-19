@@ -18,23 +18,31 @@ exprM_nozero_skewness=apply(exprM,1,function(x){return(skewness(x[x>0]))})
 
 exprM_zero_rate=apply(exprM==0,1,function(x){return(sum(x)/length(x))})
 
+cell_4_each_gene=apply(exprM>0,1,sum)
+gene_4_each_cell=apply(exprM>0,2,sum)
+min_cell_4_each_gene=min(cell_4_each_gene)
+min_gene_4_each_cell=min(gene_4_each_cell)
+
+min_cell_4_each_gene
+min_gene_4_each_cell
+
 pdf("histogram_exprMatrix_stat.pdf")
+hist(log10(cell_4_each_gene),breaks=50)
+hist(log10(gene_4_each_cell),breaks=50)
 hist(exprM_nozero_median,breaks=50)
 hist(exprM_nozero_mean,breaks=50)
 hist(exprM_nozero_sd,breaks=50)
 hist(exprM_nozero_skewness,breaks=50)
 hist(exprM_zero_rate,breaks=50,
      sub=paste0("0rate==1: ",
-                round(sum(exprM_zero_rate=1)/length(exprM_zero_rate),3),
+                round(sum(exprM_zero_rate==1)/length(exprM_zero_rate),3),
                 ", 0rate>0.99: ",   
                 round(sum(exprM_zero_rate>0.99)/length(exprM_zero_rate),3),
                 ", 0rate>0.98: ", 
                 round(sum(exprM_zero_rate>0.98)/length(exprM_zero_rate),3)))
 
+
 dev.off()
 
-min_cell_4_each_gene=min(apply(exprM>0,1,sum))
-min_gene_4_each_cell=min(apply(exprM>0,2,sum))
-min_cell_4_each_gene
-min_gene_4_each_cell
+
 
