@@ -24,7 +24,7 @@ dev.off()
 
 svd50$d^2/sum(svd50$d^2)
 
-k=17
+k=13
 svd50v=svd50$v[,1:k]
 
 xc=as.matrix(meta[,"Capbatch"])
@@ -46,6 +46,18 @@ for(ik in 1:k){
 cor_s
 cor_c
 
+# #cor 0.1 threshold 
+# flag=(abs(cor_c)<0.1 & abs(cor_s)<0.1) 
+# svd50v0.1=svd50v[,flag==1]
+# tsne=Rtsne(svd50v0.1,dims=2, perplexity=10)
+# 
+# pdf("tSNE_plots_cor0.1_10.pdf",height = 8,width = 8)
+# plot(tsne$Y, cex=.1,main="tSNE-Capbatch",col=as.numeric(as.factor(meta[,"Capbatch"])))
+# plot(tsne$Y, cex=.1,main="tSNE-Seqbatch",col=as.numeric(as.factor(meta[,"Seqbatch"])))
+# plot(tsne$Y, cex=.2,main="tSNE-cluster",col=as.numeric(as.factor(meta[,"cluster"])))
+# plot(tsne$Y, cex=.2,main="tSNE-individual",col=as.numeric(as.factor(meta[,"individual"])))
+# dev.off()
+
 #cor 0.2 threshold 
 flag=(abs(cor_c)<0.2 & abs(cor_s)<0.2) 
 sum(flag)
@@ -53,7 +65,7 @@ sum(flag)
 svd50v0.2=svd50v[,flag==1]
 tsne=Rtsne(svd50v0.2,dims=2, perplexity=10)
 
-pdf("tSNE_plots_cor0.2_10.pdf",height = 8,width = 8)
+pdf("tSNE_plots_cor0.2_5k13_10.pdf",height = 8,width = 8)
 plot(tsne$Y, cex=.1,main="tSNE-Capbatch",col=as.numeric(as.factor(meta[,"Capbatch"])))
 plot(tsne$Y, cex=.1,main="tSNE-Seqbatch",col=as.numeric(as.factor(meta[,"Seqbatch"])))
 plot(tsne$Y, cex=.2,main="tSNE-cluster",col=as.numeric(as.factor(meta[,"cluster"])))
@@ -62,7 +74,7 @@ dev.off()
 
 tsne=Rtsne(svd50v0.2,dims=2, perplexity=15)
 
-pdf("tSNE_plots_cor0.2_15.pdf",height = 8,width = 8)
+pdf("tSNE_plots_cor0.2_5k13_15.pdf",height = 8,width = 8)
 plot(tsne$Y, cex=.1,main="tSNE-Capbatch",col=as.numeric(as.factor(meta[,"Capbatch"])))
 plot(tsne$Y, cex=.1,main="tSNE-Seqbatch",col=as.numeric(as.factor(meta[,"Seqbatch"])))
 plot(tsne$Y, cex=.2,main="tSNE-cluster",col=as.numeric(as.factor(meta[,"cluster"])))
@@ -71,7 +83,7 @@ dev.off()
 
 tsne=Rtsne(svd50v0.2,dims=2, perplexity=20)
 
-pdf("tSNE_plots_cor0.2_20.pdf",height = 8,width = 8)
+pdf("tSNE_plots_cor0.2_5k13_20.pdf",height = 8,width = 8)
 plot(tsne$Y, cex=.1,main="tSNE-Capbatch",col=as.numeric(as.factor(meta[,"Capbatch"])))
 plot(tsne$Y, cex=.1,main="tSNE-Seqbatch",col=as.numeric(as.factor(meta[,"Seqbatch"])))
 plot(tsne$Y, cex=.2,main="tSNE-cluster",col=as.numeric(as.factor(meta[,"cluster"])))
@@ -80,7 +92,7 @@ dev.off()
 
 tsne=Rtsne(svd50v0.2,dims=2, perplexity=30)
 
-pdf("tSNE_plots_cor0.2_30.pdf",height = 8,width = 8)
+pdf("tSNE_plots_cor0.2_5k13_30.pdf",height = 8,width = 8)
 plot(tsne$Y, cex=.1,main="tSNE-Capbatch",col=as.numeric(as.factor(meta[,"Capbatch"])))
 plot(tsne$Y, cex=.1,main="tSNE-Seqbatch",col=as.numeric(as.factor(meta[,"Seqbatch"])))
 plot(tsne$Y, cex=.2,main="tSNE-cluster",col=as.numeric(as.factor(meta[,"cluster"])))

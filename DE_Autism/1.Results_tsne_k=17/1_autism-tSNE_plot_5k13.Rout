@@ -1,0 +1,181 @@
+
+R version 3.6.0 (2019-04-26) -- "Planting of a Tree"
+Copyright (C) 2019 The R Foundation for Statistical Computing
+Platform: x86_64-pc-linux-gnu (64-bit)
+
+R is free software and comes with ABSOLUTELY NO WARRANTY.
+You are welcome to redistribute it under certain conditions.
+Type 'license()' or 'licence()' for distribution details.
+
+  Natural language support but running in an English locale
+
+R is a collaborative project with many contributors.
+Type 'contributors()' for more information and
+'citation()' on how to cite R or R packages in publications.
+
+Type 'demo()' for some demos, 'help()' for on-line help, or
+'help.start()' for an HTML browser interface to help.
+Type 'q()' to quit R.
+
+> #this code try to reproduce the Velmeshev_2019_autism and reproduce their TSNE plots,
+> 
+> 
+> #Data_PRJNA434002
+> #install.packages("RSpectra")
+> library("RSpectra")
+> library("Rtsne")
+> 
+> #setwd("~/Desktop/fh/1.Testing_scRNAseq/")
+> #setwd("/Users/mzhang24/Desktop/fh/1.Testing_scRNAseq/")
+> setwd("/fh/fast/sun_w/mengqi/1.Testing_scRNAseq/")
+> 
+> exprM=as.matrix(readRDS("../Data_PRJNA434002/exprMatrix5k.rds"))
+> meta=read.table("../Data_PRJNA434002/meta.tsv",header = TRUE, sep = "\t")
+> 
+> k = 50
+> svd50=svds(exprM, k)
+> #svd50=readRDS("../Data_PRJNA434002/svd50.rds")
+> 
+> pdf("scree_plot.pdf",width = 6,height = 6)
+> plot(svd50$d^2/sum(svd50$d^2), xlim = c(0, k),ylim=c(0,0.01), type = "b", pch = 16, xlab = "principal components", 
++      ylab = "variance explained", main="scree plot")
+> dev.off()
+null device 
+          1 
+> 
+> svd50$d^2/sum(svd50$d^2)
+ [1] 0.7680785179 0.0572905981 0.0430234110 0.0269848848 0.0162010022
+ [6] 0.0124859123 0.0088899579 0.0057706877 0.0048722160 0.0037071927
+[11] 0.0035875752 0.0035183960 0.0031543195 0.0026349815 0.0023354052
+[16] 0.0021952046 0.0020656720 0.0019096222 0.0018291180 0.0017281967
+[21] 0.0015710191 0.0013775122 0.0013315633 0.0012402732 0.0011801046
+[26] 0.0011459674 0.0010834343 0.0010625624 0.0010500307 0.0010143621
+[31] 0.0009933080 0.0009469696 0.0009013550 0.0008972445 0.0008662858
+[36] 0.0008489921 0.0008440272 0.0008226574 0.0008038633 0.0007940883
+[41] 0.0007759185 0.0007397537 0.0007256110 0.0007159764 0.0007078952
+[46] 0.0006865670 0.0006723754 0.0006629091 0.0006398925 0.0006346092
+> 
+> k=13
+> svd50v=svd50$v[,1:k]
+> 
+> xc=as.matrix(meta[,"Capbatch"])
+> xs=as.matrix(meta[,"Seqbatch"])
+> cor_c=matrix(ncol=1,nrow=k)
+> cor_s=matrix(ncol=1,nrow=k)
+> 
+> for(ik in 1:k){
++   y=svd50v[,ik]
++   ##calculate correlation of capbatch
++   lmc = lm(y ~ as.factor(xc))
++   cor_c[ik]=summary(lmc)$r.square
++   ##calculate correlation of seqbatch
++   lms = lm(y ~ as.factor(xs))
++   cor_s[ik]=sqrt(summary(lms)$r.square)
++   
++ }
+> 
+> cor_s
+            [,1]
+ [1,] 0.09312091
+ [2,] 0.20804105
+ [3,] 0.10189363
+ [4,] 0.04894420
+ [5,] 0.08572514
+ [6,] 0.07445127
+ [7,] 0.13145842
+ [8,] 0.15549572
+ [9,] 0.12447138
+[10,] 0.06558455
+[11,] 0.02548832
+[12,] 0.11899517
+[13,] 0.18261325
+> cor_c
+            [,1]
+ [1,] 0.01323767
+ [2,] 0.07409426
+ [3,] 0.07060369
+ [4,] 0.02131431
+ [5,] 0.01357357
+ [6,] 0.01342576
+ [7,] 0.06839977
+ [8,] 0.09153993
+ [9,] 0.02026461
+[10,] 0.01132649
+[11,] 0.03546433
+[12,] 0.03186582
+[13,] 0.04830639
+> 
+> # #cor 0.1 threshold 
+> # flag=(abs(cor_c)<0.1 & abs(cor_s)<0.1) 
+> # svd50v0.1=svd50v[,flag==1]
+> # tsne=Rtsne(svd50v0.1,dims=2, perplexity=10)
+> # 
+> # pdf("tSNE_plots_cor0.1_10.pdf",height = 8,width = 8)
+> # plot(tsne$Y, cex=.1,main="tSNE-Capbatch",col=as.numeric(as.factor(meta[,"Capbatch"])))
+> # plot(tsne$Y, cex=.1,main="tSNE-Seqbatch",col=as.numeric(as.factor(meta[,"Seqbatch"])))
+> # plot(tsne$Y, cex=.2,main="tSNE-cluster",col=as.numeric(as.factor(meta[,"cluster"])))
+> # plot(tsne$Y, cex=.2,main="tSNE-individual",col=as.numeric(as.factor(meta[,"individual"])))
+> # dev.off()
+> 
+> #cor 0.2 threshold 
+> flag=(abs(cor_c)<0.2 & abs(cor_s)<0.2) 
+> sum(flag)
+[1] 12
+> 
+> svd50v0.2=svd50v[,flag==1]
+> tsne=Rtsne(svd50v0.2,dims=2, perplexity=10)
+> 
+> pdf("tSNE_plots_cor0.2_5k13_10.pdf",height = 8,width = 8)
+> plot(tsne$Y, cex=.1,main="tSNE-Capbatch",col=as.numeric(as.factor(meta[,"Capbatch"])))
+> plot(tsne$Y, cex=.1,main="tSNE-Seqbatch",col=as.numeric(as.factor(meta[,"Seqbatch"])))
+> plot(tsne$Y, cex=.2,main="tSNE-cluster",col=as.numeric(as.factor(meta[,"cluster"])))
+> plot(tsne$Y, cex=.2,main="tSNE-individual",col=as.numeric(as.factor(meta[,"individual"])))
+> dev.off()
+null device 
+          1 
+> 
+> tsne=Rtsne(svd50v0.2,dims=2, perplexity=15)
+> 
+> pdf("tSNE_plots_cor0.2_5k13_15.pdf",height = 8,width = 8)
+> plot(tsne$Y, cex=.1,main="tSNE-Capbatch",col=as.numeric(as.factor(meta[,"Capbatch"])))
+> plot(tsne$Y, cex=.1,main="tSNE-Seqbatch",col=as.numeric(as.factor(meta[,"Seqbatch"])))
+> plot(tsne$Y, cex=.2,main="tSNE-cluster",col=as.numeric(as.factor(meta[,"cluster"])))
+> plot(tsne$Y, cex=.2,main="tSNE-individual",col=as.numeric(as.factor(meta[,"individual"])))
+> dev.off()
+null device 
+          1 
+> 
+> tsne=Rtsne(svd50v0.2,dims=2, perplexity=20)
+> 
+> pdf("tSNE_plots_cor0.2_5k13_20.pdf",height = 8,width = 8)
+> plot(tsne$Y, cex=.1,main="tSNE-Capbatch",col=as.numeric(as.factor(meta[,"Capbatch"])))
+> plot(tsne$Y, cex=.1,main="tSNE-Seqbatch",col=as.numeric(as.factor(meta[,"Seqbatch"])))
+> plot(tsne$Y, cex=.2,main="tSNE-cluster",col=as.numeric(as.factor(meta[,"cluster"])))
+> plot(tsne$Y, cex=.2,main="tSNE-individual",col=as.numeric(as.factor(meta[,"individual"])))
+> dev.off()
+null device 
+          1 
+> 
+> tsne=Rtsne(svd50v0.2,dims=2, perplexity=30)
+> 
+> pdf("tSNE_plots_cor0.2_5k13_30.pdf",height = 8,width = 8)
+> plot(tsne$Y, cex=.1,main="tSNE-Capbatch",col=as.numeric(as.factor(meta[,"Capbatch"])))
+> plot(tsne$Y, cex=.1,main="tSNE-Seqbatch",col=as.numeric(as.factor(meta[,"Seqbatch"])))
+> plot(tsne$Y, cex=.2,main="tSNE-cluster",col=as.numeric(as.factor(meta[,"cluster"])))
+> plot(tsne$Y, cex=.2,main="tSNE-individual",col=as.numeric(as.factor(meta[,"individual"])))
+> dev.off()
+null device 
+          1 
+> 
+> 
+> 
+> 
+> 
+> 
+> 
+> 
+> 
+> 
+> proc.time()
+    user   system  elapsed 
+4932.222    4.433 4954.453 
