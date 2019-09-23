@@ -1,0 +1,520 @@
+---
+title: "A workflow for single cell RNA-seq data analysis-Autism"
+author: "Mengqi Zhang and Wei Sun"
+date: "`r Sys.Date()`"
+bibliography: 0_scRNAseq_pipeline.bib
+biblio-style: apalike
+output: 
+  html_document:
+    theme: journal
+    highlight: tango
+    toc: true
+    toc_depth: 3
+    toc_float:
+      collapsed: true
+      smooth_scroll: false
+    number_sections: true
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Introduction
+
+This markdown is for analyzing the paper [Single-cell genomics identifies cell type–specific molecular changes in autism](https://science.sciencemag.org/content/364/6441/685.abstract). Some details of their analysis is provided [here](https://science.sciencemag.org/content/suppl/2019/05/15/364.6441.685.DC1). Briefly, there analysis are doing individual case-control study using the [MAST](https://www.bioconductor.org/packages/release/bioc/html/MAST.html) packages.
+
+This pipeline using some alternative strategies for data processing and analysis, mostly based on [bioconductor workflows for scRNAseq](https://bioconductor.org/packages/release/workflows/html/simpleSingleCell.html). 
+
+The packages required for the analysis are as follows:
+- scater: collection of tools for doing quality control analyses of scRNA-seq
+- scran: methods provide normalization of cell-specific biases, correcting batch effects, identify marker genes
+- SC3: package for single cell consensus clustering.
+
+# Generate read count matrix
+
+We start from read-in the mtx files from [10x genomics](https://www.10xgenomics.com/).
+The analysis of scRNA-seq data include reading the data, quality control, clustering and statistical analysis such as differencial expression analysis.
+
+R packages required in this section:
+```{r echo = TRUE, results = 'hide', warning = FALSE, message = FALSE}
+library(DropletUtils)
+library(biomaRt)
+library(dplyr)
+library(scater)
+
+```
+
+
+## Data preparation
+
+This dataset was generated using 10x Genomics platform. The read count data were downloaded from the link of "Gene / cell matrix (raw)" from the interactive web browser at [Velmeshev et al, 2019](https://cells.ucsc.edu/autism/rawMatrix.zip)
+
+The downloaded zip file were unzipped and saved in folder ```rawMatrix/```. In addition, we also downloaded the matrix of raw 10x UMI counts from cellranger with log2-transformed ```exprMatrix.tsv.gz``` and the cell Metadata ```meta.tsv```, which includes clustername, age, patient ID, UMI and gene counts. The folder strucrture is to recontrcut the file struture of cell ranger output.  
+
+```
+└── meta.tsv
+└── exprMatrix.tsv.gz
+└── rawMatrix
+    ├── barcodes.tsv
+    ├── genes.tsv
+    └── matrix.mtx
+```
+The count matrix was saved as three files, where ```barcodes.tsv``` saves barcode information, ```genes.tsv``` saves gene information, and ```matrix.mtx``` saves the count data in MatrixMarket format. 
+We load them using function ```read10xCounts``` from R package ```DropletUtils```, and obtain gene anntation using R package ```biomaRt```.
+
+```{r cache=TRUE}
+
+path = "/fh/fast/sun_w/mengqi/Data_PRJNA434002/"
+file = "rawMatrix"
+path2 = paste(path, file, sep="")
+
+sce   = read10xCounts(path2, col.names=TRUE)
+
+anno.file = "~/research/scRNAseq/workflow/data/gene.annoation.rds"
+if(file.exists(anno.file)){
+  gene.annotation = readRDS(anno.file)
+}else{
+  ensembl = useMart("ensembl",dataset="hsapiens_gene_ensembl")
+  
+  attr.string = c('ensembl_gene_id', 'hgnc_symbol', 'chromosome_name')
+  attr.string = c(attr.string, 'start_position', 'end_position', 'strand')
+  attr.string = c(attr.string, 'description', 'percentage_gene_gc_content')
+  attr.string = c(attr.string, 'gene_biotype')
+  
+  rowData(sce)[1:2,]
+  gene.annotation = getBM(attributes=attr.string, 
+                          filters =  'ensembl_gene_id', 
+                          values = rowData(sce)$ID, 
+                          mart = ensembl)
+}
+
+dim(gene.annotation)
+gene.annotation[1:2,]
+
+t1 = table(gene.annotation$ensembl_gene_id)
+t2 = t1[t1 > 1]
+t2 
+
+gene.annotation[which(gene.annotation$ensembl_gene_id %in% names(t2)),]
+gene.annotation = distinct(gene.annotation, ensembl_gene_id, 
+                           .keep_all = TRUE)
+dim(gene.annotation)
+gene.annotation[1:2,]
+table(gene.annotation$chromosome_name)
+table(gene.annotation$gene_biotype)
+
+## some genes do not have annotation because their ids are retired
+gene.missing = dplyr::setdiff(rowData(sce)$ID, gene.annotation$ensembl_gene_id)
+length(gene.missing)
+gene.missing[1:6]
+
+w2kp = match(gene.annotation$ensembl_gene_id, rowData(sce)$ID)
+sce  = sce[w2kp,]
+dim(sce)
+
+table(gene.annotation$ensembl_gene_id == rowData(sce)$ID)
+
+rowData(sce)  = gene.annotation
+rownames(sce) = scater::uniquifyFeatureNames(rowData(sce)$ensembl_gene_id, 
+                                     rowData(sce)$hgnc_symbol)
+
+```
+
+
+# Quality control and normalization for count matrix
+R package required by this section.In this part, we need the file ribosome_gene.txt from Gene group [Ribosomal proteins](https://www.genenames.org/cgi-bin/genegroup/download?id=1054&type=branch) of [HGNC](https://www.genenames.org).
+
+```{r echo = TRUE, results = 'hide', warning = FALSE, message = FALSE}
+library(DropletUtils)
+library(biomaRt)
+library(dplyr)
+library(scater)
+```
+The main QC anlaysis is carried out by ```scater```. 
+ 
+## Identify low quality cells
+
+An important QC step for scRNA-seq data analysis is to identify low quality or empty cells. For 10x Genomics data, The ```emptyDrops``` function in R package ```DropletUtils``` can be used detect empty cells, given the count matrix of **all** barcodes. That is why we loaded the raw data matrix intead of filtered data matrix. 
+
+```{r warning = FALSE, message = FALSE}
+bcrank = barcodeRanks(counts(sce))
+
+# Only showing unique points for plotting speed.
+uniq = !duplicated(bcrank$rank)
+
+#pdf("0.1_Rank_and_UMIcount.pdf",height=5,width=5)
+op=par(mar=c(5,4,2,1), bty="n")
+plot(bcrank$rank[uniq], bcrank$total[uniq], log="xy", 
+     xlab="Rank", ylab="Total UMI count", cex=0.5, cex.lab=1.2)
+
+abline(h=bcrank$inflection, col="darkgreen", lty=2)
+abline(h=bcrank$knee, col="dodgerblue", lty=2)
+
+legend("left", legend=c("Inflection", "Knee"), bty="n", 
+       col=c("darkgreen", "dodgerblue"), lty=2, cex=1.2)
+par(op)
+#dev.off()
+
+bcrank$inflection
+bcrank$knee
+
+summary(bcrank$total)
+table(bcrank$total >= bcrank$knee)
+table(bcrank$total >= bcrank$inflection)
+
+set.seed(100)
+e.out = emptyDrops(counts(sce),lower=600) ###!!!!Alert1:This dataset seems to have  !!!!!###
+e.out
+is.cell = (e.out$FDR <= 0.01)
+```
+
+```{r fig.asp = .5}
+#pdf("0.2_UMIcount_and_probability.pdf",height=5,width=5)
+op=par(mar=c(5,4,1,1), bty="n")
+plot(e.out$Total, -e.out$LogProb, col=ifelse(is.cell, "red", "black"),
+    xlab="Total UMI count", ylab="-Log Probability", cex=0.2)
+abline(v = bcrank$inflection, col="darkgreen")
+abline(v = bcrank$knee, col="dodgerblue")
+legend("bottomright", legend=c("Inflection", "Knee"), bty="n", 
+       col=c("darkgreen", "dodgerblue"), lty=1, cex=1.2)
+par(op)
+#dev.off()
+
+```
+
+Based on the above analysis, we will find that there is almost no necessary to do the emptyDrops since this dataset seems like a filtered data matrix.
+
+```{r}
+#table(colnames(sce) == rownames(e.out))
+#table(e.out$FDR <= 0.01, useNA="ifany")
+#table(is.cell, e.out$Total >= bcrank$inflection)
+#w2kp = which(is.cell & e.out$Total >= bcrank$inflection)
+#sce = sce[,w2kp]
+#dim(sce)
+```
+
+Next step we apply more QC based on a set of features per cell.
+
+```{r warning = FALSE, message = FALSE, fig.asp = 1}
+library(data.table)
+ribo.file = "/fh/fast/sun_w/mengqi/HGNC/ribosome_genes.txt"
+ribo = fread(ribo.file)
+dim(ribo)
+ribo[1:2,]
+
+is.mito = which(rowData(sce)$chromosome_name == "MT")
+is.ribo = which(rowData(sce)$hgnc_symbol %in% ribo$'Approved symbol')
+length(is.mito)
+length(is.ribo)
+
+sce = calculateQCMetrics(sce, feature_controls=list(Mt=is.mito, Ri=is.ribo))
+colnames(colData(sce))
+
+
+#pdf("0.3_histogram_of_cell_features.pdf",height=8,width=8)
+op=par(mfrow=c(2,2), mar=c(5, 4, 1, 1), bty="n")
+hist(log10(sce$total_counts), xlab="log10(Library sizes)", main="", 
+    breaks=20, col="grey80", ylab="Number of cells")
+
+hist(log10(sce$total_features_by_counts), xlab="log10(# of expressed genes)", 
+     main="", breaks=20, col="grey80", ylab="Number of cells")
+
+hist(sce$pct_counts_Ri, xlab="Ribosome prop. (%)",
+    ylab="Number of cells", breaks=40, main="", col="grey80")
+
+hist(sce$pct_counts_Mt, xlab="Mitochondrial prop. (%)", 
+    ylab="Number of cells", breaks=80, main="", col="grey80")
+par(op)
+op=par(mfrow=c(2,2), mar=c(5, 4, 1, 1), bty="n")
+smoothScatter(log10(sce$total_counts), log10(sce$total_features_by_counts), 
+     xlab="log10(Library sizes)", ylab="log10(# of expressed genes)", 
+     nrpoints=500, cex=0.5)
+smoothScatter(log10(sce$total_counts), sce$pct_counts_Ri, 
+     xlab="log10(Library sizes)", ylab="Ribosome prop. (%)",
+     nrpoints=500, cex=0.5)
+abline(h=10,  lty=1)
+
+smoothScatter(log10(sce$total_counts), sce$pct_counts_Mt, 
+     xlab="log10(Library sizes)", ylab="Mitochondrial prop. (%)",
+     nrpoints=500, cex=0.5)
+abline(h=5,  lty=1)
+
+smoothScatter(sce$pct_counts_Ri, sce$pct_counts_Mt, 
+     xlab="Ribosome prop. (%)", ylab="Mitochondrial prop. (%)",
+     nrpoints=500, cex=0.5)
+abline(h=5,  lty=1)
+abline(v=10, lty=1)
+par(op)
+#dev.off()
+```
+
+Since this is nucleus scRNAseq from the dead cells, it is very resonable that the cells have very low proportion of ribosome genes. To be a little bit conservative, we remove those cells with high proportion of Mitochondrial genes ($>5\%$)(Yes, Motochondrial can be also regarded as a nucleus sub environment). 
+
+```{r}
+table(sce$pct_counts_Mt > 5)
+sce.lq = sce[,which(sce$pct_counts_Mt > 5) ]
+dim(sce.lq)
+
+sce = sce[,which(sce$pct_counts_Mt <= 5) ]
+dim(sce)
+```
+
+### Summarize gene-level information
+```{r warning = FALSE, message = FALSE, fig.asp = 0.33}
+
+rowData(sce)[1:2,]
+min(rowData(sce)$mean_counts)
+min(rowData(sce)$mean_counts[rowData(sce)$mean_counts>0])
+min(rowData(sce)$n_cells_by_counts)
+pdf("0.4_histogram_of_gene_features.pdf",height=3,width=10)
+op=par(mfrow=c(1,3), mar=c(5,4,1,1))
+hist(log10(rowData(sce)$mean_counts+1e-6), col="grey",  main="", 
+     breaks=40, xlab="log10(ave # of UMI + 1e-6)")
+hist(log10(rowData(sce)$n_cells_by_counts+1), col="grey", main="", 
+     breaks=40, xlab="log10(# of expressed cells + 1)")
+smoothScatter(log10(rowData(sce)$mean_counts+1e-6), 
+              log10(rowData(sce)$n_cells_by_counts + 1), 
+              xlab="log10(ave # of UMI + 1e-6)", 
+              ylab="log10(# of expressed cells + 1)")
+par(op)
+dev.off()
+tb1 = table(rowData(sce)$n_cells_by_counts)
+tb1[1:11]
+
+```
+
+We remove those genes that are expressed in zero or only one cell. The variable _strand_ need to be renamed, otherwise there is an error message that such a variable name cannot be used. 
+
+```{r}
+names(rowData(sce))[6] = "strand_n"
+sce = sce[which(rowData(sce)$n_cells_by_counts > 1),]
+dim(sce)
+```
+
+Next we check those highly expressed genes 
+```{r}
+pdf("0.5_gene_features2.pdf",height=5,width=5)
+op=par(mar=c(5,4,1,1))
+od1 = order(rowData(sce)$mean_counts, decreasing = TRUE)
+barplot(rowData(sce)$mean_counts[od1[20:1]], las=1, 
+        names.arg=rowData(sce)$hgnc_symbol[od1[20:1]], 
+        horiz=TRUE, cex.names=0.5, cex.axis=0.7, 
+        xlab="ave # of UMI")
+par(op)
+dev.off()
+
+```
+
+### Normalization
+A simple solution for normalization and stablizing expression varaince across genes is to tranform the count data by log(count/size.factor + 1). One may calcualte size.factor per cell as the total number of UMIs, and this assumes the total expression are the same across all the cells. However, the total expression of each cell may vary with respect to cell type and/or cell size, and the ```computeSumFactors``` function in R package scran provides a more  sophisicated way to calcualte size.factor to allow such variaation across cells [@lun2016pooling]. ```computeSumFactors``` can use initial clustering of cells to normalize expression within and beetween clusters.  Within a cluster, it estimates the size factor for many groups of cells so that there are more groups than cells, and then it can calcualte the size factor per cell using a lienar deconvolution system. 
+
+As shown in the following plot, the final size factor estimation is indeed highly correlated with the naive definition by total count. 
+
+Finally, the command ```normalize(sce)``` adds the normalized expression into the variable ```sce```.
+```{r warning = FALSE, message = FALSE, fig.asp = 0.5}
+
+library(scran)
+date()
+clusters = quickCluster(sce, min.mean=0.1, method="igraph")
+date()
+sce      = computeSumFactors(sce, cluster=clusters, min.mean=0.1)
+date()
+summary(sizeFactors(sce))
+
+pdf("0.6_size_factors.pdf",height=5,width=10)
+op=par(mfrow=c(1,2), mar=c(5,4,2,1), bty="n")
+smoothScatter(sce$total_counts, sizeFactors(sce), log="xy", 
+              xlab="total counts", ylab="size factors")
+plot(sce$total_counts, sizeFactors(sce), log="xy", 
+     xlab="total counts", ylab="size factors", 
+     cex=0.3, pch=20, col=rgb(0.1,0.2,0.7,0.3))
+par(op)
+dev.off()
+sce = normalize(sce)
+```
+
+## Dimension reduction
+
+For dimension reduction, such as calculating PCA or performing TSNE, we should start by identifying a subset of genes with high level of biological signal relative to background (technical) noise. The ```decomposeVar``` function from R/cran is designed for this task. 
+```{r warning = FALSE, message = FALSE, fig.asp = 1}
+
+new.trend = makeTechTrend(x=sce)
+fit = trendVar(sce, use.spikes=FALSE, loess.args=list(span=0.05))
+
+pdf("0.7_data_trend.pdf",height=5,width=5)
+op=par(mfrow=c(1,1), mar=c(5,4,2,1), bty="n")
+plot(fit$mean, fit$var, pch=20, col=rgb(0.1,0.2,0.7,0.6), 
+     xlab="log(mean)", ylab="var")
+curve(fit$trend(x), col="orange", lwd=2, add=TRUE)
+curve(new.trend(x), col="red", lwd=2, add=TRUE)
+legend("topright", legend=c("Poisson noise", "observed trend"), 
+       lty=1, lwd=2, col=c("red", "orange"), bty="n")
+
+fit$trend = new.trend
+dec = decomposeVar(fit=fit)
+top.dec = dec[order(dec$bio, decreasing=TRUE),]
+plotExpression(sce, features=rownames(top.dec)[1:10])
+par(op)
+dev.off()
+```
+
+When performing PCA, we can use all the genes or just those genes with high signal-to-noise ratio. TSNE analysis is usually based on the top PCs rather than the original gene expression data. We first perform PCA using all the genes and the function ```denoisePCA``` can automatically select the PCs based on modeling of technical noise. 
+
+```{r warning = FALSE, message = FALSE, fig.asp = 0.8}
+date()
+sce = denoisePCA(sce, technical=new.trend, approx=TRUE)
+date()
+dim(reducedDim(sce, "PCA"))
+
+pdf("0.8_scree_plot_PCA_tSNE.pdf",height=5,width=5)
+plot(log10(attr(reducedDim(sce), "percentVar")), xlab="PC",
+     ylab="log10(Prop of variance explained)", pch=20, cex=0.6, 
+     col=rgb(0.8, 0.2, 0.2, 0.5))
+abline(v=ncol(reducedDim(sce, "PCA")), lty=2, col="red")
+
+
+df_pcs = data.frame(reducedDim(sce, "PCA"))
+df_pcs$log10_total_features = colData(sce)$log10_total_features
+
+gp1 = ggplot(df_pcs, aes(PC1,PC2,col=log10_total_features)) + 
+  geom_point(size=0.2,alpha=0.6) + theme_classic() + 
+  scale_colour_gradient(low="lightblue",high="red") +
+  guides(color = guide_legend(override.aes = list(size=3)))
+gp1
+
+date()
+sce = runTSNE(sce, use_dimred="PCA", perplexity=30, rand_seed=100)
+date()
+
+df_tsne = data.frame(reducedDim(sce, "TSNE"))
+df_tsne$log10_total_features = colData(sce)$log10_total_features
+
+gp1 = ggplot(df_tsne, aes(X1,X2,col=log10_total_features)) + 
+  geom_point(size=0.2,alpha=0.6) + theme_classic() + 
+  scale_colour_gradient(low="lightblue",high="red") +
+  guides(color = guide_legend(override.aes = list(size=3)))
+gp1
+
+dev.off()
+```
+
+Next we only select around top 1000 genes for the PCA and use the top 50 PCs for TSNE projection. 
+
+```{r warning = FALSE, message = FALSE, fig.asp = 0.8}
+
+
+library(svd)
+library(Rtsne)
+
+summary(dec$bio)
+dec1 = dec
+dec1$bio[which(dec$bio < 1e-8)] = 1e-8
+dec1$FDR[which(dec$FDR < 1e-100)] = 1e-100
+
+
+pdf("0.9_PCA_tSNE_top1K.pdf",height=5,width=5)
+op=par(mfrow=c(1,2))
+hist(log10(dec1$bio), breaks=100, main="")
+hist(log10(dec1$FDR), breaks=100, main="")
+par(op)
+
+summary(dec$FDR[dec$bio > 0.001])
+table(dec$FDR < 1e-10, dec$bio > 0.01)
+
+w2kp = which(dec$FDR < 1e-10 & dec$bio > 0.01)
+sce_sub = sce[w2kp,]
+sce_sub
+
+edat = t(as.matrix(logcounts(sce_sub)))
+edat = scale(edat)
+dim(edat)
+edat[1:2,1:3]
+
+date()
+ppk  = propack.svd(edat,neig=50)
+date()
+pca = t(ppk$d*t(ppk$u))
+
+df_pcs = data.frame(pca)
+df_pcs$log10_total_features = colData(sce_sub)$log10_total_features
+df_pcs[1:2,]
+
+gp1 = ggplot(df_pcs, aes(X1,X2,col=log10_total_features)) + 
+  geom_point(size=0.2,alpha=0.6) + theme_classic() + 
+  scale_colour_gradient(low="lightblue",high="red") +
+  guides(color = guide_legend(override.aes = list(size=3)))
+gp1
+
+set.seed(100)
+date()
+tsne = Rtsne(pca, pca = FALSE)
+date()
+
+
+df_tsne = data.frame(tsne$Y)
+df_tsne$log10_total_features = colData(sce_sub)$log10_total_features
+dim(df_tsne)
+df_tsne[1:2,]
+
+gp1 = ggplot(df_tsne, aes(X1,X2,col=log10_total_features)) + 
+  geom_point(size=0.2,alpha=0.6) + theme_classic() + 
+  scale_colour_gradient(low="lightblue",high="red") +
+  guides(color = guide_legend(override.aes = list(size=3)))
+gp1
+
+
+dev.off()
+
+reducedDims(sce_sub) = SimpleList(PCA=pca, TSNE=tsne$Y)
+sce_sub
+```
+
+### Clustering
+There are many methods for clustering of single cell RNA-seq data. The performance of each method may also depend on pre-processing steps, such as performing imputation or not. We wil compare these methods in a seperate document. Here we just illustrate the clustering reuslts using a simple kmeans method on the top 50 PCs. 
+
+```{r warning = FALSE, message = FALSE, fig.asp = 0.8}
+
+k10_50_pcs = kmeans(reducedDim(sce_sub, "PCA"), centers=10, 
+                    iter.max=150, algorithm="MacQueen")
+names(k10_50_pcs)
+dim(k10_50_pcs$centers)
+
+df_tsne$cluster_kmean = as.factor(k10_50_pcs$cluster)
+cols = c("#FB9A99","#FF7F00","yellow","orchid","grey",
+         "red","dodgerblue2","tan4","green4","#99c9fb")
+pdf("0.10_clustering1.pdf",height=5,width=5)
+
+gp1 = ggplot(df_tsne, aes(X1,X2,col=cluster_kmean)) + 
+  geom_point(size=0.2,alpha=0.6) + theme_classic() + 
+  scale_color_manual(values=cols) + 
+  guides(color = guide_legend(override.aes = list(size=3)))
+
+gp1
+dev.off()
+```
+
+An alternative popular clustreing method is a graph based method that first construct a graph for all the cells and then identify clusters of cells by identifying densely connected subgraphs [@xu2015identification]. One possible implementation is the following approach 
+
+```{r eval=FALSE}
+snn.gr   = buildSNNGraph(sce_sub, use.dimred="PCA")
+clusters = igraph::cluster_walktrap(snn.gr)
+```
+
+Though this implementation is very slow for this large dataset. It took more than 3 hours on a MacbookPro with 2.8 G i7 core and 16G memmory. The results of graphical model based on clustering and Kmeans have large overlap in some cluters. Though in general, graph-based identify many small clusters. 
+
+```{r, out.width='80%', fig.align='center', fig.cap='Compare the clustering resutls of Kmeans vs. a graph based method. Each column corresponds to one of 31 clusters by graph-based method. Each row corresponds to one of the 10 clusters by kmeans', echo=FALSE}
+knitr::include_graphics('figures/compare_cluster_kmean_graph.png')
+```
+
+
+# Session information
+```{r}
+sessionInfo()
+```
+
+# Reference
+https://bioconductor.org/packages/release/workflows/vignettes/simpleSingleCell/inst/doc/tenx.html
+http://research.fhcrc.org/content/dam/stripe/sun/software/scRNAseq/scRNAseq.html
+http://research.fhcrc.org/content/dam/stripe/sun/software/scRNAseq/scRNAseq.html#3_quality_control_and_normalization_for_count_matrix
+
