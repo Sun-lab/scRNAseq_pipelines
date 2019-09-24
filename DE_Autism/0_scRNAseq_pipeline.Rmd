@@ -22,7 +22,7 @@ editor_options:
 library(knitr)
 knitr::opts_chunk$set(echo=TRUE, cache = !TRUE, warning = FALSE, 
                       message = FALSE, cache.lazy = FALSE)
-runcode=FALSE
+runcode=!FALSE
 ```
 
 # Introduction
