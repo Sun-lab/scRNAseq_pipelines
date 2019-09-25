@@ -42,11 +42,6 @@ exprM1k[1:10,1:10]
 dim(exprM1k)
 saveRDS(exprM1k,"../Data_PRJNA434002/exprMatrix1k.rds")
 
-exprM1K=readRDS("../Data_PRJNA434002/exprMatrix1k.rds")
-exprM5K=readRDS("../Data_PRJNA434002/exprMatrix5k.rds")
-exprM3k10=readRDS("../Data_PRJNA434002/exprMatrix3k10.rds")
-exprM1k10=readRDS("../Data_PRJNA434002/exprMatrix1k10.rds")
-
 #regenerate some fake "raw-counts" data for testing
 
 rerawM1K=apply(exprM1K,2,function(x){return(2^(as.numeric(x)))})
@@ -55,7 +50,7 @@ rerawM1K=apply(rerawM1K,2,function(x){return(round(x))})
 rownames(rerawM1K)=rownames(exprM1K)
 colnames(rerawM1K)=colnames(exprM1K)
 saveRDS(rerawM1K,"../Data_PRJNA434002/rerawMatrix1k.rds")
-write.table(rerawM3k10,"../Data_PRJNA434002/rerawMatrix1k.csv")
+write.table(rerawM3k10,"../Data_PRJNA434002/rerawMatrix1k.csv",sep=",")
 
 rerawM5K=apply(exprM5K,2,function(x){return(2^(as.numeric(x)))})
 rerawM5K[rerawM5K==1]=0
@@ -63,7 +58,7 @@ rerawM5K=apply(rerawM5K,2,function(x){return(round(x))})
 rownames(rerawM5K)=rownames(exprM5K)
 colnames(rerawM5K)=colnames(exprM5K)
 saveRDS(rerawM5K,"../Data_PRJNA434002/rerawMatrix5k.rds")
-write.table(rerawM3k10,"../Data_PRJNA434002/rerawMatrix5k.csv")
+write.table(rerawM3k10,"../Data_PRJNA434002/rerawMatrix5k.csv",sep=",")
 
 rerawM1K10=apply(exprM1k10,2,function(x){return(2^(as.numeric(x)))})
 rerawM1K10[rerawM1K10==1]=0
@@ -71,7 +66,7 @@ rerawM1K10=apply(rerawM1K10,2,function(x){return(round(x))})
 rownames(rerawM1K10)=rownames(exprM1k10)
 colnames(rerawM1K10)=colnames(exprM1k10)
 saveRDS(rerawM1K10,"../Data_PRJNA434002/rerawMatrix1k10.rds")
-write.table(rerawM3k10,"../Data_PRJNA434002/rerawMatrix1k10.csv")
+write.table(rerawM3k10,"../Data_PRJNA434002/rerawMatrix1k10.csv",sep=",")
 
 rerawM3k10=apply(exprM3k10,2,function(x){return(2^(as.numeric(x)))})
 rerawM3k10[rerawM3k10==1]=0
@@ -79,7 +74,7 @@ rerawM3k10=apply(rerawM3k10,2,function(x){return(round(x))})
 rownames(rerawM3k10)=rownames(exprM3k10)
 colnames(rerawM3k10)=colnames(exprM3k10)
 saveRDS(rerawM3k10,"../Data_PRJNA434002/rerawMatrix3k10.rds")
-write.table(rerawM3k10,"../Data_PRJNA434002/rerawMatrix3k10.csv")
+write.table(rerawM3k10,"../Data_PRJNA434002/rerawMatrix3k10.csv",sep=",")
 
 sessionInfo()
 q(save="no")

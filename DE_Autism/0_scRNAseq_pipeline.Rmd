@@ -70,7 +70,7 @@ The downloaded zip file were unzipped and saved in folder ```rawMatrix/```. In a
 The count matrix was saved as three files, where ```barcodes.tsv``` saves barcode information, ```genes.tsv``` saves gene information, and ```matrix.mtx``` saves the count data in MatrixMarket format. 
 We load them using function ```read10xCounts``` from R package ```DropletUtils```, and obtain gene anntation using R package ```biomaRt```.
 
-```{r import_data,cache=TRUE,eval=runcode}
+```{r import_data,eval=runcode}
 
 path = "/fh/fast/sun_w/mengqi/Data_PRJNA434002/"
 file = "rawMatrix"
@@ -508,11 +508,7 @@ snn.gr   = buildSNNGraph(sce_sub, use.dimred="PCA")
 clusters = igraph::cluster_walktrap(snn.gr)
 ```
 
-Though this implementation is very slow for this large dataset. It took more than 3 hours on a MacbookPro with 2.8 G i7 core and 16G memmory. The results of graphical model based on clustering and Kmeans have large overlap in some cluters. Though in general, graph-based identify many small clusters. 
-
-```{r, out.width='80%', fig.align='center', fig.cap='Compare the clustering resutls of Kmeans vs. a graph based method. Each column corresponds to one of 31 clusters by graph-based method. Each row corresponds to one of the 10 clusters by kmeans', echo=FALSE,eval=runcode}
-knitr::include_graphics('figures/compare_cluster_kmean_graph.png')
-```
+Though this implementation is very slow for this large dataset. It took more than 3 hours on cluster. The results of graphical model based on clustering and Kmeans have large overlap in some cluters. Though in general, graph-based identify many small clusters. 
 
 
 # Session information
