@@ -42,14 +42,12 @@ exprM1k[1:10,1:10]
 dim(exprM1k)
 saveRDS(exprM1k,"../Data_PRJNA434002/exprMatrix1k.rds")
 
-#regenerate some fake "raw-counts" data for testing
+##regenerate some fake "raw-counts" data for testing
 
-exprM1k=readRDS("../Data_PRJNA434002/exprMatrix1k.rds")
-exprM5k=readRDS("../Data_PRJNA434002/exprMatrix5k.rds")
-exprM1k10=readRDS("../Data_PRJNA434002/exprMatrix1k10.rds")
-exprM3k10=readRDS("../Data_PRJNA434002/exprMatrix3k10.rds")
-
-
+#exprM1k=readRDS("../Data_PRJNA434002/exprMatrix1k.rds")
+#exprM5k=readRDS("../Data_PRJNA434002/exprMatrix5k.rds")
+#exprM1k10=readRDS("../Data_PRJNA434002/exprMatrix1k10.rds")
+#exprM3k10=readRDS("../Data_PRJNA434002/exprMatrix3k10.rds")
 
 
 rerawM1k=apply(exprM1k,2,function(x){return(2^(as.numeric(x)))})
@@ -83,6 +81,47 @@ rownames(rerawM3k10)=rownames(exprM3k10)
 colnames(rerawM3k10)=colnames(exprM3k10)
 saveRDS(rerawM3k10,"../Data_PRJNA434002/rerawMatrix3k10.rds")
 write.table(rerawM3k10,"../Data_PRJNA434002/rerawMatrix3k10.csv",sep=",")
+
+#read in raw data directly
+
+
+library("GenomicFeatures")
+library("GenomicAlignments")
+library(DropletUtils)
+library(biomaRt)
+library(dplyr)
+library(scater)
+
+
+sce   = read10xCounts("../Data_PRJNA434002/rawMatrix/", col.names=TRUE)	
+
+rawMatrix=counts(sce) #matrix to large, so we are not able to convert it as regular matrix
+saveRDS(rawMatrix,"../Data_PRJNA434002/rawM.rds")
+
+rawM1k10=as.matrix(rawMatrix[1:1000,seq(1,10455)*10])
+saveRDS(rawM1k10,"../Data_PRJNA434002/rawM1k10.rds")
+write.table(rawM1k10,"../Data_PRJNA434002/rawM1k10.csv",sep=",")
+
+
+rawM3k10=as.matrix(rawMatrix[1:3000,seq(1,10455)*10])
+saveRDS(rawM3k10,"../Data_PRJNA434002/rawM3k10.rds")
+write.table(rawM3k10,"../Data_PRJNA434002/rawM3k10.csv",sep=",")
+
+
+rawM_zero_rate=apply(rawMatrix==0,1,function(x){return(sum(x)/length(x))})
+o_zero_rate=order(rawM_zero_rate)
+
+rawM5k=as.matrix(rawMatrix[o_zero_rate[1:5000],])
+rawM5k[1:10,1:10]
+dim(rawM5k)
+saveRDS(rawM5k,"../Data_PRJNA434002/rawM5k.rds")
+write.table(rawM5k,"../Data_PRJNA434002/rawM5k.csv",sep=",")
+
+rawM1k=as.matrix(rawMatrix[o_zero_rate[1:1000],])
+rawM1k[1:10,1:10]
+dim(rawM1k)
+saveRDS(rawM1k,"../Data_PRJNA434002/rawM1k.rds")
+write.table(rawM1k,"../Data_PRJNA434002/rawM1k.csv",sep=",")
 
 sessionInfo()
 q(save="no")
