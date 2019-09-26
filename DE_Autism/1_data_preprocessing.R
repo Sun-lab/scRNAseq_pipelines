@@ -42,46 +42,6 @@ exprM1k[1:10,1:10]
 dim(exprM1k)
 saveRDS(exprM1k,"../Data_PRJNA434002/exprMatrix1k.rds")
 
-##regenerate some fake "raw-counts" data for testing
-
-#exprM1k=readRDS("../Data_PRJNA434002/exprMatrix1k.rds")
-#exprM5k=readRDS("../Data_PRJNA434002/exprMatrix5k.rds")
-#exprM1k10=readRDS("../Data_PRJNA434002/exprMatrix1k10.rds")
-#exprM3k10=readRDS("../Data_PRJNA434002/exprMatrix3k10.rds")
-
-
-rerawM1k=apply(exprM1k,2,function(x){return(2^(as.numeric(x)))})
-rerawM1k[rerawM1k==1]=0
-rerawM1k=apply(rerawM1k,2,function(x){return(round(x))})
-rownames(rerawM1k)=rownames(exprM1k)
-colnames(rerawM1k)=colnames(exprM1k)
-saveRDS(rerawM1k,"../Data_PRJNA434002/rerawMatrix1k.rds")
-write.table(rerawM1k,"../Data_PRJNA434002/rerawMatrix1k.csv",sep=",")
-
-rerawM5k=apply(exprM5k,2,function(x){return(2^(as.numeric(x)))})
-rerawM5k[rerawM5k==1]=0
-rerawM5k=apply(rerawM5k,2,function(x){return(round(x))})
-rownames(rerawM5k)=rownames(exprM5k)
-colnames(rerawM5k)=colnames(exprM5k)
-saveRDS(rerawM5k,"../Data_PRJNA434002/rerawMatrix5k.rds")
-write.table(rerawM5k,"../Data_PRJNA434002/rerawMatrix5k.csv",sep=",")
-
-rerawM1k10=apply(exprM1k10,2,function(x){return(2^(as.numeric(x)))})
-rerawM1k10[rerawM1k10==1]=0
-rerawM1k10=apply(rerawM1k10,2,function(x){return(round(x))})
-rownames(rerawM1k10)=rownames(exprM1k10)
-colnames(rerawM1k10)=colnames(exprM1k10)
-saveRDS(rerawM1k10,"../Data_PRJNA434002/rerawMatrix1k10.rds")
-write.table(rerawM1k10,"../Data_PRJNA434002/rerawMatrix1k10.csv",sep=",")
-
-rerawM3k10=apply(exprM3k10,2,function(x){return(2^(as.numeric(x)))})
-rerawM3k10[rerawM3k10==1]=0
-rerawM3k10=apply(rerawM3k10,2,function(x){return(round(x))})
-rownames(rerawM3k10)=rownames(exprM3k10)
-colnames(rerawM3k10)=colnames(exprM3k10)
-saveRDS(rerawM3k10,"../Data_PRJNA434002/rerawMatrix3k10.rds")
-write.table(rerawM3k10,"../Data_PRJNA434002/rerawMatrix3k10.csv",sep=",")
-
 #read in raw data directly
 
 
