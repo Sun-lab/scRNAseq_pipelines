@@ -1,0 +1,1487 @@
+
+R version 3.6.0 (2019-04-26) -- "Planting of a Tree"
+Copyright (C) 2019 The R Foundation for Statistical Computing
+Platform: x86_64-pc-linux-gnu (64-bit)
+
+R is free software and comes with ABSOLUTELY NO WARRANTY.
+You are welcome to redistribute it under certain conditions.
+Type 'license()' or 'licence()' for distribution details.
+
+  Natural language support but running in an English locale
+
+R is a collaborative project with many contributors.
+Type 'contributors()' for more information and
+'citation()' on how to cite R or R packages in publications.
+
+Type 'demo()' for some demos, 'help()' for on-line help, or
+'help.start()' for an HTML browser interface to help.
+Type 'q()' to quit R.
+
+> #' ---	
+> #' title: "A workflow for single cell RNA-seq data analysis-Autism"	
+> #' author: "Mengqi Zhang and Wei Sun"	
+> #' date: "`r Sys.Date()`"	
+> #' bibliography: 0_scRNAseq_pipeline.bib	
+> #' biblio-style: apalike	
+> #' output: 	
+> #'   html_document:	
+> #'     theme: journal	
+> #'     highlight: tango	
+> #'     toc: true	
+> #'     toc_depth: 3	
+> #'     toc_float:	
+> #'       collapsed: true	
+> #'       smooth_scroll: false	
+> #'     number_sections: true	
+> #' ---	
+> #' 	
+> #' 	
+> # library(knitr)	
+> # knitr::opts_chunk$set(echo=TRUE, cache = TRUE, warning = FALSE, 	
+> #                       message = FALSE, cache.lazy = FALSE)	
+> #' 	
+> #' 	
+> #' # Introduction	
+> #' 	
+> #' This markdown is for analyzing the paper [Single-cell genomics identifies cell type–specific molecular changes in autism](https://science.sciencemag.org/content/364/6441/685.abstract). Some details of their analysis is provided [here](https://science.sciencemag.org/content/suppl/2019/05/15/364.6441.685.DC1). Briefly, there analysis are doing individual case-control study using the [MAST](https://www.bioconductor.org/packages/release/bioc/html/MAST.html) packages.	
+> #' 	
+> #' This pipeline using some alternative strategies for data processing and analysis, mostly based on [bioconductor workflows for scRNAseq](https://bioconductor.org/packages/release/workflows/html/simpleSingleCell.html). 	
+> #' 	
+> #' The packages required for the analysis are as follows:	
+> #' - scater: collection of tools for doing quality control analyses of scRNA-seq	
+> #' - scran: methods provide normalization of cell-specific biases, correcting batch effects, identify marker genes	
+> #' - SC3: package for single cell consensus clustering.	
+> #' 	
+> #' # Generate read count matrix	
+> #' 	
+> #' We start from read-in the mtx files from [10x genomics](https://www.10xgenomics.com/).	
+> #' The analysis of scRNA-seq data include reading the data, quality control, clustering and statistical analysis such as differencial expression analysis.	
+> #' 	
+> #' R packages required in this protocol:	
+> #' 	
+> library("GenomicFeatures")	
+Loading required package: BiocGenerics
+Loading required package: parallel
+
+Attaching package: ‘BiocGenerics’
+
+The following objects are masked from ‘package:parallel’:
+
+    clusterApply, clusterApplyLB, clusterCall, clusterEvalQ,
+    clusterExport, clusterMap, parApply, parCapply, parLapply,
+    parLapplyLB, parRapply, parSapply, parSapplyLB
+
+The following objects are masked from ‘package:stats’:
+
+    IQR, mad, sd, var, xtabs
+
+The following objects are masked from ‘package:base’:
+
+    anyDuplicated, append, as.data.frame, basename, cbind, colnames,
+    dirname, do.call, duplicated, eval, evalq, Filter, Find, get, grep,
+    grepl, intersect, is.unsorted, lapply, Map, mapply, match, mget,
+    order, paste, pmax, pmax.int, pmin, pmin.int, Position, rank,
+    rbind, Reduce, rownames, sapply, setdiff, sort, table, tapply,
+    union, unique, unsplit, which, which.max, which.min
+
+Loading required package: S4Vectors
+Loading required package: stats4
+
+Attaching package: ‘S4Vectors’
+
+The following object is masked from ‘package:base’:
+
+    expand.grid
+
+Loading required package: IRanges
+Loading required package: GenomeInfoDb
+Loading required package: GenomicRanges
+Loading required package: AnnotationDbi
+Loading required package: Biobase
+Welcome to Bioconductor
+
+    Vignettes contain introductory material; view with
+    'browseVignettes()'. To cite Bioconductor, see
+    'citation("Biobase")', and for packages 'citation("pkgname")'.
+
+> library("GenomicAlignments")	
+Loading required package: SummarizedExperiment
+Loading required package: DelayedArray
+Loading required package: matrixStats
+
+Attaching package: ‘matrixStats’
+
+The following objects are masked from ‘package:Biobase’:
+
+    anyMissing, rowMedians
+
+Loading required package: BiocParallel
+
+Attaching package: ‘DelayedArray’
+
+The following objects are masked from ‘package:matrixStats’:
+
+    colMaxs, colMins, colRanges, rowMaxs, rowMins, rowRanges
+
+The following objects are masked from ‘package:base’:
+
+    aperm, apply
+
+Loading required package: Biostrings
+Loading required package: XVector
+
+Attaching package: ‘Biostrings’
+
+The following object is masked from ‘package:DelayedArray’:
+
+    type
+
+The following object is masked from ‘package:base’:
+
+    strsplit
+
+Loading required package: Rsamtools
+> library(DropletUtils)	
+Loading required package: SingleCellExperiment
+Registered S3 method overwritten by 'R.oo':
+  method        from       
+  throw.default R.methodsS3
+> library(biomaRt)	
+> library(dplyr)	
+
+Attaching package: ‘dplyr’
+
+The following object is masked from ‘package:biomaRt’:
+
+    select
+
+The following objects are masked from ‘package:GenomicAlignments’:
+
+    first, last
+
+The following objects are masked from ‘package:Biostrings’:
+
+    collapse, intersect, setdiff, setequal, union
+
+The following object is masked from ‘package:XVector’:
+
+    slice
+
+The following object is masked from ‘package:matrixStats’:
+
+    count
+
+The following object is masked from ‘package:AnnotationDbi’:
+
+    select
+
+The following object is masked from ‘package:Biobase’:
+
+    combine
+
+The following objects are masked from ‘package:GenomicRanges’:
+
+    intersect, setdiff, union
+
+The following object is masked from ‘package:GenomeInfoDb’:
+
+    intersect
+
+The following objects are masked from ‘package:IRanges’:
+
+    collapse, desc, intersect, setdiff, slice, union
+
+The following objects are masked from ‘package:S4Vectors’:
+
+    first, intersect, rename, setdiff, setequal, union
+
+The following objects are masked from ‘package:BiocGenerics’:
+
+    combine, intersect, setdiff, union
+
+The following objects are masked from ‘package:stats’:
+
+    filter, lag
+
+The following objects are masked from ‘package:base’:
+
+    intersect, setdiff, setequal, union
+
+> library(scater)	
+Loading required package: ggplot2
+Registered S3 methods overwritten by 'ggplot2':
+  method         from 
+  [.quosures     rlang
+  c.quosures     rlang
+  print.quosures rlang
+
+Attaching package: ‘scater’
+
+The following objects are masked from ‘package:dplyr’:
+
+    arrange, filter, mutate, rename
+
+The following object is masked from ‘package:S4Vectors’:
+
+    rename
+
+The following object is masked from ‘package:stats’:
+
+    filter
+
+> 	
+> #' 	
+> #' 	
+> #' 	
+> #' ## Data preparation	
+> #' 	
+> #' This dataset was generated using 10x Genomics platform. The read count data were downloaded from the link of "Gene / cell matrix (raw)" from the interactive web browser at [Velmeshev et al, 2019](https://cells.ucsc.edu/autism/rawMatrix.zip)	
+> #' 	
+> #' The downloaded zip file were unzipped and saved in folder ```rawMatrix/```. In addition, we also downloaded the matrix of raw 10x UMI counts from cellranger with log2-transformed ```exprMatrix.tsv.gz``` and the cell Metadata ```meta.tsv```, which includes clustername, age, patient ID, UMI and gene counts. The folder strucrture is to recontrcut the file struture of cell ranger output.  	
+> #' 	
+> #' ```	
+> #' └── meta.tsv	
+> #' └── exprMatrix.tsv.gz	
+> #' └── rawMatrix	
+> #'     ├── barcodes.tsv	
+> #'     ├── genes.tsv	
+> #'     └── matrix.mtx	
+> #' ```	
+> #' The count matrix was saved as three files, where ```barcodes.tsv``` saves barcode information, ```genes.tsv``` saves gene information, and ```matrix.mtx``` saves the count data in MatrixMarket format. 	
+> #' We load them using function ```read10xCounts``` from R package ```DropletUtils```, and obtain gene anntation using R package ```biomaRt```.	
+> #' 	
+> #' 	
+> 	
+> path = "/fh/fast/sun_w/mengqi/Data_PRJNA434002/"	
+> file = "rawMatrix"	
+> path2 = paste(path, file, sep="")	
+> 	
+> sce   = read10xCounts(path2, col.names=TRUE)	
+> 	
+> anno.file = "~/research/scRNAseq/workflow/data/gene.annoation.rds"	
+> if(file.exists(anno.file)){	
++   gene.annotation = readRDS(anno.file)	
++ }else{	
++   ensembl = useMart("ensembl",dataset="hsapiens_gene_ensembl")	
++   	
++   attr.string = c('ensembl_gene_id', 'hgnc_symbol', 'chromosome_name')	
++   attr.string = c(attr.string, 'start_position', 'end_position', 'strand')	
++   attr.string = c(attr.string, 'description', 'percentage_gene_gc_content')	
++   attr.string = c(attr.string, 'gene_biotype')	
++   	
++   rowData(sce)[1:2,]	
++   gene.annotation = getBM(attributes=attr.string, 	
++                           filters =  'ensembl_gene_id', 	
++                           values = rowData(sce)$ID, 	
++                           mart = ensembl)	
++ }	
+> 	
+> dim(gene.annotation)	
+[1] 60870     9
+> gene.annotation[1:2,]	
+  ensembl_gene_id hgnc_symbol chromosome_name start_position end_position
+1 ENSG00000007923     DNAJC11               1        6634168      6701924
+2 ENSG00000008128      CDK11A               1        1702379      1724357
+  strand
+1     -1
+2     -1
+                                                                            description
+1 DnaJ heat shock protein family (Hsp40) member C11 [Source:HGNC Symbol;Acc:HGNC:25570]
+2                        cyclin dependent kinase 11A [Source:HGNC Symbol;Acc:HGNC:1730]
+  percentage_gene_gc_content   gene_biotype
+1                      46.60 protein_coding
+2                      52.05 protein_coding
+> 	
+> t1 = table(gene.annotation$ensembl_gene_id)	
+> t2 = t1[t1 > 1]	
+> t2 	
+
+ENSG00000187510 ENSG00000230417 ENSG00000276085 ENSG00000277336 ENSG00000277768 
+              2               2               2               2               2 
+ENSG00000277796 
+              2 
+> 	
+> gene.annotation[which(gene.annotation$ensembl_gene_id %in% names(t2)),]	
+      ensembl_gene_id hgnc_symbol     chromosome_name start_position
+33786 ENSG00000230417   LINC00595                  10       78179185
+33787 ENSG00000230417   LINC00856                  10       78179185
+36421 ENSG00000187510    C12orf74                  12       92702843
+36422 ENSG00000187510     PLEKHG7                  12       92702843
+46976 ENSG00000276085      CCL3L1                  17       36194869
+46977 ENSG00000276085      CCL3L3                  17       36194869
+58679 ENSG00000277336      CCL3L1  CHR_HSCHR17_7_CTG4       36195241
+58680 ENSG00000277336      CCL3L3  CHR_HSCHR17_7_CTG4       36195241
+59351 ENSG00000277768      CCL3L1 CHR_HSCHR17_10_CTG4       36296480
+59352 ENSG00000277768      CCL3L3 CHR_HSCHR17_10_CTG4       36296480
+59354 ENSG00000277796      CCL3L1 CHR_HSCHR17_10_CTG4       36194906
+59355 ENSG00000277796      CCL3L3 CHR_HSCHR17_10_CTG4       36194906
+      end_position strand
+33786     78551355      1
+33787     78551355      1
+36421     92772455      1
+36422     92772455      1
+46976     36196758     -1
+46977     36196758     -1
+58679     36197130     -1
+58680     36197130     -1
+59351     36298369     -1
+59352     36298369     -1
+59354     36196795     -1
+59355     36196795     -1
+                                                                         description
+33786 long intergenic non-protein coding RNA 595 [Source:HGNC Symbol;Acc:HGNC:31430]
+33787 long intergenic non-protein coding RNA 595 [Source:HGNC Symbol;Acc:HGNC:31430]
+36421        chromosome 12 open reading frame 74 [Source:HGNC Symbol;Acc:HGNC:27887]
+36422        chromosome 12 open reading frame 74 [Source:HGNC Symbol;Acc:HGNC:27887]
+46976        C-C motif chemokine ligand 3 like 1 [Source:HGNC Symbol;Acc:HGNC:10628]
+46977        C-C motif chemokine ligand 3 like 1 [Source:HGNC Symbol;Acc:HGNC:10628]
+58679        C-C motif chemokine ligand 3 like 3 [Source:HGNC Symbol;Acc:HGNC:30554]
+58680        C-C motif chemokine ligand 3 like 3 [Source:HGNC Symbol;Acc:HGNC:30554]
+59351        C-C motif chemokine ligand 3 like 3 [Source:HGNC Symbol;Acc:HGNC:30554]
+59352        C-C motif chemokine ligand 3 like 3 [Source:HGNC Symbol;Acc:HGNC:30554]
+59354        C-C motif chemokine ligand 3 like 3 [Source:HGNC Symbol;Acc:HGNC:30554]
+59355        C-C motif chemokine ligand 3 like 3 [Source:HGNC Symbol;Acc:HGNC:30554]
+      percentage_gene_gc_content   gene_biotype
+33786                      47.44         lncRNA
+33787                      47.44         lncRNA
+36421                      40.77 protein_coding
+36422                      40.77 protein_coding
+46976                      52.70 protein_coding
+46977                      52.70 protein_coding
+58679                      52.70 protein_coding
+58680                      52.70 protein_coding
+59351                      52.65 protein_coding
+59352                      52.65 protein_coding
+59354                      52.70 protein_coding
+59355                      52.70 protein_coding
+> gene.annotation = distinct(gene.annotation, ensembl_gene_id, 	
++                            .keep_all = TRUE)	
+> dim(gene.annotation)	
+[1] 60864     9
+> gene.annotation[1:2,]	
+  ensembl_gene_id hgnc_symbol chromosome_name start_position end_position
+1 ENSG00000007923     DNAJC11               1        6634168      6701924
+2 ENSG00000008128      CDK11A               1        1702379      1724357
+  strand
+1     -1
+2     -1
+                                                                            description
+1 DnaJ heat shock protein family (Hsp40) member C11 [Source:HGNC Symbol;Acc:HGNC:25570]
+2                        cyclin dependent kinase 11A [Source:HGNC Symbol;Acc:HGNC:1730]
+  percentage_gene_gc_content   gene_biotype
+1                      46.60 protein_coding
+2                      52.05 protein_coding
+> table(gene.annotation$chromosome_name)	
+
+                                     1                                     10 
+                                  5064                                   2151 
+                                    11                                     12 
+                                  3175                                   2880 
+                                    13                                     14 
+                                  1272                                   2165 
+                                    15                                     16 
+                                  2093                                   2430 
+                                    17                                     18 
+                                  2923                                   1148 
+                                    19                                      2 
+                                  2861                                   3875 
+                                    20                                     21 
+                                  1340                                    824 
+                                    22                                      3 
+                                  1286                                   2946 
+                                     4                                      5 
+                                  2449                                   2805 
+                                     6                                      7 
+                                  2806                                   2795 
+                                     8                                      9 
+                                  2268                                   2181 
+                       CHR_HG126_PATCH                CHR_HG1342_HG2282_PATCH 
+                                     5                                      1 
+                      CHR_HG1362_PATCH             CHR_HG142_HG150_NOVEL_TEST 
+                                    15                                     16 
+                  CHR_HG151_NOVEL_TEST                       CHR_HG1832_PATCH 
+                                    11                                      7 
+                      CHR_HG2021_PATCH                       CHR_HG2030_PATCH 
+                                    14                                     22 
+                      CHR_HG2058_PATCH                       CHR_HG2062_PATCH 
+                                     9                                      1 
+                      CHR_HG2066_PATCH                       CHR_HG2095_PATCH 
+                                    20                                      8 
+                      CHR_HG2104_PATCH                       CHR_HG2128_PATCH 
+                                     3                                      2 
+                      CHR_HG2191_PATCH                       CHR_HG2217_PATCH 
+                                     5                                     16 
+                      CHR_HG2232_PATCH                       CHR_HG2233_PATCH 
+                                     9                                      3 
+                      CHR_HG2247_PATCH                       CHR_HG2249_PATCH 
+                                     2                                      1 
+               CHR_HG2288_HG2289_PATCH                       CHR_HG2291_PATCH 
+                                     2                                      7 
+                       CHR_HG986_PATCH                     CHR_HSCHR1_1_CTG11 
+                                     3                                      3 
+                     CHR_HSCHR1_1_CTG3                     CHR_HSCHR1_1_CTG31 
+                                    14                                     14 
+                  CHR_HSCHR1_1_CTG32_1                      CHR_HSCHR1_2_CTG3 
+                                     1                                     17 
+                    CHR_HSCHR1_2_CTG31                   CHR_HSCHR1_2_CTG32_1 
+                                    10                                      7 
+                    CHR_HSCHR1_3_CTG31                   CHR_HSCHR1_3_CTG32_1 
+                                     5                                      8 
+                    CHR_HSCHR1_4_CTG31                      CHR_HSCHR1_5_CTG3 
+                                     8                                      1 
+             CHR_HSCHR1_ALT2_1_CTG32_1                     CHR_HSCHR10_1_CTG1 
+                                     9                                      7 
+                    CHR_HSCHR10_1_CTG2                     CHR_HSCHR10_1_CTG4 
+                                     9                                      3 
+                  CHR_HSCHR11_1_CTG1_2                     CHR_HSCHR11_1_CTG5 
+                                     9                                      9 
+                    CHR_HSCHR11_1_CTG6                     CHR_HSCHR11_1_CTG7 
+                                    12                                     10 
+                    CHR_HSCHR11_1_CTG8                     CHR_HSCHR11_2_CTG1 
+                                    10                                      3 
+                  CHR_HSCHR11_2_CTG1_1                     CHR_HSCHR11_3_CTG1 
+                                    13                                      5 
+                    CHR_HSCHR12_1_CTG1                   CHR_HSCHR12_1_CTG2_1 
+                                     8                                      6 
+                    CHR_HSCHR12_2_CTG2                   CHR_HSCHR12_2_CTG2_1 
+                                    26                                      3 
+                    CHR_HSCHR12_3_CTG2                   CHR_HSCHR12_3_CTG2_1 
+                                    17                                      4 
+                    CHR_HSCHR12_4_CTG2                   CHR_HSCHR12_4_CTG2_1 
+                                     2                                      3 
+                    CHR_HSCHR12_5_CTG2                   CHR_HSCHR12_5_CTG2_1 
+                                     1                                      1 
+                  CHR_HSCHR12_6_CTG2_1                     CHR_HSCHR13_1_CTG1 
+                                     1                                      1 
+                    CHR_HSCHR13_1_CTG3                     CHR_HSCHR14_1_CTG1 
+                                     2                                      5 
+                    CHR_HSCHR14_2_CTG1                     CHR_HSCHR14_3_CTG1 
+                                     3                                     19 
+                    CHR_HSCHR14_7_CTG1                     CHR_HSCHR15_1_CTG1 
+                                    37                                     21 
+                    CHR_HSCHR15_1_CTG3                     CHR_HSCHR15_1_CTG8 
+                                    10                                     15 
+                    CHR_HSCHR15_2_CTG3                     CHR_HSCHR15_2_CTG8 
+                                    10                                      2 
+                    CHR_HSCHR15_3_CTG3                     CHR_HSCHR15_3_CTG8 
+                                    11                                      5 
+                    CHR_HSCHR15_4_CTG8                     CHR_HSCHR15_5_CTG8 
+                                    42                                      8 
+                    CHR_HSCHR16_1_CTG1                   CHR_HSCHR16_1_CTG3_1 
+                                    29                                      2 
+                  CHR_HSCHR16_2_CTG3_1                     CHR_HSCHR16_3_CTG1 
+                                     4                                      7 
+                    CHR_HSCHR16_4_CTG1                       CHR_HSCHR16_CTG2 
+                                     1                                      3 
+                    CHR_HSCHR17_1_CTG1                     CHR_HSCHR17_1_CTG2 
+                                     5                                      8 
+                    CHR_HSCHR17_1_CTG4                     CHR_HSCHR17_1_CTG5 
+                                    12                                     38 
+                    CHR_HSCHR17_1_CTG9                    CHR_HSCHR17_10_CTG4 
+                                     3                                      9 
+                    CHR_HSCHR17_2_CTG1                     CHR_HSCHR17_2_CTG2 
+                                     1                                      8 
+                    CHR_HSCHR17_2_CTG5                     CHR_HSCHR17_3_CTG2 
+                                    16                                      4 
+                    CHR_HSCHR17_4_CTG4                     CHR_HSCHR17_5_CTG4 
+                                    26                                      8 
+                    CHR_HSCHR17_6_CTG4                     CHR_HSCHR17_7_CTG4 
+                                     9                                     59 
+                    CHR_HSCHR17_8_CTG4                   CHR_HSCHR18_1_CTG1_1 
+                                     1                                      3 
+                  CHR_HSCHR18_1_CTG2_1                     CHR_HSCHR18_2_CTG2 
+                                     1                                      3 
+                  CHR_HSCHR18_2_CTG2_1                CHR_HSCHR18_ALT2_CTG2_1 
+                                     3                                      1 
+              CHR_HSCHR18_ALT21_CTG2_1                     CHR_HSCHR19_1_CTG2 
+                                     1                                     11 
+                  CHR_HSCHR19_1_CTG3_1                     CHR_HSCHR19_2_CTG2 
+                                     3                                      9 
+                    CHR_HSCHR19_3_CTG2                   CHR_HSCHR19_3_CTG3_1 
+                                    11                                     15 
+                    CHR_HSCHR19_4_CTG2                   CHR_HSCHR19_4_CTG3_1 
+                                     1                                     75 
+                    CHR_HSCHR19_5_CTG2     CHR_HSCHR19KIR_ABC08_A1_HAP_CTG3_1 
+                                     4                                     12 
+CHR_HSCHR19KIR_ABC08_AB_HAP_C_P_CTG3_1 CHR_HSCHR19KIR_ABC08_AB_HAP_T_P_CTG3_1 
+                                    10                                     13 
+      CHR_HSCHR19KIR_FH05_A_HAP_CTG3_1       CHR_HSCHR19KIR_FH05_B_HAP_CTG3_1 
+                                    12                                     17 
+      CHR_HSCHR19KIR_FH06_A_HAP_CTG3_1     CHR_HSCHR19KIR_FH06_BA1_HAP_CTG3_1 
+                                    12                                     12 
+      CHR_HSCHR19KIR_FH08_A_HAP_CTG3_1     CHR_HSCHR19KIR_FH08_BAX_HAP_CTG3_1 
+                                    12                                     15 
+      CHR_HSCHR19KIR_FH13_A_HAP_CTG3_1     CHR_HSCHR19KIR_FH13_BA2_HAP_CTG3_1 
+                                    13                                     15 
+      CHR_HSCHR19KIR_FH15_A_HAP_CTG3_1       CHR_HSCHR19KIR_FH15_B_HAP_CTG3_1 
+                                    13                                     18 
+      CHR_HSCHR19KIR_G085_A_HAP_CTG3_1     CHR_HSCHR19KIR_G085_BA1_HAP_CTG3_1 
+                                    12                                     12 
+      CHR_HSCHR19KIR_G248_A_HAP_CTG3_1     CHR_HSCHR19KIR_G248_BA2_HAP_CTG3_1 
+                                    13                                     11 
+   CHR_HSCHR19KIR_GRC212_AB_HAP_CTG3_1   CHR_HSCHR19KIR_GRC212_BA1_HAP_CTG3_1 
+                                    13                                      9 
+      CHR_HSCHR19KIR_LUCE_A_HAP_CTG3_1    CHR_HSCHR19KIR_LUCE_BDEL_HAP_CTG3_1 
+                                    10                                     14 
+       CHR_HSCHR19KIR_RP5_B_HAP_CTG3_1        CHR_HSCHR19KIR_RSH_A_HAP_CTG3_1 
+                                    12                                     13 
+     CHR_HSCHR19KIR_RSH_BA2_HAP_CTG3_1      CHR_HSCHR19KIR_T7526_A_HAP_CTG3_1 
+                                    13                                     13 
+  CHR_HSCHR19KIR_T7526_BDEL_HAP_CTG3_1             CHR_HSCHR19LRC_COX1_CTG3_1 
+                                    13                                     45 
+            CHR_HSCHR19LRC_COX2_CTG3_1            CHR_HSCHR19LRC_LRC_I_CTG3_1 
+                                    31                                     22 
+           CHR_HSCHR19LRC_LRC_J_CTG3_1            CHR_HSCHR19LRC_LRC_S_CTG3_1 
+                                    21                                     20 
+           CHR_HSCHR19LRC_LRC_T_CTG3_1             CHR_HSCHR19LRC_PGF1_CTG3_1 
+                                    23                                     50 
+            CHR_HSCHR19LRC_PGF2_CTG3_1                      CHR_HSCHR2_1_CTG1 
+                                    35                                      4 
+                    CHR_HSCHR2_1_CTG15                      CHR_HSCHR2_1_CTG5 
+                                     5                                      3 
+                     CHR_HSCHR2_1_CTG7                    CHR_HSCHR2_1_CTG7_2 
+                                     4                                      4 
+                     CHR_HSCHR2_2_CTG1                     CHR_HSCHR2_2_CTG15 
+                                     3                                      5 
+                     CHR_HSCHR2_2_CTG7                    CHR_HSCHR2_2_CTG7_2 
+                                     7                                      1 
+                     CHR_HSCHR2_3_CTG1                     CHR_HSCHR2_3_CTG15 
+                                     1                                      9 
+                   CHR_HSCHR2_3_CTG7_2                      CHR_HSCHR2_4_CTG1 
+                                     3                                      3 
+                   CHR_HSCHR2_6_CTG7_2                     CHR_HSCHR20_1_CTG1 
+                                     1                                      3 
+                    CHR_HSCHR20_1_CTG2                     CHR_HSCHR20_1_CTG3 
+                                     2                                      6 
+                    CHR_HSCHR20_1_CTG4                   CHR_HSCHR21_2_CTG1_1 
+                                     3                                      5 
+                  CHR_HSCHR21_3_CTG1_1                   CHR_HSCHR21_4_CTG1_1 
+                                     4                                      6 
+                    CHR_HSCHR21_5_CTG2                   CHR_HSCHR21_6_CTG1_1 
+                                     5                                      5 
+                  CHR_HSCHR21_8_CTG1_1                     CHR_HSCHR22_1_CTG1 
+                                     2                                      8 
+                    CHR_HSCHR22_1_CTG2                     CHR_HSCHR22_1_CTG3 
+                                     4                                     24 
+                    CHR_HSCHR22_1_CTG4                     CHR_HSCHR22_1_CTG5 
+                                     4                                      4 
+                    CHR_HSCHR22_1_CTG6                     CHR_HSCHR22_1_CTG7 
+                                     7                                     34 
+                    CHR_HSCHR22_2_CTG1                     CHR_HSCHR22_3_CTG1 
+                                     9                                     11 
+                    CHR_HSCHR22_4_CTG1                     CHR_HSCHR22_5_CTG1 
+                                     8                                      4 
+                    CHR_HSCHR22_8_CTG1                      CHR_HSCHR3_1_CTG1 
+                                     2                                      7 
+                   CHR_HSCHR3_1_CTG2_1                      CHR_HSCHR3_1_CTG3 
+                                     3                                      6 
+                   CHR_HSCHR3_2_CTG2_1                      CHR_HSCHR3_2_CTG3 
+                                     3                                      4 
+                     CHR_HSCHR3_3_CTG1                      CHR_HSCHR3_3_CTG3 
+                                     1                                      6 
+                   CHR_HSCHR3_4_CTG2_1                      CHR_HSCHR3_4_CTG3 
+                                     7                                      6 
+                   CHR_HSCHR3_5_CTG2_1                      CHR_HSCHR3_5_CTG3 
+                                     2                                      7 
+                     CHR_HSCHR3_6_CTG3                      CHR_HSCHR3_7_CTG3 
+                                     6                                      6 
+                     CHR_HSCHR3_8_CTG3                      CHR_HSCHR3_9_CTG3 
+                                     6                                     10 
+                    CHR_HSCHR4_1_CTG12                      CHR_HSCHR4_1_CTG4 
+                                     3                                      4 
+                     CHR_HSCHR4_1_CTG6                      CHR_HSCHR4_1_CTG9 
+                                     1                                     22 
+                    CHR_HSCHR4_2_CTG12                     CHR_HSCHR4_3_CTG12 
+                                     1                                      4 
+                    CHR_HSCHR4_4_CTG12                     CHR_HSCHR4_5_CTG12 
+                                     1                                      3 
+                    CHR_HSCHR4_6_CTG12                     CHR_HSCHR4_7_CTG12 
+                                    13                                      6 
+                     CHR_HSCHR5_1_CTG1                    CHR_HSCHR5_1_CTG1_1 
+                                     1                                     21 
+                     CHR_HSCHR5_1_CTG5                      CHR_HSCHR5_2_CTG1 
+                                     2                                      4 
+                   CHR_HSCHR5_2_CTG1_1                      CHR_HSCHR5_2_CTG5 
+                                    47                                      7 
+                     CHR_HSCHR5_3_CTG1                      CHR_HSCHR5_3_CTG5 
+                                     6                                      7 
+                     CHR_HSCHR5_4_CTG1                    CHR_HSCHR5_4_CTG1_1 
+                                     4                                      3 
+                     CHR_HSCHR5_5_CTG1                      CHR_HSCHR5_6_CTG1 
+                                     4                                      4 
+                     CHR_HSCHR5_7_CTG1                      CHR_HSCHR6_1_CTG2 
+                                     1                                      4 
+                     CHR_HSCHR6_1_CTG3                      CHR_HSCHR6_1_CTG4 
+                                     1                                      8 
+                     CHR_HSCHR6_1_CTG5                      CHR_HSCHR6_1_CTG6 
+                                     7                                      1 
+                     CHR_HSCHR6_1_CTG7                      CHR_HSCHR6_1_CTG8 
+                                     2                                      9 
+                     CHR_HSCHR6_1_CTG9                      CHR_HSCHR6_8_CTG1 
+                                     4                                      2 
+               CHR_HSCHR6_MHC_APD_CTG1                CHR_HSCHR6_MHC_COX_CTG1 
+                                   180                                    334 
+               CHR_HSCHR6_MHC_DBB_CTG1               CHR_HSCHR6_MHC_MANN_CTG1 
+                                   311                                    293 
+               CHR_HSCHR6_MHC_MCF_CTG1                CHR_HSCHR6_MHC_QBL_CTG1 
+                                   286                                    316 
+              CHR_HSCHR6_MHC_SSTO_CTG1                      CHR_HSCHR7_1_CTG1 
+                                   297                                      4 
+                   CHR_HSCHR7_1_CTG4_4                      CHR_HSCHR7_1_CTG6 
+                                     1                                      7 
+                   CHR_HSCHR7_2_CTG4_4                      CHR_HSCHR7_2_CTG6 
+                                     2                                     13 
+                     CHR_HSCHR7_3_CTG6                      CHR_HSCHR8_1_CTG6 
+                                     3                                      1 
+                     CHR_HSCHR8_2_CTG7                      CHR_HSCHR8_3_CTG1 
+                                     1                                     20 
+                     CHR_HSCHR8_3_CTG7                      CHR_HSCHR8_4_CTG7 
+                                    16                                      3 
+                     CHR_HSCHR8_5_CTG1                      CHR_HSCHR8_5_CTG7 
+                                     1                                      3 
+                     CHR_HSCHR8_7_CTG1                      CHR_HSCHR8_8_CTG1 
+                                     1                                      3 
+                     CHR_HSCHR8_9_CTG1                      CHR_HSCHR9_1_CTG1 
+                                     3                                      1 
+                     CHR_HSCHR9_1_CTG2                      CHR_HSCHR9_1_CTG3 
+                                     3                                      4 
+                     CHR_HSCHR9_1_CTG4                      CHR_HSCHR9_1_CTG5 
+                                     2                                      3 
+                     CHR_HSCHRX_1_CTG3                     CHR_HSCHRX_2_CTG12 
+                                     7                                      1 
+                     CHR_HSCHRX_2_CTG3                             GL000009.2 
+                                     5                                      1 
+                            GL000194.1                             GL000195.1 
+                                     2                                      3 
+                            GL000205.2                             GL000213.1 
+                                     2                                      2 
+                            GL000216.2                             GL000218.1 
+                                     1                                      1 
+                            GL000219.1                             GL000220.1 
+                                     1                                      4 
+                            GL000225.1                             KI270442.1 
+                                     1                                      2 
+                            KI270711.1                             KI270713.1 
+                                     1                                      4 
+                            KI270721.1                             KI270726.1 
+                                     4                                      2 
+                            KI270727.1                             KI270728.1 
+                                     8                                      8 
+                            KI270731.1                             KI270733.1 
+                                     2                                      4 
+                            KI270734.1                             KI270744.1 
+                                     4                                      1 
+                            KI270750.1                                     MT 
+                                     1                                     37 
+                                     X                                      Y 
+                                  2297                                    504 
+> table(gene.annotation$gene_biotype)	
+
+                         IG_C_gene                    IG_C_pseudogene 
+                                20                                  9 
+                         IG_D_gene                          IG_J_gene 
+                                33                                 18 
+                   IG_J_pseudogene                          IG_V_gene 
+                                 3                                161 
+                   IG_V_pseudogene                             lncRNA 
+                               193                              14667 
+                             miRNA                           misc_RNA 
+                              1451                               2365 
+                           Mt_rRNA                            Mt_tRNA 
+                                 2                                 22 
+            polymorphic_pseudogene               processed_pseudogene 
+                                56                              10492 
+                    protein_coding                         pseudogene 
+                             21785                                 22 
+                          ribozyme                               rRNA 
+                                 8                                 64 
+                   rRNA_pseudogene                             scaRNA 
+                               493                                 51 
+                             scRNA                             snoRNA 
+                                 1                                995 
+                             snRNA                               sRNA 
+                              2009                                  2 
+                               TEC                          TR_C_gene 
+                              1045                                  7 
+                         TR_D_gene                          TR_J_gene 
+                                 3                                 73 
+                   TR_J_pseudogene                          TR_V_gene 
+                                 4                                104 
+                   TR_V_pseudogene   transcribed_processed_pseudogene 
+                                33                                520 
+    transcribed_unitary_pseudogene transcribed_unprocessed_pseudogene 
+                               118                                922 
+   translated_processed_pseudogene  translated_unprocessed_pseudogene 
+                                 1                                  2 
+                unitary_pseudogene             unprocessed_pseudogene 
+                                74                               3035 
+                          vaultRNA 
+                                 1 
+> 	
+> ## some genes do not have annotation because their ids are retired	
+> gene.missing = dplyr::setdiff(rowData(sce)$ID, gene.annotation$ensembl_gene_id)	
+> length(gene.missing)	
+[1] 4353
+> gene.missing[1:6]	
+[1] "ENSG00000274890" "ENSG00000275135" "ENSG00000241670" "ENSG00000236743"
+[5] "ENSG00000278566" "ENSG00000224813"
+> 	
+> w2kp = match(gene.annotation$ensembl_gene_id, rowData(sce)$ID)	
+> sce  = sce[w2kp,]	
+> dim(sce)	
+[1]  60864 104559
+> 	
+> table(gene.annotation$ensembl_gene_id == rowData(sce)$ID)	
+
+ TRUE 
+60864 
+> 	
+> rowData(sce)  = gene.annotation	
+> rownames(sce) = scater::uniquifyFeatureNames(rowData(sce)$ensembl_gene_id, 	
++                                      rowData(sce)$hgnc_symbol)	
+> 	
+> #' 	
+> #' 	
+> #' 	
+> #' # Quality control and normalization for count matrix	
+> #' R package required by this section.In this part, we need the file ribosome_gene.txt from Gene group [Ribosomal proteins](https://www.genenames.org/cgi-bin/genegroup/download?id=1054&type=branch) of [HGNC](https://www.genenames.org).	
+> #' 	
+> #' 	
+> library(DropletUtils)	
+> library(biomaRt)	
+> library(dplyr)	
+> library(scater)	
+> #' 	
+> #' The main QC anlaysis is carried out by ```scater```. 	
+> #'  	
+> #' ## Identify low quality cells	
+> #' 	
+> #' An important QC step for scRNA-seq data analysis is to identify low quality or empty cells. For 10x Genomics data, The ```emptyDrops``` function in R package ```DropletUtils``` can be used detect empty cells, given the count matrix of **all** barcodes. That is why we loaded the raw data matrix intead of filtered data matrix. 	
+> #' 	
+> #' 	
+> bcrank = barcodeRanks(counts(sce))	
+> 	
+> # Only showing unique points for plotting speed.	
+> uniq = !duplicated(bcrank$rank)	
+> 	
+> pdf("0.1_Rank_and_UMIcount.pdf",height=5,width=5)	
+> op=par(mar=c(5,4,2,1), bty="n")	
+> plot(bcrank$rank[uniq], bcrank$total[uniq], log="xy", 	
++      xlab="Rank", ylab="Total UMI count", cex=0.5, cex.lab=1.2)	
+> 	
+> abline(h=bcrank$inflection, col="darkgreen", lty=2)	
+> abline(h=bcrank$knee, col="dodgerblue", lty=2)	
+> 	
+> legend("left", legend=c("Inflection", "Knee"), bty="n", 	
++        col=c("darkgreen", "dodgerblue"), lty=2, cex=1.2)	
+> par(op)	
+> dev.off()	
+null device 
+          1 
+> 	
+> bcrank$inflection	
+NULL
+> bcrank$knee	
+NULL
+> 	
+> summary(bcrank$total)	
+   Min. 1st Qu.  Median    Mean 3rd Qu.    Max. 
+    544    1088    2204    5491    7323  114153 
+> table(bcrank$total >= bcrank$knee)	
+< table of extent 0 >
+> table(bcrank$total >= bcrank$inflection)	
+< table of extent 0 >
+> 	
+> set.seed(100)	
+> e.out = emptyDrops(counts(sce),lower=600) ###!!!!Alert1:This dataset seems to have  !!!!!###	
+> e.out	
+DataFrame with 104559 rows and 5 columns
+                                 Total           LogProb             PValue
+                             <integer>         <numeric>          <numeric>
+AAACCTGGTACGCACC-1_1823_BA24       771  -2431.3109036344  0.860613938606139
+AAACGGGCACCAGATT-1_1823_BA24     23959 -24547.2090953015  9.99900009999e-05
+AAAGATGAGTCCAGGA-1_1823_BA24       824 -2912.39720692114  9.99900009999e-05
+AAAGATGTCTTGAGGT-1_1823_BA24      1766 -5220.74210907422  9.99900009999e-05
+AAAGCAAGTAATCACC-1_1823_BA24       890 -3083.42697257439  9.99900009999e-05
+...                                ...               ...                ...
+TTTGTCACAAAGTCAA-1_6033_BA9      10492 -13863.2411999192  9.99900009999e-05
+TTTGTCACAAGGCTCC-1_6033_BA9       1274 -4055.33623856575  9.99900009999e-05
+TTTGTCAGTCGATTGT-1_6033_BA9       2861  -6287.1181356424 0.0001999800019998
+TTTGTCATCCCAAGTA-1_6033_BA9       2177 -5363.37980225849  9.99900009999e-05
+TTTGTCATCGTTACGA-1_6033_BA9       1677 -4713.09762093004  9.99900009999e-05
+                               Limited                  FDR
+                             <logical>            <numeric>
+AAACCTGGTACGCACC-1_1823_BA24     FALSE    0.951503799050105
+AAACGGGCACCAGATT-1_1823_BA24      TRUE                    0
+AAAGATGAGTCCAGGA-1_1823_BA24      TRUE  0.00011946377798066
+AAAGATGTCTTGAGGT-1_1823_BA24      TRUE  0.00011946377798066
+AAAGCAAGTAATCACC-1_1823_BA24      TRUE  0.00011946377798066
+...                                ...                  ...
+TTTGTCACAAAGTCAA-1_6033_BA9       TRUE                    0
+TTTGTCACAAGGCTCC-1_6033_BA9       TRUE  0.00011946377798066
+TTTGTCAGTCGATTGT-1_6033_BA9      FALSE 0.000236614186147709
+TTTGTCATCCCAAGTA-1_6033_BA9       TRUE  0.00011946377798066
+TTTGTCATCGTTACGA-1_6033_BA9       TRUE  0.00011946377798066
+> is.cell = (e.out$FDR <= 0.01)	
+> #' 	
+> #' 	
+> #' 	
+> pdf("0.2_UMIcount_and_probability.pdf",height=5,width=5)	
+> op=par(mar=c(5,4,1,1), bty="n")	
+> plot(e.out$Total, -e.out$LogProb, col=ifelse(is.cell, "red", "black"),	
++     xlab="Total UMI count", ylab="-Log Probability", cex=0.2)	
+> abline(v = bcrank$inflection, col="darkgreen")	
+> abline(v = bcrank$knee, col="dodgerblue")	
+> legend("bottomright", legend=c("Inflection", "Knee"), bty="n", 	
++        col=c("darkgreen", "dodgerblue"), lty=1, cex=1.2)	
+> par(op)	
+> dev.off()	
+null device 
+          1 
+> 	
+> #' 	
+> #' 	
+> #' Based on the above analysis, we will find that there is almost no necessary to do the emptyDrops since this dataset seems like a filtered data matrix.	
+> #' 	
+> #' 	
+> #table(colnames(sce) == rownames(e.out))	
+> #table(e.out$FDR <= 0.01, useNA="ifany")	
+> #table(is.cell, e.out$Total >= bcrank$inflection)	
+> #w2kp = which(is.cell & e.out$Total >= bcrank$inflection)	
+> #sce = sce[,w2kp]	
+> #dim(sce)	
+> #' 	
+> #' 	
+> #' Next step we apply more QC based on a set of features per cell.	
+> #' 	
+> #' 	
+> library(data.table)	
+
+Attaching package: ‘data.table’
+
+The following objects are masked from ‘package:dplyr’:
+
+    between, first, last
+
+The following objects are masked from ‘package:GenomicAlignments’:
+
+    first, last, second
+
+The following object is masked from ‘package:SummarizedExperiment’:
+
+    shift
+
+The following object is masked from ‘package:GenomicRanges’:
+
+    shift
+
+The following object is masked from ‘package:IRanges’:
+
+    shift
+
+The following objects are masked from ‘package:S4Vectors’:
+
+    first, second
+
+> ribo.file = "/fh/fast/sun_w/mengqi/HGNC/ribosome_genes.txt"	
+> ribo = fread(ribo.file)	
+> dim(ribo)	
+[1] 163  13
+> ribo[1:2,]	
+      HGNC ID Approved symbol          Approved name   Status
+1: HGNC:10298           RPL10  ribosomal protein L10 Approved
+2: HGNC:10299          RPL10A ribosomal protein L10a Approved
+                  Locus type Previous symbols
+1: gene with protein product                 
+2: gene with protein product            NEDD6
+                                  Synonyms Chromosome NCBI Gene ID
+1: NOV, QM, DXS648E, DXS648, FLJ23544, L10       Xq28         6134
+2:                            Csa-19, L10A    6p21.31         4736
+   Ensembl gene ID       Vega gene ID Group ID           Group name
+1: ENSG00000147403 OTTHUMG00000033189      729 L ribosomal proteins
+2: ENSG00000198755 OTTHUMG00000014566      729 L ribosomal proteins
+> 	
+> is.mito = which(rowData(sce)$chromosome_name == "MT")	
+> is.ribo = which(rowData(sce)$hgnc_symbol %in% ribo$'Approved symbol')	
+> length(is.mito)	
+[1] 37
+> length(is.ribo)	
+[1] 187
+> 	
+> sce = calculateQCMetrics(sce, feature_controls=list(Mt=is.mito, Ri=is.ribo))	
+> colnames(colData(sce))	
+ [1] "Sample"                                        
+ [2] "Barcode"                                       
+ [3] "is_cell_control"                               
+ [4] "total_features_by_counts"                      
+ [5] "log10_total_features_by_counts"                
+ [6] "total_counts"                                  
+ [7] "log10_total_counts"                            
+ [8] "pct_counts_in_top_50_features"                 
+ [9] "pct_counts_in_top_100_features"                
+[10] "pct_counts_in_top_200_features"                
+[11] "pct_counts_in_top_500_features"                
+[12] "total_features_by_counts_endogenous"           
+[13] "log10_total_features_by_counts_endogenous"     
+[14] "total_counts_endogenous"                       
+[15] "log10_total_counts_endogenous"                 
+[16] "pct_counts_endogenous"                         
+[17] "pct_counts_in_top_50_features_endogenous"      
+[18] "pct_counts_in_top_100_features_endogenous"     
+[19] "pct_counts_in_top_200_features_endogenous"     
+[20] "pct_counts_in_top_500_features_endogenous"     
+[21] "total_features_by_counts_feature_control"      
+[22] "log10_total_features_by_counts_feature_control"
+[23] "total_counts_feature_control"                  
+[24] "log10_total_counts_feature_control"            
+[25] "pct_counts_feature_control"                    
+[26] "pct_counts_in_top_50_features_feature_control" 
+[27] "pct_counts_in_top_100_features_feature_control"
+[28] "pct_counts_in_top_200_features_feature_control"
+[29] "pct_counts_in_top_500_features_feature_control"
+[30] "total_features_by_counts_Mt"                   
+[31] "log10_total_features_by_counts_Mt"             
+[32] "total_counts_Mt"                               
+[33] "log10_total_counts_Mt"                         
+[34] "pct_counts_Mt"                                 
+[35] "pct_counts_in_top_50_features_Mt"              
+[36] "pct_counts_in_top_100_features_Mt"             
+[37] "pct_counts_in_top_200_features_Mt"             
+[38] "pct_counts_in_top_500_features_Mt"             
+[39] "total_features_by_counts_Ri"                   
+[40] "log10_total_features_by_counts_Ri"             
+[41] "total_counts_Ri"                               
+[42] "log10_total_counts_Ri"                         
+[43] "pct_counts_Ri"                                 
+[44] "pct_counts_in_top_50_features_Ri"              
+[45] "pct_counts_in_top_100_features_Ri"             
+[46] "pct_counts_in_top_200_features_Ri"             
+[47] "pct_counts_in_top_500_features_Ri"             
+> 	
+> 	
+> pdf("0.3_histogram_of_cell_features.pdf",height=8,width=8)	
+> op=par(mfrow=c(2,2), mar=c(5, 4, 1, 1), bty="n")	
+> hist(log10(sce$total_counts), xlab="log10(Library sizes)", main="", 	
++     breaks=20, col="grey80", ylab="Number of cells")	
+> 	
+> hist(log10(sce$total_features_by_counts), xlab="log10(# of expressed genes)", 	
++      main="", breaks=20, col="grey80", ylab="Number of cells")	
+> 	
+> hist(sce$pct_counts_Ri, xlab="Ribosome prop. (%)",	
++     ylab="Number of cells", breaks=40, main="", col="grey80")	
+> 	
+> hist(sce$pct_counts_Mt, xlab="Mitochondrial prop. (%)", 	
++     ylab="Number of cells", breaks=80, main="", col="grey80")	
+> par(op)	
+> op=par(mfrow=c(2,2), mar=c(5, 4, 1, 1), bty="n")	
+> smoothScatter(log10(sce$total_counts), log10(sce$total_features_by_counts), 	
++      xlab="log10(Library sizes)", ylab="log10(# of expressed genes)", 	
++      nrpoints=500, cex=0.5)	
+> smoothScatter(log10(sce$total_counts), sce$pct_counts_Ri, 	
++      xlab="log10(Library sizes)", ylab="Ribosome prop. (%)",	
++      nrpoints=500, cex=0.5)	
+> abline(h=10,  lty=1)	
+> 	
+> smoothScatter(log10(sce$total_counts), sce$pct_counts_Mt, 	
++      xlab="log10(Library sizes)", ylab="Mitochondrial prop. (%)",	
++      nrpoints=500, cex=0.5)	
+> abline(h=5,  lty=1)	
+> 	
+> smoothScatter(sce$pct_counts_Ri, sce$pct_counts_Mt, 	
++      xlab="Ribosome prop. (%)", ylab="Mitochondrial prop. (%)",	
++      nrpoints=500, cex=0.5)	
+> abline(h=5,  lty=1)	
+> abline(v=10, lty=1)	
+> par(op)	
+> dev.off()	
+null device 
+          1 
+> #' 	
+> #' 	
+> #' Since this is nucleus scRNAseq from the dead cells, it is very resonable that the cells have very low proportion of ribosome genes. To be a little bit conservative, we remove those cells with high proportion of Mitochondrial genes ($>5\%$)(Yes, Motochondrial can be also regarded as a nucleus sub environment). 	
+> #' 	
+> #' 	
+> table(sce$pct_counts_Mt > 5)	
+
+ FALSE   TRUE 
+104524     35 
+> sce.lq = sce[,which(sce$pct_counts_Mt > 5) ]	
+> dim(sce.lq)	
+[1] 60864    35
+> 	
+> sce = sce[,which(sce$pct_counts_Mt <= 5) ]	
+> dim(sce)	
+[1]  60864 104524
+> #' 	
+> #' 	
+> #' ### Summarize gene-level information	
+> #' 	
+> 	
+> rowData(sce)[1:2,]	
+DataFrame with 2 rows and 18 columns
+        ensembl_gene_id hgnc_symbol chromosome_name start_position end_position
+            <character> <character>     <character>      <integer>    <integer>
+DNAJC11 ENSG00000007923     DNAJC11               1        6634168      6701924
+CDK11A  ENSG00000008128      CDK11A               1        1702379      1724357
+           strand
+        <integer>
+DNAJC11        -1
+CDK11A         -1
+                                                                                  description
+                                                                                  <character>
+DNAJC11 DnaJ heat shock protein family (Hsp40) member C11 [Source:HGNC Symbol;Acc:HGNC:25570]
+CDK11A                         cyclin dependent kinase 11A [Source:HGNC Symbol;Acc:HGNC:1730]
+        percentage_gene_gc_content   gene_biotype is_feature_control
+                         <numeric>    <character>          <logical>
+DNAJC11                       46.6 protein_coding              FALSE
+CDK11A                       52.05 protein_coding              FALSE
+        is_feature_control_Mt is_feature_control_Ri       mean_counts
+                    <logical>             <logical>         <numeric>
+DNAJC11                 FALSE                 FALSE 0.197429202651135
+CDK11A                  FALSE                 FALSE                 0
+         log10_mean_counts n_cells_by_counts pct_dropout_by_counts total_counts
+                 <numeric>         <integer>             <numeric>    <numeric>
+DNAJC11 0.0782498454211525             16064      84.6364253674959        20643
+CDK11A                   0                 0                   100            0
+        log10_total_counts
+                 <numeric>
+DNAJC11   4.31479385039791
+CDK11A                   0
+> min(rowData(sce)$mean_counts)	
+[1] 0
+> min(rowData(sce)$mean_counts[rowData(sce)$mean_counts>0])	
+[1] 9.563978e-06
+> min(rowData(sce)$n_cells_by_counts)	
+[1] 0
+> pdf("0.4_histogram_of_gene_features.pdf",height=3,width=10)	
+> op=par(mfrow=c(1,3), mar=c(5,4,1,1))	
+> hist(log10(rowData(sce)$mean_counts+1e-6), col="grey",  main="", 	
++      breaks=40, xlab="log10(ave # of UMI + 1e-6)")	
+> hist(log10(rowData(sce)$n_cells_by_counts+1), col="grey", main="", 	
++      breaks=40, xlab="log10(# of expressed cells + 1)")	
+> smoothScatter(log10(rowData(sce)$mean_counts+1e-6), 	
++               log10(rowData(sce)$n_cells_by_counts + 1), 	
++               xlab="log10(ave # of UMI + 1e-6)", 	
++               ylab="log10(# of expressed cells + 1)")	
+> par(op)	
+> dev.off()	
+null device 
+          1 
+> tb1 = table(rowData(sce)$n_cells_by_counts)	
+> tb1[1:11]	
+
+    0     1     2     3     4     5     6     7     8     9    10 
+20644  1966  1063   812   587   482   394   363   322   303   276 
+> 	
+> #' 	
+> #' 	
+> #' We remove those genes that are expressed in zero or only one cell. The variable _strand_ need to be renamed, otherwise there is an error message that such a variable name cannot be used. 	
+> #' 	
+> #' 	
+> names(rowData(sce))[6] = "strand_n"	
+> sce = sce[which(rowData(sce)$n_cells_by_counts > 1),]	
+> dim(sce)	
+[1]  38254 104524
+> #' 	
+> #' 	
+> #' Next we check those highly expressed genes 	
+> #' 	
+> pdf("0.5_gene_features2.pdf",height=5,width=5)	
+> op=par(mar=c(5,4,1,1))	
+> od1 = order(rowData(sce)$mean_counts, decreasing = TRUE)	
+> barplot(rowData(sce)$mean_counts[od1[20:1]], las=1, 	
++         names.arg=rowData(sce)$hgnc_symbol[od1[20:1]], 	
++         horiz=TRUE, cex.names=0.5, cex.axis=0.7, 	
++         xlab="ave # of UMI")	
+> par(op)	
+> dev.off()	
+null device 
+          1 
+> 	
+> #' 	
+> #' 	
+> #' ### Normalization	
+> #' A simple solution for normalization and stablizing expression varaince across genes is to tranform the count data by log(count/size.factor + 1). One may calcualte size.factor per cell as the total number of UMIs, and this assumes the total expression are the same across all the cells. However, the total expression of each cell may vary with respect to cell type and/or cell size, and the ```computeSumFactors``` function in R package scran provides a more  sophisicated way to calcualte size.factor to allow such variaation across cells [@lun2016pooling]. ```computeSumFactors``` can use initial clustering of cells to normalize expression within and beetween clusters.  Within a cluster, it estimates the size factor for many groups of cells so that there are more groups than cells, and then it can calcualte the size factor per cell using a lienar deconvolution system. 	
+> #' 	
+> #' As shown in the following plot, the final size factor estimation is indeed highly correlated with the naive definition by total count. 	
+> #' 	
+> #' Finally, the command ```normalize(sce)``` adds the normalized expression into the variable ```sce```.	
+> #' 	
+> 	
+> library(scran)	
+> date()	
+[1] "Tue Sep 24 08:38:47 2019"
+> clusters = quickCluster(sce, min.mean=0.1, method="igraph")	
+Warning messages:
+1: Setting 'use.ranks=TRUE' for the old defaults.
+Set 'use.ranks=FALSE' for the new defaults. 
+2: In (function (jobs, data, centers, info, distance, k, get.index,  :
+  tied distances detected in nearest-neighbor calculation
+> date()	
+[1] "Tue Sep 24 10:39:55 2019"
+> sce      = computeSumFactors(sce, cluster=clusters, min.mean=0.1)	
+> date()	
+[1] "Tue Sep 24 10:57:53 2019"
+> summary(sizeFactors(sce))	
+    Min.  1st Qu.   Median     Mean  3rd Qu.     Max. 
+ 0.05005  0.20738  0.40262  1.00000  1.34129 19.44892 
+> 	
+> pdf("0.6_size_factors.pdf",height=5,width=10)	
+> op=par(mfrow=c(1,2), mar=c(5,4,2,1), bty="n")	
+> smoothScatter(sce$total_counts, sizeFactors(sce), log="xy", 	
++               xlab="total counts", ylab="size factors")	
+> plot(sce$total_counts, sizeFactors(sce), log="xy", 	
++      xlab="total counts", ylab="size factors", 	
++      cex=0.3, pch=20, col=rgb(0.1,0.2,0.7,0.3))	
+> par(op)	
+> dev.off()	
+null device 
+          1 
+> sce = normalize(sce)	
+> #' 	
+> #' 	
+> #' ## Dimension reduction	
+> #' 	
+> #' For dimension reduction, such as calculating PCA or performing TSNE, we should start by identifying a subset of genes with high level of biological signal relative to background (technical) noise. The ```decomposeVar``` function from R/cran is designed for this task. 	
+> #' 	
+> 	
+> new.trend = makeTechTrend(x=sce)	
+> fit = trendVar(sce, use.spikes=FALSE, loess.args=list(span=0.05))	
+> 	
+> pdf("0.7_data_trend.pdf",height=5,width=5)	
+> op=par(mfrow=c(1,1), mar=c(5,4,2,1), bty="n")	
+> plot(fit$mean, fit$var, pch=20, col=rgb(0.1,0.2,0.7,0.6), 	
++      xlab="log(mean)", ylab="var")	
+> curve(fit$trend(x), col="orange", lwd=2, add=TRUE)	
+> curve(new.trend(x), col="red", lwd=2, add=TRUE)	
+> legend("topright", legend=c("Poisson noise", "observed trend"), 	
++        lty=1, lwd=2, col=c("red", "orange"), bty="n")	
+> 	
+> fit$trend = new.trend	
+> dec = decomposeVar(fit=fit)	
+> top.dec = dec[order(dec$bio, decreasing=TRUE),]	
+> plotExpression(sce, features=rownames(top.dec)[1:10])	
+> par(op)	
+> dev.off()	
+null device 
+          1 
+> #' 	
+> #' 	
+> #' When performing PCA, we can use all the genes or just those genes with high signal-to-noise ratio. TSNE analysis is usually based on the top PCs rather than the original gene expression data. We first perform PCA using all the genes and the function ```denoisePCA``` can automatically select the PCs based on modeling of technical noise. 	
+> #' 	
+> #' 	
+> date()	
+[1] "Tue Sep 24 11:03:23 2019"
+> sce = denoisePCA(sce, technical=new.trend, approx=TRUE)	
+Warning message:
+'approximate=TRUE' or 'pc.approx=TRUE' are deprecated.
+Use BSPARAM=BiocSingular::IrlbaParam() instead. 
+> date()	
+[1] "Tue Sep 24 11:14:54 2019"
+> dim(reducedDim(sce, "PCA"))	
+[1] 104524     12
+> 	
+> pdf("0.8_scree_plot_PCA_tSNE.pdf",height=5,width=5)	
+> plot(log10(attr(reducedDim(sce), "percentVar")), xlab="PC",	
++      ylab="log10(Prop of variance explained)", pch=20, cex=0.6, 	
++      col=rgb(0.8, 0.2, 0.2, 0.5))	
+> abline(v=ncol(reducedDim(sce, "PCA")), lty=2, col="red")	
+> 	
+> 	
+> df_pcs = data.frame(reducedDim(sce, "PCA"))	
+> df_pcs$log10_total_features_by_counts = colData(sce)$log10_total_features_by_counts	
+> 	
+> gp1 = ggplot(df_pcs, aes(PC1,PC2,col=log10_total_features_by_counts)) + 	
++   geom_point(size=0.2,alpha=0.6) + theme_classic() + 	
++   scale_colour_gradient(low="lightblue",high="red") +	
++   guides(color = guide_legend(override.aes = list(size=3)))	
+> gp1	
+> 	
+> date()	
+[1] "Tue Sep 24 11:14:56 2019"
+> sce = runTSNE(sce, use_dimred="PCA", perplexity=30, rand_seed=100)	
+> date()	
+[1] "Tue Sep 24 11:23:36 2019"
+> 	
+> df_tsne = data.frame(reducedDim(sce, "TSNE"))	
+> df_tsne$log10_total_features_by_counts = colData(sce)$log10_total_features_by_counts	
+> 	
+> gp1 = ggplot(df_tsne, aes(X1,X2,col=log10_total_features_by_counts)) + 	
++   geom_point(size=0.2,alpha=0.6) + theme_classic() + 	
++   scale_colour_gradient(low="lightblue",high="red") +	
++   guides(color = guide_legend(override.aes = list(size=3)))	
+> gp1	
+> 	
+> dev.off()	
+null device 
+          1 
+> #' 	
+> #' 	
+> #' Next we only select around top 1000 genes for the PCA and use the top 50 PCs for TSNE projection. 	
+> #' 	
+> #' 	
+> 	
+> 	
+> library(svd)	
+> library(Rtsne)	
+> 	
+> summary(dec$bio)	
+     Min.   1st Qu.    Median      Mean   3rd Qu.      Max. 
+-0.064244 -0.000268  0.000007  0.016673  0.003853  4.350591 
+> dec1 = dec	
+> dec1$bio[which(dec$bio < 1e-8)] = 1e-8	
+> dec1$FDR[which(dec$FDR < 1e-100)] = 1e-100	
+> 	
+> 	
+> pdf("0.9_PCA_tSNE_top1K.pdf",height=5,width=5)	
+> op=par(mfrow=c(1,2))	
+> hist(log10(dec1$bio), breaks=100, main="")	
+> hist(log10(dec1$FDR), breaks=100, main="")	
+> par(op)	
+> 	
+> summary(dec$FDR[dec$bio > 0.001])	
+    Min.  1st Qu.   Median     Mean  3rd Qu.     Max. 
+0.000000 0.000000 0.000000 0.002364 0.000000 0.680004 
+> table(dec$FDR < 1e-10, dec$bio > 0.01)	
+       
+        FALSE  TRUE
+  FALSE 20709   103
+  TRUE  10653  6789
+> 	
+> w2kp = which(dec$FDR < 1e-10 & dec$bio > 0.01)	
+> sce_sub = sce[w2kp,]	
+> sce_sub	
+class: SingleCellExperiment 
+dim: 6789 104524 
+metadata(1): log.exprs.offset
+assays(2): counts logcounts
+rownames(6789): TNFRSF1B H6PD ... MT-ND4L MT-ATP8
+rowData names(18): ensembl_gene_id hgnc_symbol ... total_counts
+  log10_total_counts
+colnames(104524): AAACCTGGTACGCACC-1_1823_BA24
+  AAACGGGCACCAGATT-1_1823_BA24 ... TTTGTCATCCCAAGTA-1_6033_BA9
+  TTTGTCATCGTTACGA-1_6033_BA9
+colData names(47): Sample Barcode ... pct_counts_in_top_200_features_Ri
+  pct_counts_in_top_500_features_Ri
+reducedDimNames(2): PCA TSNE
+spikeNames(0):
+> 	
+> edat = t(as.matrix(logcounts(sce_sub)))	
+> edat = scale(edat)	
+> dim(edat)	
+[1] 104524   6789
+> edat[1:2,1:3]	
+                               TNFRSF1B       H6PD      VAMP3
+AAACCTGGTACGCACC-1_1823_BA24 -0.1075214 -0.1821099 -0.1762713
+AAACGGGCACCAGATT-1_1823_BA24 -0.1075214 -0.1821099 -0.1762713
+> 	
+> date()	
+[1] "Tue Sep 24 11:24:51 2019"
+> ppk  = propack.svd(edat,neig=50)	
+> date()	
+[1] "Tue Sep 24 11:28:12 2019"
+> pca = t(ppk$d*t(ppk$u))	
+> 	
+> df_pcs = data.frame(pca)	
+> df_pcs$log10_total_features_by_counts = colData(sce_sub)$log10_total_features_by_counts	
+> df_pcs[1:2,]	
+         X1        X2        X3         X4        X5        X6         X7
+1  -6.50955 20.992633 -4.547381  0.8502946 -3.660008  6.996313 -0.8664354
+2 -15.47524 -5.919413  2.283091 -0.3410344  2.396187 -3.794221 -0.9556341
+         X8        X9       X10       X11       X12       X13       X14
+1 -6.003934 -5.007813 -2.800506 -1.494593 -2.047074 -4.597812 -2.487092
+2  4.177089 -6.952421  5.072816 -1.148168  6.264521 -7.725209  4.387977
+         X15        X16         X17       X18       X19        X20      X21
+1 -0.5197313 0.08974323 -0.74714759 -1.630467 -1.941795 -1.4800747 1.457668
+2 -1.5037855 2.28079522 -0.02009853 -0.523070  1.501054  0.8179736 4.563760
+         X22        X23       X24       X25      X26       X27      X28
+1  0.5349188 -1.7728218 -2.267390 0.6602591 1.253469 0.8875944 3.028377
+2 -1.7686778 -0.4887262 -1.511844 0.8687588 2.244561 0.3841698 2.756017
+         X29        X30       X31        X32       X33        X34        X35
+1 -0.1940434  0.4623445 -1.405390 -0.2836402  1.345854  0.7023429 0.03318292
+2  2.2947284 -3.4773435 -0.872524 -6.1355535 -2.313591 -2.4251195 2.72689674
+         X36       X37       X38       X39       X40       X41       X42
+1 -0.6710097 -2.778302 -2.464267 0.4584908 0.5250826 -2.607300  1.016291
+2  2.3753639 -2.150839 -2.081095 7.4068050 0.1510179 -2.618041 -1.155599
+         X43         X44      X45       X46       X47       X48       X49
+1 -0.8601566  0.03255657 4.174475  3.485891 -1.111526 -1.368252 -1.215106
+2  2.5841497 -0.15849884 4.067771 -3.086940  3.502739  1.830610 -1.462366
+         X50 log10_total_features_by_counts
+1 -2.3693383                       2.792392
+2  0.9822274                       3.837462
+> 	
+> gp1 = ggplot(df_pcs, aes(X1,X2,col=log10_total_features_by_counts)) + 	
++   geom_point(size=0.2,alpha=0.6) + theme_classic() + 	
++   scale_colour_gradient(low="lightblue",high="red") +	
++   guides(color = guide_legend(override.aes = list(size=3)))	
+> gp1	
+> 	
+> set.seed(100)	
+> date()	
+[1] "Tue Sep 24 11:28:14 2019"
+> tsne = Rtsne(pca, pca = FALSE)	
+> date()	
+[1] "Tue Sep 24 11:39:11 2019"
+> 	
+> 	
+> df_tsne = data.frame(tsne$Y)	
+> df_tsne$log10_total_features_by_counts = colData(sce_sub)$log10_total_features_by_counts	
+> dim(df_tsne)	
+[1] 104524      3
+> df_tsne[1:2,]	
+         X1        X2 log10_total_features_by_counts
+1  -4.43902  28.13923                       2.792392
+2 -11.51430 -27.85049                       3.837462
+> 	
+> gp1 = ggplot(df_tsne, aes(X1,X2,col=log10_total_features_by_counts)) + 	
++   geom_point(size=0.2,alpha=0.6) + theme_classic() + 	
++   scale_colour_gradient(low="lightblue",high="red") +	
++   guides(color = guide_legend(override.aes = list(size=3)))	
+> gp1	
+> 	
+> 	
+> dev.off()	
+null device 
+          1 
+> 	
+> reducedDims(sce_sub) = SimpleList(PCA=pca, TSNE=tsne$Y)	
+> sce_sub	
+class: SingleCellExperiment 
+dim: 6789 104524 
+metadata(1): log.exprs.offset
+assays(2): counts logcounts
+rownames(6789): TNFRSF1B H6PD ... MT-ND4L MT-ATP8
+rowData names(18): ensembl_gene_id hgnc_symbol ... total_counts
+  log10_total_counts
+colnames(104524): AAACCTGGTACGCACC-1_1823_BA24
+  AAACGGGCACCAGATT-1_1823_BA24 ... TTTGTCATCCCAAGTA-1_6033_BA9
+  TTTGTCATCGTTACGA-1_6033_BA9
+colData names(47): Sample Barcode ... pct_counts_in_top_200_features_Ri
+  pct_counts_in_top_500_features_Ri
+reducedDimNames(2): PCA TSNE
+spikeNames(0):
+> #' 	
+> #' 	
+> #' ### Clustering	
+> #' There are many methods for clustering of single cell RNA-seq data. The performance of each method may also depend on pre-processing steps, such as performing imputation or not. We wil compare these methods in a seperate document. Here we just illustrate the clustering reuslts using a simple kmeans method on the top 50 PCs. 	
+> #' 	
+> #' 	
+> 	
+> k10_50_pcs = kmeans(reducedDim(sce_sub, "PCA"), centers=10, 	
++                     iter.max=150, algorithm="MacQueen")	
+> names(k10_50_pcs)	
+[1] "cluster"      "centers"      "totss"        "withinss"     "tot.withinss"
+[6] "betweenss"    "size"         "iter"         "ifault"      
+> dim(k10_50_pcs$centers)	
+[1] 10 50
+> 	
+> df_tsne$cluster_kmean = as.factor(k10_50_pcs$cluster)	
+> cols = c("#FB9A99","#FF7F00","yellow","orchid","grey",	
++          "red","dodgerblue2","tan4","green4","#99c9fb")	
+> pdf("0.10_clustering1.pdf",height=5,width=5)	
+> 	
+> gp1 = ggplot(df_tsne, aes(X1,X2,col=cluster_kmean)) + 	
++   geom_point(size=0.2,alpha=0.6) + theme_classic() + 	
++   scale_color_manual(values=cols) + 	
++   guides(color = guide_legend(override.aes = list(size=3)))	
+> 	
+> gp1	
+> dev.off()	
+null device 
+          1 
+> #' 	
+> #' 	
+> #' An alternative popular clustreing method is a graph based method that first construct a graph for all the cells and then identify clusters of cells by identifying densely connected subgraphs [@xu2015identification]. One possible implementation is the following approach 	
+> #' 	
+> #' 	
+> snn.gr   = buildSNNGraph(sce_sub, use.dimred="PCA")	
+Warning message:
+In (function (jobs, data, centers, info, distance, k, get.index,  :
+  tied distances detected in nearest-neighbor calculation
+> clusters = igraph::cluster_walktrap(snn.gr)	
+> #' 	
+> #' 	
+> #' Though this implementation is very slow for this large dataset. It took more than 3 hours on a MacbookPro with 2.8 G i7 core and 16G memmory. The results of graphical model based on clustering and Kmeans have large overlap in some cluters. Though in general, graph-based identify many small clusters. 	
+> #' 	
+> #' 	
+> knitr::include_graphics('figures/compare_cluster_kmean_graph.png')	
+[1] "figures/compare_cluster_kmean_graph.png"
+attr(,"class")
+[1] "knit_image_paths" "knit_asis"       
+> #' 	
+> #' 	
+> #' 	
+> #' # Session information	
+> #' 	
+> sessionInfo()	
+R version 3.6.0 (2019-04-26)
+Platform: x86_64-pc-linux-gnu (64-bit)
+Running under: Ubuntu 14.04.5 LTS
+
+Matrix products: default
+BLAS/LAPACK: /app/easybuild/software/OpenBLAS/0.2.18-GCC-5.4.0-2.26-LAPACK-3.6.1/lib/libopenblas_prescottp-r0.2.18.so
+
+locale:
+ [1] LC_CTYPE=en_US.UTF-8       LC_NUMERIC=C              
+ [3] LC_TIME=en_US.UTF-8        LC_COLLATE=en_US.UTF-8    
+ [5] LC_MONETARY=en_US.UTF-8    LC_MESSAGES=en_US.UTF-8   
+ [7] LC_PAPER=en_US.UTF-8       LC_NAME=C                 
+ [9] LC_ADDRESS=C               LC_TELEPHONE=C            
+[11] LC_MEASUREMENT=en_US.UTF-8 LC_IDENTIFICATION=C       
+
+attached base packages:
+[1] stats4    parallel  stats     graphics  grDevices utils     datasets 
+[8] methods   base     
+
+other attached packages:
+ [1] Rtsne_0.15                  svd_0.4.3                  
+ [3] scran_1.12.1                data.table_1.12.2          
+ [5] scater_1.12.2               ggplot2_3.1.1              
+ [7] dplyr_0.8.0.1               biomaRt_2.38.0             
+ [9] DropletUtils_1.4.3          SingleCellExperiment_1.6.0 
+[11] GenomicAlignments_1.18.1    Rsamtools_1.34.1           
+[13] Biostrings_2.50.2           XVector_0.22.0             
+[15] SummarizedExperiment_1.12.0 DelayedArray_0.8.0         
+[17] BiocParallel_1.16.6         matrixStats_0.54.0         
+[19] GenomicFeatures_1.36.4      AnnotationDbi_1.44.0       
+[21] Biobase_2.42.0              GenomicRanges_1.34.0       
+[23] GenomeInfoDb_1.18.2         IRanges_2.16.0             
+[25] S4Vectors_0.20.1            BiocGenerics_0.29.2        
+
+loaded via a namespace (and not attached):
+ [1] bitops_1.0-6             bit64_0.9-7              progress_1.2.0          
+ [4] httr_1.4.0               dynamicTreeCut_1.63-1    tools_3.6.0             
+ [7] R6_2.4.0                 irlba_2.3.3              KernSmooth_2.23-15      
+[10] HDF5Array_1.10.1         vipor_0.4.5              DBI_1.0.0               
+[13] lazyeval_0.2.2           colorspace_1.4-1         withr_2.1.2             
+[16] tidyselect_0.2.5         gridExtra_2.3            prettyunits_1.0.2       
+[19] bit_1.1-14               curl_3.3                 compiler_3.6.0          
+[22] BiocNeighbors_1.2.0      rtracklayer_1.42.2       labeling_0.3            
+[25] scales_1.0.0             stringr_1.4.0            digest_0.6.18           
+[28] R.utils_2.8.0            pkgconfig_2.0.2          limma_3.38.3            
+[31] rlang_0.3.4              RSQLite_2.1.1            DelayedMatrixStats_1.4.0
+[34] R.oo_1.22.0              RCurl_1.95-4.12          magrittr_1.5            
+[37] BiocSingular_1.0.0       GenomeInfoDbData_1.2.0   Matrix_1.2-17           
+[40] Rcpp_1.0.1               ggbeeswarm_0.6.0         munsell_0.5.0           
+[43] Rhdf5lib_1.4.3           viridis_0.5.1            R.methodsS3_1.7.1       
+[46] stringi_1.4.3            edgeR_3.24.3             zlibbioc_1.28.0         
+[49] rhdf5_2.26.2             plyr_1.8.4               grid_3.6.0              
+[52] blob_1.1.1               dqrng_0.2.1              crayon_1.3.4            
+[55] lattice_0.20-38          cowplot_0.9.4            hms_0.4.2               
+[58] locfit_1.5-9.1           knitr_1.25               pillar_1.3.1            
+[61] igraph_1.2.4.1           XML_3.98-1.19            glue_1.3.1              
+[64] gtable_0.3.0             purrr_0.3.2              assertthat_0.2.1        
+[67] xfun_0.6                 rsvd_1.0.2               viridisLite_0.3.0       
+[70] tibble_2.1.1             beeswarm_0.2.3           memoise_1.1.0           
+[73] statmod_1.4.30          
+> #' 	
+> #' 	
+> #' # Reference	
+> #' https://bioconductor.org/packages/release/workflows/vignettes/simpleSingleCell/inst/doc/tenx.html	
+> #' http://research.fhcrc.org/content/dam/stripe/sun/software/scRNAseq/scRNAseq.html	
+> #' http://research.fhcrc.org/content/dam/stripe/sun/software/scRNAseq/scRNAseq.html#3_quality_control_and_normalization_for_count_matrix	
+> #' 	
+> 
+> proc.time()
+     user    system   elapsed 
+12199.368   160.144 13176.611 

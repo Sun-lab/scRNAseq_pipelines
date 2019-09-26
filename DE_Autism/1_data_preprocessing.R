@@ -1,7 +1,7 @@
 #this code convert the data from to .rds format and generate small subsets of them.
 
 setwd("/fh/fast/sun_w/mengqi/1.Testing_scRNAseq/")
-#setwd("/Users/mzhang24/Desktop/fh/1.Testing_scRNAseq/")
+setwd("/Users/mzhang24/Desktop/fh/1.Testing_scRNAseq/")
 
 #change the original file into rds for better read-writing-storage
 exprM=read.table("../Data_PRJNA434002/exprMatrix.tsv.gz",header=TRUE,row.names=1)
@@ -44,29 +44,37 @@ saveRDS(exprM1k,"../Data_PRJNA434002/exprMatrix1k.rds")
 
 #regenerate some fake "raw-counts" data for testing
 
-rerawM1K=apply(exprM1K,2,function(x){return(2^(as.numeric(x)))})
-rerawM1K[rerawM1K==1]=0
-rerawM1K=apply(rerawM1K,2,function(x){return(round(x))})
-rownames(rerawM1K)=rownames(exprM1K)
-colnames(rerawM1K)=colnames(exprM1K)
-saveRDS(rerawM1K,"../Data_PRJNA434002/rerawMatrix1k.rds")
-write.table(rerawM3k10,"../Data_PRJNA434002/rerawMatrix1k.csv",sep=",")
+exprM1k=readRDS("../Data_PRJNA434002/exprMatrix1k.rds")
+exprM5k=readRDS("../Data_PRJNA434002/exprMatrix5k.rds")
+exprM1k10=readRDS("../Data_PRJNA434002/exprMatrix1k10.rds")
+exprM3k10=readRDS("../Data_PRJNA434002/exprMatrix3k10.rds")
 
-rerawM5K=apply(exprM5K,2,function(x){return(2^(as.numeric(x)))})
-rerawM5K[rerawM5K==1]=0
-rerawM5K=apply(rerawM5K,2,function(x){return(round(x))})
-rownames(rerawM5K)=rownames(exprM5K)
-colnames(rerawM5K)=colnames(exprM5K)
-saveRDS(rerawM5K,"../Data_PRJNA434002/rerawMatrix5k.rds")
-write.table(rerawM3k10,"../Data_PRJNA434002/rerawMatrix5k.csv",sep=",")
 
-rerawM1K10=apply(exprM1k10,2,function(x){return(2^(as.numeric(x)))})
-rerawM1K10[rerawM1K10==1]=0
-rerawM1K10=apply(rerawM1K10,2,function(x){return(round(x))})
-rownames(rerawM1K10)=rownames(exprM1k10)
-colnames(rerawM1K10)=colnames(exprM1k10)
-saveRDS(rerawM1K10,"../Data_PRJNA434002/rerawMatrix1k10.rds")
-write.table(rerawM3k10,"../Data_PRJNA434002/rerawMatrix1k10.csv",sep=",")
+
+
+rerawM1k=apply(exprM1k,2,function(x){return(2^(as.numeric(x)))})
+rerawM1k[rerawM1k==1]=0
+rerawM1k=apply(rerawM1k,2,function(x){return(round(x))})
+rownames(rerawM1k)=rownames(exprM1k)
+colnames(rerawM1k)=colnames(exprM1k)
+saveRDS(rerawM1k,"../Data_PRJNA434002/rerawMatrix1k.rds")
+write.table(rerawM1k,"../Data_PRJNA434002/rerawMatrix1k.csv",sep=",")
+
+rerawM5k=apply(exprM5k,2,function(x){return(2^(as.numeric(x)))})
+rerawM5k[rerawM5k==1]=0
+rerawM5k=apply(rerawM5k,2,function(x){return(round(x))})
+rownames(rerawM5k)=rownames(exprM5k)
+colnames(rerawM5k)=colnames(exprM5k)
+saveRDS(rerawM5k,"../Data_PRJNA434002/rerawMatrix5k.rds")
+write.table(rerawM5k,"../Data_PRJNA434002/rerawMatrix5k.csv",sep=",")
+
+rerawM1k10=apply(exprM1k10,2,function(x){return(2^(as.numeric(x)))})
+rerawM1k10[rerawM1k10==1]=0
+rerawM1k10=apply(rerawM1k10,2,function(x){return(round(x))})
+rownames(rerawM1k10)=rownames(exprM1k10)
+colnames(rerawM1k10)=colnames(exprM1k10)
+saveRDS(rerawM1k10,"../Data_PRJNA434002/rerawMatrix1k10.rds")
+write.table(rerawM1k10,"../Data_PRJNA434002/rerawMatrix1k10.csv",sep=",")
 
 rerawM3k10=apply(exprM3k10,2,function(x){return(2^(as.numeric(x)))})
 rerawM3k10[rerawM3k10==1]=0
