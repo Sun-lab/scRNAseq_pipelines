@@ -82,9 +82,15 @@ col_vector = unlist(mapply(brewer.pal, qual_col_pals$maxcolors, rownames(qual_co
 # dev.off()
 
 #Then,we choose seed 28 as the best choice for the color generation.
-set.seed(28) #2,8,28
-cust_col=sample(col_vector, n)
-
+# set.seed(28) #2,8,28
+# cust_col=sample(col_vector, n)
+cust_col=c("#023858", "#E31A1C", "#F768A1", "#BD0026", "#D4B9DA", "#7FCDBB", "#CE1256",
+           "#88419D", "#FDD0A2", "#4D004B", "#E7298A", "#78C679", "#D9F0A3", "#081D58", 
+           "#993404", "#CC4C02", "#FC9272", "#F7FCFD", "#BCBDDC", "#FFEDA0", "#FEE0D2",
+           "#D0D1E6", "#7F0000", "#FFF7F3", "#9E9AC8", "#FFFFD9", "#CCEBC5", "#FFFFE5",
+           "#014636", "#DADAEB", "#BFD3E6", "#FE9929", "#C994C7", "#FEE8C8", "#FCC5C0",
+           "#1D91C0", "#FCFBFD", "#225EA8", "#000000", "#FEC44F", "#41AE76")
+  
 #TSNE_plot is a function to do 2 pdf based tsne plots, designed especially for current situation.
 #example
 #tsne_obj=tsne
@@ -93,40 +99,36 @@ cust_col=sample(col_vector, n)
 
 TSNE_plot=function(tsne_obj,meta_info,file_label){
   
-  png(paste0("tSNE_plots_cluster_",file_label,".png"),height = 800,width = 800)
+  pdf(paste0("tSNE_plots_",file_label,".pdf"),height = 8,width = 8)
   plot(tsne$Y, cex=.2,main="tSNE-cluster",col=cust_col[as.numeric(as.factor(meta[,"cluster"]))])
-  dev.off()
-  
-  png(paste0("tSNE_plots_Capbatch_",file_label,".png"),height = 800,width = 800)
   plot(tsne$Y, cex=.1,main="tSNE-Capbatch",col=cust_col[as.numeric(as.factor(meta[,"Capbatch"]))])
-  dev.off()
-  png(paste0("tSNE_plots_Seqbatch_",file_label,".png"),height = 800,width = 800)
-  plot(tsne$Y, cex=.1,main="tSNE-Seqbatch",col=as.numeric(as.factor(meta[,"Seqbatch"])))
-  dev.off()
-  png(paste0("tSNE_plots_individual_",file_label,".png"),height = 800,width = 800)
-  plot(tsne$Y, cex=.2,main="tSNE-individual",col=as.numeric(as.factor(meta[,"individual"])))
+  plot(tsne$Y, cex=.1,main="tSNE-Seqbatch",col=cust_col[as.numeric(as.factor(meta[,"Seqbatch"]))])
+  plot(tsne$Y, cex=.2,main="tSNE-individual",col=cust_col[as.numeric(as.factor(meta[,"individual"]))])
   dev.off()
   
-  png(paste0("tSNE_sub_cluster_",file_label,".png"),height = 3000,width = 6000)
+  pdf(paste0("tSNE_sub_cluster_",file_label,".pdf"),height = 15,width = 30)
   op=par(mfrow=c(3,6),mar=c(3, 3, 1, 1), bty="n",cex=0.9)
   for(i in 1:length(as.character(unique(meta$cluster)))){
     cur_cluster=as.character(unique(meta$cluster)[i])
     metaflag=(meta$cluster==cur_cluster)
     #pie(rep(1,n), col=cust_col)
-    plot(tsne$Y, cex=.2,main=paste0("tSNE-cluster",i),col=cust_col[as.numeric(as.factor(metaflag))*3-1])
+    plot(tsne$Y, cex=.2,main=paste0("tSNE-cluster",i),col=cust_col[as.numeric(as.factor(metaflag))*13+6])
   }
   par(op)
   dev.off()
 }
 
 
-#tsne=Rtsne(cur_svd50v,dims=2, perplexity=15)
-#TSNE_plot(tsne,meta,paste0(cur_file,"_k",cur_k,"_cor",cor_thres,"_15"))
+tsne=Rtsne(cur_svd50v,dims=2, perplexity=15)
+saveRDS(tsne,paste0("tsne_",cur_file,"_k",cur_k,"_cor",cor_thres,"_15.rds"))
+TSNE_plot(tsne,meta,paste0(cur_file,"_k",cur_k,"_cor",cor_thres,"_15"))
 
 tsne=Rtsne(cur_svd50v,dims=2, perplexity=30)
+saveRDS(tsne,paste0("tsne_",cur_file,"_k",cur_k,"_cor",cor_thres,"_30.rds"))
 TSNE_plot(tsne,meta,paste0(cur_file,"_k",cur_k,"_cor",cor_thres,"_30"))
 
 tsne=Rtsne(cur_svd50v,dims=2, perplexity=45)
+saveRDS(tsne,paste0("tsne_",cur_file,"_k",cur_k,"_cor",cor_thres,"_45.rds"))
 TSNE_plot(tsne,meta,paste0(cur_file,"_k",cur_k,"_cor",cor_thres,"_45"))
 
 sessionInfo()
