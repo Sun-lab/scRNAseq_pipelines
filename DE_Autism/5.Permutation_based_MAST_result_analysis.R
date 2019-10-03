@@ -1,7 +1,7 @@
 #this code analysis the fit result based on the observation and permutation
 set.seed(3826)
 #something from the header file
-cluster_tag=10 #this tag indicate the clusters it can be choose in 1 to 17
+cluster_tag=6 #this tag indicate the clusters it can be choose in 1 to 17
 library("moments")
 #setwd("~/Desktop/fh/1.Testing_scRNAseq/")
 setwd("/Users/mzhang24/Desktop/fh/1.Testing_scRNAseq/")
@@ -96,6 +96,23 @@ dev.off()
 # What's these genes' original log-expression patterns?
 # KS test and skewness on them
 pdf(paste0("Stat_non-uniform_pval_vs_expression_",cluster_tag,".pdf"),width=6,height=6)
+
+op=par(mfrow=c(2,2))
+hist(rawp,breaks=30,main="perm pvalues",sub=paste0("n=",length(rawp)))
+hist(rawp[exprM_0zero_num<10],breaks=30,main="perm pvalues,exprM_0zero_num<10",
+     sub=paste0("n=",length(rawp[exprM_0zero_num<10]),", ks_pval=",
+                ks.test((1:length(rawp[exprM_0zero_num<10]))/length(rawp[exprM_0zero_num<10]),rawp[exprM_0zero_num<10],alternative = "two.sided")$p.value))
+hist(rawp[exprM_0zero_num>=10 & exprM_0zero_num<30],breaks=30,main="perm pvalues,exprM_0zero_num 10-30",
+     sub=paste0("n=",length(rawp[exprM_0zero_num>=10 & exprM_0zero_num<30]),", ks_pval=",
+                ks.test((1:length(rawp[exprM_0zero_num>=10 & exprM_0zero_num<30]))/length(rawp[exprM_0zero_num>=10 & exprM_0zero_num<30]),rawp[exprM_0zero_num>=10 & exprM_0zero_num<30],alternative = "two.sided")$p.value))
+hist(rawp[exprM_0zero_num>=30],breaks=30,main="perm pvalues,exprM_0zero_num>30",
+     sub=paste0("n=",length(rawp[exprM_0zero_num>=30]),", ks_pval=",
+                ks.test((1:length(rawp[exprM_0zero_num>=30]))/length(rawp[exprM_0zero_num>=30]),rawp[exprM_0zero_num>=30],alternative = "two.sided")$p.value))
+par(op)
+hist(rawp,breaks=30,main="perm pvalues")
+hist(rawp[exprM_0zero_num<10],breaks=30,add=T,col=rgb(1,0,0,0.3))
+hist(rawp[exprM_0zero_num>=10 & exprM_0zero_num<30],breaks=30,add=T,col=rgb(0,1,0,0.3))
+hist(rawp[exprM_0zero_num>=30],breaks=30,add=T,col=rgb(0,0,1,0.3))
 
 
 ksgreater=apply(fit_perm,1,
