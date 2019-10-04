@@ -1,7 +1,7 @@
 #this code try to reproduce the Velmeshev_2019_autism and reproduce their TSNE plots,
 
 cur_k=17
-cur_file="rawM3k10"
+cur_file="exprM5k"
 cor_thres=0.2
 file_label=paste0("k",cur_k,"_cor",cor_thres,"_",cur_file)
 #Data_PRJNA434002
@@ -52,15 +52,11 @@ for(ik in 1:k){
 cor_s
 cor_c
 
-
-
 #cor 0.2 threshold 
 flag=(abs(cor_c)<cor_thres & abs(cor_s)<cor_thres) 
 sum(flag)
 
 cur_svd50v=svd50v[,flag==1]
-
-
 
 #generate plotting color
 
