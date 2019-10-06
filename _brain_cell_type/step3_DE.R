@@ -405,6 +405,29 @@ for(ct in cell_types){
 dim(SIG)
 head(SIG)
 
+# Some statistics about all MTG genes that does not involve zeros.
+# We need them to simulate data.
+# We have verified that gene lengths are strictly positive and roughly log-normal
+# Pearson correlation among genes that do not have zero expression:
+log_SIG = log(cbind(SIG, gene_length = rowData(sce)$gene_length))
+log_SIG[!is.finite(log_SIG)] = NA
+log_SIG = na.omit(log_SIG)
+dim(log_SIG)
+cor_log_SIG = cor(log_SIG)
+cor_log_SIG
+diag(cor_log_SIG) = NA
+cor_between_cell_types = median(cor_log_SIG[1:6,1:6], na.rm=TRUE)
+cor_between_cell_type_and_gene_length = median(cor_log_SIG[1:6, 7], na.rm=TRUE)
+mean_log_gene_length = mean(log_SIG[,"gene_length"], na.rm=TRUE)
+sd_log_gene_length = sd(log_SIG[,"gene_length"], na.rm=TRUE)
+saveRDS(list(anno = rowData(sce),
+             SIG = SIG,
+             cor_between_cell_types = cor_between_cell_types,
+             cor_between_cell_type_and_gene_length = cor_between_cell_type_and_gene_length,
+             mean_log_gene_length = mean_log_gene_length,
+             sd_log_gene_length = sd_log_gene_length),
+        "all_genes_MTG.rds")
+
 # Subset marker genes
 SIG = SIG[sort(as.character(unlist(mark_genes))),]
 dim(SIG)
