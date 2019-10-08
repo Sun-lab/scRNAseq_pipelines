@@ -1,7 +1,7 @@
 #this code try to reproduce the Velmeshev_2019_autism and reproduce their TSNE plots,
 
 cur_k=17
-cur_file="exprM5k"
+cur_file="rawMnorm5k"
 cor_thres=0.2
 file_label=paste0("k",cur_k,"_cor",cor_thres,"_",cur_file)
 #Data_PRJNA434002
@@ -143,7 +143,10 @@ TSNE_plot=function(tsne_obj,meta_info,file_label){
 tsne=Rtsne(cur_svd50v,dims=2, perplexity=30)
 saveRDS(tsne,paste0("tsne_",cur_file,"_k",cur_k,"_cor",cor_thres,"_30.rds"))
 TSNE_plot(tsne,meta,paste0(cur_file,"_k",cur_k,"_cor",cor_thres,"_30"))
-
+ 
+tsne=Rtsne(cur_svd50v,dims=2, perplexity=35)
+saveRDS(tsne,paste0("tsne_",cur_file,"_k",cur_k,"_cor",cor_thres,"_35.rds"))
+TSNE_plot(tsne,meta,paste0(cur_file,"_k",cur_k,"_cor",cor_thres,"_35"))
 
 sessionInfo()
 q(save="no")

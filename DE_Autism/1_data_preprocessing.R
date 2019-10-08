@@ -22,7 +22,7 @@ exprM[1:10,1:10]
 
 #generate another 10% percentage cells with first 3000 genes, for testing
 meta10=meta[seq(1,10455)*10,]
-saveRDS(meta100,"../Data_PRJNA434002/meta10.rds")
+saveRDS(meta10,"../Data_PRJNA434002/meta10.rds")
 exprM3k10=exprM[1:3000,seq(1,10455)*10]
 saveRDS(exprM3k10,"../Data_PRJNA434002/exprMatrix3k10.rds")
 exprM1k10=exprM[1:1000,seq(1,10455)*10]
@@ -102,23 +102,21 @@ rownames(sce) = scater::uniquifyFeatureNames(rowData(sce)$ensembl_gene_id,
 
 
 ###########generate the raw count tables
-
+zero_rate=apply(counts(sce)==0,1,function(x){return(sum(x)/length(x))})
+o_zero_rate=order(zero_rate)
 
 rawMatrix=counts(sce) #matrix to large, so we are not able to convert it as regular matrix
 saveRDS(rawMatrix,"../Data_PRJNA434002/rawM.rds")
 
-rawM1k10=as.matrix(rawMatrix[1:1000,seq(1,10455)*10])
+top1k=as.numeric(o_zero_rate[1:1000])
+rawM1k10=as.matrix(rawMatrix[top1k,seq(1,10455)*10])
 saveRDS(rawM1k10,"../Data_PRJNA434002/rawM1k10.rds")
 write.table(rawM1k10,"../Data_PRJNA434002/rawM1k10.csv",sep=",")
 
-
-rawM3k10=as.matrix(rawMatrix[1:3000,seq(1,10455)*10])
+top3k=as.numeric(o_zero_rate[1:3000])
+rawM3k10=as.matrix(rawMatrix[top3k,seq(1,10455)*10])
 saveRDS(rawM3k10,"../Data_PRJNA434002/rawM3k10.rds")
 write.table(rawM3k10,"../Data_PRJNA434002/rawM3k10.csv",sep=",")
-
-
-rawM_zero_rate=apply(rawMatrix==0,1,function(x){return(sum(x)/length(x))})
-o_zero_rate=order(rawM_zero_rate)
 
 rawM5k=as.matrix(rawMatrix[o_zero_rate[1:5000],])
 rawM5k[1:10,1:10]
@@ -146,12 +144,12 @@ date()
 summary(sizeFactors(sce))
 sce = normalize(sce)
 
-#saveRDS(sce,"../Data_PRJNA434002/rawMnorm.rds")
+saveRDS(sce,"../Data_PRJNA434002/rawMnorm.rds")
 sce=readRDS("../Data_PRJNA434002/rawMnorm.rds")
 
 #writeout
 top5k=as.numeric(o_zero_rate[1:5000])
-sce2=counts(sce)[top5k,]
+sce2=logcounts(sce)[top5k,]
 dim(sce2)
 sce2[1:10,1:10]
 rawMnorm5k=as.matrix(sce2)
@@ -162,7 +160,7 @@ write.table(rawMnorm5k,"../Data_PRJNA434002/rawMnorm5k.csv",sep=",")
 
 
 top3k=as.numeric(o_zero_rate[1:3000])
-sce2=counts(sce)[top3k,]
+sce2=logcounts(sce)[top3k,]
 dim(sce2)
 sce2[1:10,1:10]
 rawMnorm3k10=as.matrix(sce2)
@@ -176,7 +174,7 @@ write.table(rawMnorm3k10,"../Data_PRJNA434002/rawMnorm3k10.csv",sep=",")
 
 
 top1k=as.numeric(o_zero_rate[1:1000])
-sce2=counts(sce)[top1k,]
+sce2=logcounts(sce)[top1k,]
 dim(sce2)
 sce2[1:10,1:10]
 rawMnorm1k=as.matrix(sce2)

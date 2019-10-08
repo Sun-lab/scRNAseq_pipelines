@@ -10,18 +10,20 @@
 #setwd("/Users/mzhang24/Desktop/fh/1.Testing_scRNAseq/")
 setwd("/fh/fast/sun_w/mengqi/1.Testing_scRNAseq/")
 
+file_name="rawMnorm3k10"
+
 meta=readRDS("../Data_PRJNA434002/meta10.rds")
-exprM=readRDS("../Data_PRJNA434002/exprMatrix3k10.rds")
+inputM=readRDS(paste0("../Data_PRJNA434002/",file_name,".rds"))
 cur_cluster=as.character(unique(meta$cluster)[cluster_tag])
-exprM=as.matrix(exprM[,meta$cluster==cur_cluster])
+inputM=as.matrix(inputM[,meta$cluster==cur_cluster])
 meta=meta[meta$cluster==cur_cluster,]
 
 
-dim(exprM)
-exprM[1:10,1:10]
-cell_list=colnames(exprM)
-gene_list=rownames(exprM)
-rownames(exprM)=gene_list
+dim(inputM)
+inputM[1:10,1:10]
+cell_list=colnames(inputM)
+gene_list=rownames(inputM)
+rownames(inputM)=gene_list
 
 library("MAST")
 library("lme4")
@@ -33,8 +35,8 @@ colnames(meta)
 length(fData)
 length(cData)
 
-sca=FromMatrix(exprM, cData, fData)
-colData(sca)$cngeneson = as.numeric((colSums(exprM > 0))/nrow(exprM)) #from Chong and Paul
+sca=FromMatrix(inputM, cData, fData)
+colData(sca)$cngeneson = as.numeric((colSums(inputM > 0))/nrow(inputM)) #from Chong and Paul
 colData(sca)$diagnosis = meta$diagnosis
 colData(sca)$ind = as.factor(meta$individual)
 colData(sca)$age = as.numeric(meta$age)
@@ -65,8 +67,13 @@ if(perm_tag>0){
 
 b=zlm(formula=~diagnosis + ( 1 | ind ) + cngeneson + age + sex + RIN + PMI + region + Capbatch + Seqbatch 
       + ribo_perc, sca=sca, method = "glmer", ebayes = F, silent=T)
-saveRDS(b, paste0("../Data_PRJNA434002/zlm_3k10_",cluster_tag,"_",perm_tag,".rds"))
+saveRDS(b, paste0("../Data_PRJNA434002/zlm_",file_name,"_",cluster_tag,"_",perm_tag,".rds"))
 bs=summary(b,logFC=TRUE,doLRT = paste0("diagnosis","Control"), level = 0.95)
-saveRDS(bs, paste0("../Data_PRJNA434002/zlms_3k10_",cluster_tag,"_",perm_tag,".rds"))
+saveRDS(bs, paste0("../Data_PRJNA434002/zlms_",file_name,"_",cluster_tag,"_",perm_tag,".rds"))
 
 bs$datatable
+
+sessionInfo()
+q(save="no")
+
+

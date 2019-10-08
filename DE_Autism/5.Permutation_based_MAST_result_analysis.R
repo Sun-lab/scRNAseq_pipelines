@@ -1,21 +1,22 @@
 #this code analysis the fit result based on the observation and permutation
 set.seed(3826)
 #something from the header file
-cluster_tag=6 #this tag indicate the clusters it can be choose in 1 to 17
+cluster_tag=1 #this tag indicate the clusters it can be choose in 1 to 17
 library("moments")
 #setwd("~/Desktop/fh/1.Testing_scRNAseq/")
 setwd("/Users/mzhang24/Desktop/fh/1.Testing_scRNAseq/")
 #setwd("/fh/fast/sun_w/mengqi/1.Testing_scRNAseq/")
+file_tag="rawMnorm3k10"
 perm_num=100
 
-fit_ob=readRDS(paste0("../Data_PRJNA434002/res_zlm/zlms_3k10_",cluster_tag,"_0.rds"))$datatable
+fit_ob=readRDS(paste0("../Data_PRJNA434002/zlm_output/zlms_",file_tag,"_",cluster_tag,"_0.rds"))$datatable
 fit_ob=fit_ob[fit_ob$contrast=="diagnosisControl",c("component","primerid","Pr(>Chisq)")]
 
 
 fit_perm=matrix(ncol=perm_num,nrow=nrow(fit_ob))
 for(ip in 1:perm_num){
-  if(file.exists(paste0("../Data_PRJNA434002/res_zlm/zlms_3k10_",cluster_tag,"_",ip,".rds"))){
-    cur_fit=readRDS(paste0("../Data_PRJNA434002/res_zlm/zlms_3k10_",cluster_tag,"_",ip,".rds"))$datatable
+  if(file.exists(paste0("../Data_PRJNA434002/zlm_output/zlms_",file_tag,"_",cluster_tag,"_",ip,".rds"))){
+    cur_fit=readRDS(paste0("../Data_PRJNA434002/zlm_output/zlms_",file_tag,"_",cluster_tag,"_",ip,".rds"))$datatable
     cur_fit=c(cur_fit[cur_fit$contrast=="diagnosisControl","Pr(>Chisq)"])
     fit_perm[,ip]=cur_fit
   }
@@ -49,7 +50,7 @@ dev.off()
 #     Are they also all equals 1?
 
 meta=readRDS("../Data_PRJNA434002/meta10.rds")
-exprM=readRDS("../Data_PRJNA434002/exprMatrix3k10.rds")
+exprM=readRDS(paste0("../Data_PRJNA434002/",file_tag,".rds"))
 cur_cluster=as.character(unique(meta$cluster)[cluster_tag])
 exprM=as.matrix(exprM[,meta$cluster==cur_cluster])
 meta=meta[meta$cluster==cur_cluster,]
