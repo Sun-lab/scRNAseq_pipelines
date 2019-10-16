@@ -3,12 +3,12 @@
 #Data_PRJNA434002
 
 #something from the header file
-#cluster_tag=2 #this tag indicate the clusters it can be choose in 1 to 17
+#cluster_tag=1 #this tag indicate the clusters it can be choose in 1 to 17
 #perm_tag=0    #this tage indicate the permutation tags, 0 means no permutation, otherwise, permutation id
 
-#setwd("~/Desktop/fh/1.Testing_scRNAseq/")
+setwd("~/Desktop/fh/1.Testing_scRNAseq/")
 #setwd("/Users/mzhang24/Desktop/fh/1.Testing_scRNAseq/")
-setwd("/fh/fast/sun_w/mengqi/1.Testing_scRNAseq/")
+#setwd("/fh/fast/sun_w/mengqi/1.Testing_scRNAseq/")
 
 file_name="rawMnorm3k10"
 
@@ -23,7 +23,7 @@ dim(inputM)
 inputM[1:10,1:10]
 cell_list=colnames(inputM)
 gene_list=rownames(inputM)
-rownames(inputM)=gene_list
+
 
 library("MAST")
 library("lme4")
