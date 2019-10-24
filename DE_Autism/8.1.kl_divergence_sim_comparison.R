@@ -1,18 +1,46 @@
 #this code construct some distance measures between 2 vectors (no integer needed, no same length needed)
-
+# 
 # We will do simulations on the following situation to see if our method is robust.
-# (1). Same variants, different mean
+# (1)Same variants, different mean
 # Expectation: longer distance between means, larger kl divergence
-# (2). Same mean, different variant
+# 
+# #conclusion: distance longer, no distinguish 
+# #conclusion: distance equal provide more distinguish resuls.
+# 
+# (2)fix mean, different variant
 # Expectation: longer distance between variance, larger kl divergence
-# (3). Discrete vs continuous data patterns.
+# 
+# #conclusion: It works to detect the difference of variances
+# #It distinguish some complex situations when mu and sd are all differences as general concepts of human being.
+# 
+# (3)Discrete vs continuous data patterns.
 # Expectation: robust to it.
-# (4). Sample number differences
+# 
+# #smaller n_bin, better controller for larger devider.
+# #Generally, Thus this influence can be regarded as robust.
+# #distance equal performs better
+# 
+# (4)Sample size differences
 # Expectation: robust to it.
-# (5). Bin lengths
+# 
+# #conclusion: bigger sample size, better estimation,no huge influence in relative size differences.
+# #generally robust
+# #conclusion: distance quantile provide more distinguish resuls.
+# 
+# 
+# (5)Bin lengths
 # Expectation: robust to it.
-# (6). Outliers
+# 
+# #generally it can be controlled when the bin number are small. 
+# #the bin number are recommended no bigger than 10% of the sample number
+# #distance quantile works slightly robuster than distance equal, but mostly they performs equal
+# 
+# (6)Outliers and alt proportions
 # Expectation: robust to it.
+# #conclusion: unfortunately, this method is not very sensitive to the mixture situations.
+# #even if 50% of the points from another distinct distribution, the distance value is not very huge.
+# #its reasonable since the mixture situation means at least half of the points from the same distribution.
+
 
 
 #setwd("~/Desktop/fh/1.Testing_scRNAseq/")
@@ -20,47 +48,7 @@ setwd("/Users/mzhang24/Desktop/fh/1.Testing_scRNAseq/")
 #setwd("/fh/fast/sun_w/mengqi/1.Testing_scRNAseq/")
 
 ############functions #####################################
-
-
-makeBins=function(xx,numbin=10,breakmethod="equal"){ #breakmethod=c("equal","quantile")
-  min_xx=min(xx[!is.infinite(xx)& !is.na(xx)])
-  max_xx=max(xx[!is.infinite(xx)& !is.na(xx)])
-  if(breakmethod=="equal"){
-    rangepoint=c(min_xx,(1:(numbin-1))/numbin *max_xx,max_xx)
-  }
-  if(breakmethod=="quantile"){
-    rangepoint=c(min_xx,quantile(xx,probs=c(1:(numbin-1))/numbin),max_xx)
-  }
-  return(rangepoint)
-}
-
-calcBinCounts = function(x,y,nbin=10,rangepoint=NA,bmethod="equal"){
-  if(is.na(rangepoint)){
-    rangepoint=makeBins(c(x,y),numbin=nbin,breakmethod = bmethod)
-  }
-  xhist=hist(x,breaks=rangepoint,plot=F)
-  yhist=hist(y,breaks=rangepoint,plot=F)
-  res=list(count_x=xhist$count,count_y=yhist$count)
-  return(res)
-}
-
-
-calc_KL = function(px,qx){
-  -sum(px * log(qx/px))
-}
-
-
-mean_KL=function(x,y,nbins=10,rangep=NA,bmeth="equal"){
-  res=calcBinCounts(x,y,nbin=nbins,rangepoint=rangep,bmethod=bmeth)
-  px=res$count_x+1
-  qx=res$count_y+1
-  px=px/sum(px)
-  qx=qx/sum(qx)
-  return((calc_KL(px,qx)+calc_KL(qx,px))/2)
-}
-
-#mean_KL(a1,a2,nbins=20,bmeth="equal")
-
+source("./Command/8.0_kl_divergence_functions.R")
 
 ##############Simulation for testing#############################
 # We will do simulations on the following situation to see if our method is robust.
@@ -194,7 +182,8 @@ alt_num_seq=c(1,2,5,10,100,200,500,800,1000)
 
 distance1=matrix(ncol=1,nrow=length(alt_num_seq))
 distance2=matrix(ncol=1,nrow=length(alt_num_seq))
-
+distance3=matrix(ncol=1,nrow=length(alt_num_seq))
+distance4=matrix(ncol=1,nrow=length(alt_num_seq))
 for(mu in c(1,3,5,10,100)){
   for(i_alt in 1:length(alt_num_seq)){
     alt_num=alt_num_seq[i_alt]
@@ -202,16 +191,25 @@ for(mu in c(1,3,5,10,100)){
     a2[1:alt_num]=rnorm(alt_num,mu,1)
     distance1[i_alt]=mean_KL(a1,a2,bmeth="equal",nbins=n_bin)
     distance2[i_alt]=mean_KL(a1,a2,bmeth="quantile",nbins=n_bin)
+    a2[1:max(round(alt_num/2),1)]=rnorm(max(round(alt_num/2),1),-mu,1)
+    distance3[i_alt]=mean_KL(a1,a2,bmeth="equal",nbins=n_bin)
+    distance4[i_alt]=mean_KL(a1,a2,bmeth="quantile",nbins=n_bin)
+
   }
-  plot(alt_num_seq,distance1,pch=4,xlab="alt number",ylab="distance equal",main="Outliers and alt proportions",sub=paste0("norm KLdis,n=",n,",mu=0 vs ",mu,",sd=1"))
-  plot(alt_num_seq,distance2,pch=4,xlab="alt number",ylab="distance quantile",main="Outliers and alt proportions",sub=paste0("norm KLdis,n=",n,",mu=0 vs ",mu,",sd=1"))
+  plot(alt_num_seq,distance1,pch=4,xlab="alt number",ylab="distance equal",main="Outliers and alt proportions, single-side",sub=paste0("norm KLdis,n=",n,",mu=0 vs ",mu,",sd=1"))
+  plot(alt_num_seq,distance2,pch=4,xlab="alt number",ylab="distance quantile",main="Outliers and alt proportions, single-side",sub=paste0("norm KLdis,n=",n,",mu=0 vs ",mu,",sd=1"))
+  plot(alt_num_seq,distance1,pch=4,xlab="alt number",ylab="distance equal",main="Outliers and alt proportions, two-side",sub=paste0("norm KLdis,n=",n,",mu=0 vs ",mu,",sd=1"))
+  plot(alt_num_seq,distance2,pch=4,xlab="alt number",ylab="distance quantile",main="Outliers and alt proportions, two-side",sub=paste0("norm KLdis,n=",n,",mu=0 vs ",mu,",sd=1"))
 }
 
 dev.off()
+
 #conclusion: unfortunately, this method is not very sensitive to the mixture situations.
 #even if 50% of the points from another distinct distribution, the distance value is not very huge.
 #its reasonable since the mixture situation means at least half of the points from the same distribution.
+#the double side alternative situation performs similar to the single side alternative
 
-
+sessionInfo()
+q(save="no")
 
 
