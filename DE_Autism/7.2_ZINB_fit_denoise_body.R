@@ -11,7 +11,7 @@ library("emdbook")
 #pre_tag="dca" #c("dca","scvi")
 
 sim_n=10
-covariate_flag="quantile99" #c(NA, "quantile99")
+covariate_flag=NA #c(NA, "quantile99")
 
 #setwd("~/Desktop/fh/1.Testing_scRNAseq/")
 #setwd("/Users/mzhang24/Desktop/fh/1.Testing_scRNAseq/")
@@ -40,6 +40,17 @@ if(!is.na(unlist(strsplit(file_tag,"k"))[2])){
   tmeta=readRDS(paste0("../Data_PRJNA434002/meta",unlist(strsplit(file_tag,"k"))[2],".rds"))
 }
 
+
+
+
+#adjust t_mean with total read depth per 1000 counts.
+read_depth=readRDS(paste0("../Data_PRJNA434002/rawM_read_depth_per_1Kcell_ind.rds"))
+read_depth_median=median(read_depth)
+individual_index=match(tmeta$individual,rownames(read_depth))
+
+read_depth_weight=read_depth_median/read_depth[individual_index]
+t_mean=t(t(t_mean)*read_depth_weight)
+
 ##########data processing############
 #1. restrict the cluster
 cur_cluster=as.character(unique(tmeta$cluster)[cluster_tag])
@@ -50,7 +61,7 @@ sub_dropout=as.matrix(t_dropout[,tmeta$cluster==cur_cluster])
 
 meta=tmeta[tmeta$cluster==cur_cluster,]
 
-#2.generate idividual label
+#2. generate idividual label
 cur_individual=unique(meta$individual)
 
 #3. fit simulated samples
@@ -58,13 +69,16 @@ cur_individual=unique(meta$individual)
 fit_ind_sub_sim=array(dim=c(nrow(sub_mean),length(cur_individual),3),
                       dimnames = list(rownames(sub_mean),cur_individual,c("logmean","dispersion","dropout_rate")))
 
+sim_ind=array(dim=c(nrow(sub_mean),nrow(sub_mean),sim_n),
+                      dimnames = list(rownames(sub_mean),colnames(sub_mean),1:sim_n))
+
 if(!is.na(covariate_flag)){
   quantile99=log(apply(sub_mean,2,function(x)return(quantile(x,0.99)+1)))
   covariate=as.matrix(quantile99)
-  pdf(paste0("../Data_PRJNA434002/hist_",covariate_flag,"_",pre_tag,"_sim_",cluster_tag,"_",file_tag,".pdf"),height = 4,width = 6)
+  pdf(paste0("../Data_PRJNA434002/7.Result/hist_",covariate_flag,"_",pre_tag,"_sim_",cluster_tag,"_",file_tag,".pdf"),height = 4,width = 6)
 }
 if(is.na(covariate_flag)){
-  pdf(paste0("../Data_PRJNA434002/hist_",pre_tag,"_sim_",cluster_tag,"_",file_tag,".pdf"),height = 4,width = 6)
+  pdf(paste0("../Data_PRJNA434002/7.Result/hist_",pre_tag,"_sim_",cluster_tag,"_",file_tag,".pdf"),height = 4,width = 6)
 }
 
 for(i_g in 1:nrow(sub_mean)){
@@ -72,6 +86,7 @@ for(i_g in 1:nrow(sub_mean)){
   for(i_s in 1:ncol(sub_mean)){
     cur_sim[i_s,]=emdbook::rzinbinom(sim_n,sub_mean[i_g,i_s], sub_dispersion[i_g,i_s], sub_dropout[i_g,i_s])
   }
+  sim_ind[i_g,,]=cur_sim
   for(i_ind in 1:length(cur_individual)){
     cur_ind=cur_individual[i_ind]
 
@@ -100,10 +115,12 @@ for(i_g in 1:nrow(sub_mean)){
 dev.off()
 
 if(!is.na(covariate_flag)){
-  saveRDS(fit_ind_sub_sim,paste0("../Data_PRJNA434002/fit_ind_",covariate_flag,"_",pre_tag,"_sim_",cluster_tag,"_",file_tag,".rds"))
+  saveRDS(fit_ind_sub_sim,paste0("../Data_PRJNA434002/7.Result/fit_ind_",covariate_flag,"_",pre_tag,"_sim_",cluster_tag,"_",file_tag,".rds"))
+  saveRDS(sim_ind,paste0("../Data_PRJNA434002/7.Result/sim_ind_",covariate_flag,"_",pre_tag,"_sim_",cluster_tag,"_",file_tag,".rds"))
 }
 if(is.na(covariate_flag)){
-  saveRDS(fit_ind_sub_sim,paste0("../Data_PRJNA434002/fit_ind_",pre_tag,"_sim_",cluster_tag,"_",file_tag,".rds"))
+  saveRDS(fit_ind_sub_sim,paste0("../Data_PRJNA434002/7.Result/fit_ind_",pre_tag,"_sim_",cluster_tag,"_",file_tag,".rds"))
+  saveRDS(sim_ind,paste0("../Data_PRJNA434002/7.Result/sim_ind_",pre_tag,"_sim_",cluster_tag,"_",file_tag,".rds"))
 }
 
 
