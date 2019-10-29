@@ -147,7 +147,7 @@ percell_CDR=matrix(ncol=1,nrow=ncol(rawM))
 percell_gene_expressed_count_total=matrix(ncol=1,nrow=ncol(rawM))
 percell_gene_expressed_90perc=matrix(ncol=1,nrow=ncol(rawM))
 percell_gene_expressed_99perc=matrix(ncol=1,nrow=ncol(rawM))
-  
+
 for(i in 1:floor(ncol(rawM)/1000)){
   cur_count=rawM[,((i-1)*1000+1):(i*1000)]
   cur_count=apply(cur_count,2,as.numeric)
@@ -171,7 +171,7 @@ cell_features=cbind(percell_gene_expressed_num,percell_CDR,percell_gene_expresse
                     percell_gene_expressed_90perc,percell_gene_expressed_99perc)
 rownames(cell_features)=colnames(rawM)
 colnames(cell_features)=c("percell_gene_expressed_num","percell_CDR","percell_gene_expressed_count_total",
-                              "percell_gene_expressed_90perc","percell_gene_expressed_99perc")
+                          "percell_gene_expressed_90perc","percell_gene_expressed_99perc")
 
 saveRDS(cell_features,"../Data_PRJNA434002/rawM_percell_features.rds")
 cell_features=readRDS("../Data_PRJNA434002/rawM_percell_features.rds")
@@ -179,9 +179,9 @@ cell_features=readRDS("../Data_PRJNA434002/rawM_percell_features.rds")
 #load cell cluster for 31 individuals
 
 cust_col=c("#FEE391","#67001F","#F7FCB9","#88419D","#CC4C02","#A6BDDB","#EF6548","#BFD3E6",
-"#7F2704","#DF65B0","#F16913","#74A9CF","#1D91C0","#8C6BB1","#9E9AC8","#FDAE6B",
-"#238B45","#CE1256","#000000","#810F7C","#D94801","#FE9929","#F768A1","#7FCDBB",
-"#41AB5D","#66C2A4","#7F0000","#E0ECF4","#FB6A4A","#662506","#00441B")
+           "#7F2704","#DF65B0","#F16913","#74A9CF","#1D91C0","#8C6BB1","#9E9AC8","#FDAE6B",
+           "#238B45","#CE1256","#000000","#810F7C","#D94801","#FE9929","#F768A1","#7FCDBB",
+           "#41AB5D","#66C2A4","#7F0000","#E0ECF4","#FB6A4A","#662506","#00441B")
 
 pdf("../Data_PRJNA434002/2.histogram_rawMatrix_cell_features_stat.pdf")
 pairs(cell_features[,2:5], main = "Cell features comparison",

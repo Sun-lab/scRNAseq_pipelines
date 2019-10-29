@@ -69,7 +69,7 @@ cur_individual=unique(meta$individual)
 fit_ind_sub_sim=array(dim=c(nrow(sub_mean),length(cur_individual),3),
                       dimnames = list(rownames(sub_mean),cur_individual,c("logmean","dispersion","dropout_rate")))
 
-sim_ind=array(dim=c(nrow(sub_mean),nrow(sub_mean),sim_n),
+sim_ind=array(dim=c(nrow(sub_mean),ncol(sub_mean),sim_n),
                       dimnames = list(rownames(sub_mean),colnames(sub_mean),1:sim_n))
 
 if(!is.na(covariate_flag)){
