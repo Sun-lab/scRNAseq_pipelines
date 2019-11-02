@@ -3,12 +3,11 @@
 #step1: simulate 10 samples based on the parameters of distributions on each cell each gene.(7.2 did)
 #step2: compare the distribution with the original cells of certain type,certain individual
 
-library("ggplot2")
 library("emdbook")
 
 #cluster_tag=1
-file_tag="3k10"
-pre_tag="scvi" #c("dca","scvi")
+file_tag="5k"
+pre_tag="dca" #c("dca","scvi")
 
 sim_n=10
 covariate_flag=NA #c(NA, "quantile99")
@@ -79,11 +78,11 @@ for(cluster_tag in 1:17){
       #cal sim count
       cur_ind_sim_m=sim_data[,which(meta$individual==cur_ind),, drop=FALSE]
       sim_zero_rate_ind[,i_ind]=apply(cur_ind_sim_m==0,1,function(x){return(sum(as.numeric(x),na.rm = TRUE))})/(dim(sim_data)[3]*sum(meta$individual==cur_ind))
-      plot(ob_zero_rate_ind[,i_ind],sim_zero_rate_ind[,i_ind],cex=.5,main=paste0("zero_rate of individuals ",cur_ind,", ",file_tag))
+      plot(sort(ob_zero_rate_ind[,i_ind]),sort(sim_zero_rate_ind[,i_ind]),cex=.5,main=paste0("QQplot: zero_rate of individuals ",cur_ind,", ",file_tag))
       lines(c(0,1),c(0,1),col="red")
     }
     
-    plot(ob_zero_rate_ind,sim_zero_rate_ind,cex=.5,main=paste0("zero_rate of all individuals, ",file_tag))
+    plot(sort(ob_zero_rate_ind),sort(sim_zero_rate_ind),cex=.5,main=paste0("QQplot:zero_rate of all individuals, ",file_tag))
     lines(c(0,1),c(0,1),col="red")
     
     dev.off()
