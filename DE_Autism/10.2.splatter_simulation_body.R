@@ -80,12 +80,11 @@
 
 ##### Start simulation from here #############
 
-setwd("~/Desktop/fh/1.Testing_scRNAseq/")
-#setwd("/Users/mzhang24/Desktop/fh/1.Testing_scRNAseq/")
+#setwd("~/Desktop/fh/1.Testing_scRNAseq/")
+setwd("/Users/mzhang24/Desktop/fh/1.Testing_scRNAseq/")
 #setwd("/fh/fast/sun_w/mengqi/1.Testing_scRNAseq/")
 
-#functions##########
-source("./Command/7.0_ZINB_fit_functions.R")
+
 
 
 library("splatter")
@@ -103,6 +102,11 @@ file_tag=1
 covariate_flag=NA
 
 ##############functions#################
+
+source("./Command/7.0_ZINB_fit_functions.R")
+source("./Command/8.0_kl_divergence_functions.R")
+source("./Command/9.0_Fstat_functions.R")
+
 ####this function returns the parameters for changing mean and variance of the gamma-poission distribution
 # meanCase: a'b'=r_m*ab and (1+a')a'b'=(1+a)ab
 #(1+a')r_m*ab=(1+a)ab
@@ -221,6 +225,8 @@ sim_matrix=as.matrix(rbind(cbind(counts(sim_meanCase),counts(sim_meanCtrl)),
 rownames(sim_matrix)=gene_id
 colnames(sim_matrix)=cell_id
 
+
+######################Some basic stat (OPTIONS) ##############################
 cellsum=apply(sim_matrix,2,sum)
 genesum=apply(sim_matrix,1,sum)
 CDR=apply(sim_matrix>0,2,sum)/nrow(sim_matrix)
@@ -231,10 +237,7 @@ for(i in 501:510){
   hist(sim_matrix[i,2001:2100])
 }
 
-
-#start to calculation:
-
-
+#individual level info
 cur_individual=unique(meta$individual)
 cell_num=matrix(ncol=1,nrow=length(cur_individual))
 rownames(cell_num)=cur_individual
@@ -245,6 +248,9 @@ colnames(read_depth)="read_depth"
 zero_rate_ind=matrix(nrow=nrow(sim_matrix),ncol=length(cur_individual))
 rownames(zero_rate_ind)=rownames(sim_matrix)
 colnames(zero_rate_ind)=cur_individual
+phenotype_ind=matrix(nrow=nrow(sim_matrix),ncol=length(cur_individual))
+rownames(zero_rate_ind)=rownames(sim_matrix)
+colnames(zero_rate_ind)=cur_individual
 
 for(i_ind in 1:length(cur_individual)){
   cur_ind=cur_individual[i_ind]
@@ -253,6 +259,7 @@ for(i_ind in 1:length(cur_individual)){
   cell_num[i_ind]=ncol(cur_ind_m)
   read_depth[i_ind]=sum(cur_ind_m,na.rm = TRUE)/cell_num[i_ind]*1000
   zero_rate_ind[,i_ind]=apply(cur_ind_m==0,1,function(x){return(sum(x,na.rm = TRUE))})/cell_num[i_ind]
+  phenotype_ind[i_ind]=meta$phenotype[meta$individual==cur_ind][1]
 }
 
 hist(read_depth)
@@ -261,7 +268,7 @@ hist(read_depth)
 
 
 
-#fit sim data by individual
+##########################fit sim data by individual: Refer section 7 ############################
 if(!is.na(covariate_flag)){
   #logsum_count=log(apply(sim_matrix,2,sum))
   quantile99=log(apply(sim_matrix,2,function(x)return(quantile(x,0.99)+1)))
@@ -292,7 +299,7 @@ for(i_g in 1:nrow(sim_matrix)){
       cur_org_ind=data.frame(cur_org_ind)
       colnames(cur_org_ind)="raw_count"
       ggplot(cur_org_ind, aes(x=raw_count),stat="count") + geom_histogram(fill="lightblue")+
-        labs(title=paste0("Histogram of rawcount, ",rownames(sim_matrix)[i_g]," of ",cur_ind,", ",cur_cluster),x="Count", y = "Frequency")
+        labs(title=paste0("Histogram of rawcount, ",rownames(sim_matrix)[i_g]," of ",cur_ind),x="Count", y = "Frequency")
       #+theme_classic()
     }
     
@@ -302,12 +309,106 @@ for(i_g in 1:nrow(sim_matrix)){
 dev.off()
 
 
+###################JSD and KL calculation: Refer section 8 #######################
+###################calculation t#################################
+print("start calculation: Part I: Empirical KLmean and JSD")
+
+klmean_empirical_array=array(dim=c(nrow(sim_matrix),length(cur_individual),length(cur_individual)),
+                             dimnames = list(rownames(sim_matrix),cur_individual,cur_individual))
+jsd_empirical_array=array(dim=c(nrow(sim_matrix),length(cur_individual),length(cur_individual)),
+                          dimnames = list(rownames(sim_matrix),cur_individual,cur_individual))
+
+for(i_g in 1:nrow(sim_matrix)){
+  cur_sim=sim_matrix[i_g,]
+  for(i_ind_a in 1:length(cur_individual)){
+    for(i_ind_b in 1:length(cur_individual)){
+      cur_ind_a=cur_individual[i_ind_a]
+      cur_ind_b=cur_individual[i_ind_b]
+      #fit sim
+      cur_sim_ind_a=as.numeric(cur_sim[meta$individual==cur_ind_a])
+      cur_sim_ind_b=as.numeric(cur_sim[meta$individual==cur_ind_b])
+      
+      klmean_empirical_array[i_g,i_ind_a,i_ind_b]=tryCatch(mean_KL_dens(cur_sim_ind_a,cur_sim_ind_b,alter="mean",fit_model="empirical"), error = function(e) {NA} )
+      jsd_empirical_array[i_g,i_ind_a,i_ind_b]=tryCatch(mean_KL_dens(cur_sim_ind_a,cur_sim_ind_b,alter="JSD",fit_model="empirical"), error = function(e) {NA} )
+    }
+  }
+  print(i_g)
+}
+
+
+klmean_empirical_array2=array(dim=c(nrow(sim_matrix),length(cur_individual),length(cur_individual)),
+                             dimnames = list(rownames(sim_matrix),cur_individual,cur_individual))
+jsd_empirical_array2=array(dim=c(nrow(sim_matrix),length(cur_individual),length(cur_individual)),
+                          dimnames = list(rownames(sim_matrix),cur_individual,cur_individual))
+for(i_ind_a in 1:length(cur_individual)){
+  for(i_ind_b in 1:length(cur_individual)){
+    cur_ind_a=cur_individual[i_ind_a]
+    cur_ind_b=cur_individual[i_ind_b]
+    #fit sim
+    klmean_empirical_array2[,i_ind_a,i_ind_b]=apply(sim_matrix,1,function(x){
+      tryCatch(mean_KL_dens(as.numeric(x[meta$individual==cur_ind_a]),as.numeric(x[meta$individual==cur_ind_b]),alter="mean",fit_model="empirical"), error = function(e) {NA} )
+    })
+    jsd_empirical_array2[,i_ind_a,i_ind_b]=apply(sim_matrix,1,function(x){
+      tryCatch(mean_KL_dens(as.numeric(x[meta$individual==cur_ind_a]),as.numeric(x[meta$individual==cur_ind_b]),alter="JSD",fit_model="empirical"), error = function(e) {NA} )
+    })
+  }
+}
 
 
 
+print("start calculation: Part II: ZINB KLmean and JSD")
+
+klmean_nbzinb_array=array(dim=c(nrow(sim_fit),length(cur_individual),length(cur_individual)),
+                          dimnames = list(rownames(sim_fit),cur_individual,cur_individual))
+jsd_nbzinb_array=array(dim=c(nrow(sim_fit),length(cur_individual),length(cur_individual)),
+                       dimnames = list(rownames(sim_fit),cur_individual,cur_individual))
+
+sim_fit[,,1]=exp(sim_fit[,,1]) #change the log mean to mean!!!
+
+for(i_g in 1:nrow(sim_fit)){
+  cur_fit=sim_fit[i_g,,]
+  for(i_ind_a in 1:length(cur_individual)){
+    for(i_ind_b in 1:length(cur_individual)){
+      cur_a=cur_fit[i_ind_a,]
+      cur_b=cur_fit[i_ind_b,]
+      #kl and jsd
+      klmean_nbzinb_array[i_g,i_ind_a,i_ind_b]=tryCatch(mean_KL_dens(cur_a,cur_b,alter="mean",zinb.quantile=0.975,fit_model="zinb"), error = function(e) {NA} )
+      jsd_nbzinb_array[i_g,i_ind_a,i_ind_b]=tryCatch(mean_KL_dens(cur_a,cur_b,alter="JSD",zinb.quantile=0.975,fit_model="zinb"), error = function(e) {NA} )
+    }
+  }
+  print(i_g)
+}
 
 
+klmean_nbzinb_array2=array(dim=c(nrow(sim_fit),length(cur_individual),length(cur_individual)),
+                          dimnames = list(rownames(sim_fit),cur_individual,cur_individual))
+jsd_nbzinb_array2=array(dim=c(nrow(sim_fit),length(cur_individual),length(cur_individual)),
+                       dimnames = list(rownames(sim_fit),cur_individual,cur_individual))
+
+sim_fit[,,1]=exp(sim_fit[,,1]) #change the log mean to mean!!!
+
+for(i_ind_a in 1:length(cur_individual)){
+  for(i_ind_b in 1:length(cur_individual)){
+    #kl and jsd
+    klmean_nbzinb_array2[,i_ind_a,i_ind_b]=apply(sim_fit,1,function(x){
+      tryCatch(mean_KL_dens(x[i_ind_a,],x[i_ind_b,],alter="mean",zinb.quantile=0.975,fit_model="zinb"), error = function(e) {NA} )
+    })
+    jsd_nbzinb_array2[,i_ind_a,i_ind_b]=apply(sim_fit,1,function(x){
+      tryCatch(mean_KL_dens(x[i_ind_a,],x[i_ind_b,],alter="jsd",zinb.quantile=0.975,fit_model="zinb"), error = function(e) {NA} )
+    })  
+  }
+}
+
+###################Fstat calculation: Refer section 9 #######################
 
 
+#real data test
+
+klmean_nbzinb_pval=apply(klmean_nbzinb_array,1,function(x){return(cal_permanova_pval(x,phenotype_ind))})
+jsd_nbzinb_pval=apply(jsd_nbzinb_array,1,function(x){return(cal_permanova_pval(x,phenotype_ind))})
+klmean_empirical_pval=apply(klmean_nbzinb_array,1,function(x){return(cal_permanova_pval(x,phenotype_ind))})
+jsd_empirical_pval=apply(jsd_nbzinb_array,1,function(x){return(cal_permanova_pval(x,phenotype_ind))})
 
 
+######################Other method comparison #################################
+  

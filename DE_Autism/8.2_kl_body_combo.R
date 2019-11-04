@@ -69,7 +69,7 @@ for(i_g in 1:nrow(sim_data)){
   print(i_g)
 }
 
-print("start calculation: Part I: Empirical KLmean and JSD")
+print("start calculation: Part II: model fitted KLmean and JSD")
 
 klmean_nbzinb_array=array(dim=c(nrow(sim_fit),length(cur_individual),length(cur_individual)),
                              dimnames = list(rownames(sim_fit),cur_individual,cur_individual))
