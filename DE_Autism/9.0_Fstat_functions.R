@@ -8,7 +8,7 @@ calc_F_permanova=function(dist_matrix,label,covariate_x=NA){
   a=length(unique(label))
   n=length(label)
   
-  epsilon=matrix((rep(label,time=n)==rep(label,each=n)),ncol=n,nrow=n)
+  epsilon=matrix((rep(label,time=n)==rep(label,each=n)),ncol=n,nrow=n)+0
   d2=dist_matrix*dist_matrix
   sst=sum(d2/(2*n),na.rm = TRUE)
   ssw=sum((d2*epsilon)/(2*n),na.rm = TRUE)
@@ -95,10 +95,10 @@ calc_F_permanovaS=function(dist_matrix,label,covariate_x=NA,G_method=NA){ #G_met
 
 cal_permanova_pval=function(dist_matrix,diagnose,cov_x=NA,F_method="p",perm_num.min=500,perm_num.max=500000,tol=1){
   if(F_method=="p"){
-    cur_cal_F=calc_F_permanovaS
+    cur_cal_F=calc_F_permanova
   }
   if(F_method=="ps"){
-    cur_cal_F=calc_F_permanova
+    cur_cal_F=calc_F_permanovaS
   }
   n=length(diagnose)
   F_ob=cur_cal_F(dist_matrix,label=diagnose,covariate_x=cov_x)
@@ -109,7 +109,7 @@ cal_permanova_pval=function(dist_matrix,diagnose,cov_x=NA,F_method="p",perm_num.
     return(
       cur_cal_F(dist_matrix,covariate_x=cov_x,label=diagnose[sample.int(length(diagnose))])
            )})
-  pval=sum(F_perm>F_ob,na.rm = FALSE)/sum(!is.na(F_perm))
+  pval=sum(F_perm>F_ob,na.rm = TRUE)/sum(!is.na(F_perm))
   while(B<=perm_num.max){
     if(pval>=1/(tol*B)){
       return(pval)
@@ -119,7 +119,7 @@ cal_permanova_pval=function(dist_matrix,diagnose,cov_x=NA,F_method="p",perm_num.
       F_perm=t(matrix(ncol=1,nrow=B))
       F_perm=apply(F_perm,2,function(x){
         return(cur_cal_F(dist_matrix,covariate_x=cov_x,label=diagnose[sample.int(length(diagnose))]))})
-      pval=sum(F_perm>F_ob,na.rm = FALSE)/sum(!is.na(F_perm))
+      pval=sum(F_perm>F_ob,na.rm = TRUE)/sum(!is.na(F_perm))
     }
   }
   return(pval)
