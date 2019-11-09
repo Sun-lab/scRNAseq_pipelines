@@ -17,6 +17,19 @@ calc_F_permanova=function(dist_matrix,label,covariate_x=NA){
   return(Fstat)
 }
 
+calc_F_permanova2=function(dist_array,label,covariate_x=NA){
+  label=as.numeric(label)
+  a=length(unique(label))
+  n=length(label)
+  
+  epsilon=matrix((rep(label,time=n)==rep(label,each=n)),ncol=n,nrow=n)+0
+  d2=dist_array*dist_array/(2*n)
+  sst=apply(d2,1,function(x){sum(x,na.rm = TRUE)})
+  ssw=apply(d2,1,function(x){sum(x*epsilon,na.rm = TRUE)})
+  Fstat=((sst-ssw)*(n-a))/(ssw*(a-1))
+  return(Fstat)
+}
+
 #cal F version 2############
 #almost no difference in cal speed between cal1 and cal2, for possible better numerical resuls(no evidence, by feeling), we may prefer cal1.
 calG_1=function(m){
@@ -93,7 +106,7 @@ calc_F_permanovaS=function(dist_matrix,label,covariate_x=NA,G_method=NA){ #G_met
 #diagnose=rbinom(10,1,.5)
 #dist_matrix=matrix(rnorm(100),10,10)
 
-cal_permanova_pval=function(dist_matrix,diagnose,cov_x=NA,F_method="p",perm_num.min=500,perm_num.max=500000,tol=1){
+cal_permanova_pval=function(dist_matrix,diagnose,cov_x=NA,F_method="p",perm_num.min=500,perm_num.max=500000,tol=0.2){
   if(F_method=="p"){
     cur_cal_F=calc_F_permanova
   }
@@ -124,6 +137,48 @@ cal_permanova_pval=function(dist_matrix,diagnose,cov_x=NA,F_method="p",perm_num.
   }
   return(pval)
 }
+
+cal_permanova_pval2=function(dist_array,diagnose,cov_x=NA,F_method="p",perm_num.min=500,perm_num.max=500000,tol=0.2){
+  if(F_method=="p"){
+    cur_cal_F=calc_F_permanova2
+  }
+  if(F_method=="ps"){
+    cur_cal_F=calc_F_permanovaS2
+  }
+  n=length(diagnose)
+  F_ob=cur_cal_F(dist_array,label=diagnose,covariate_x=cov_x)
+  
+  B=perm_num.min
+  F_perm=t(matrix(ncol=1,nrow=B))
+  F_perm=apply(F_perm,2,function(x){
+    return(
+      cur_cal_F(dist_array,covariate_x=cov_x,label=diagnose[sample.int(length(diagnose))])
+    )})
+  F_perm=apply(F_perm,2,function(x){return(x-F_ob)})
+  pval=apply(F_perm>=0,1,function(x){return(sum(x,na.rm = TRUE)/sum(!is.na(x)))})
+  pval0_flag=(pval<1/(tol*B))
+  while(B<=perm_num.max){
+    if(sum(pval0_flag,na.rm = TRUE)==0){
+      return(pval)
+    }
+    else{
+      B=B*10
+      cur_dist_array=dist_array[which(pval0_flag),,,drop=FALSE]
+      cur_F_ob=F_ob[pval0_flag]
+      F_perm=t(matrix(ncol=B,nrow=1))
+      F_perm=as.matrix(apply(F_perm,1,function(x){
+        return(cur_cal_F(cur_dist_array,covariate_x=cov_x,label=diagnose[sample.int(length(diagnose))]))}))
+      F_perm=t(as.matrix(apply(F_perm,1,function(x){return(x-cur_F_ob)})))
+      
+      cur_pval=apply(F_perm>0,1,function(x){return(sum(x,na.rm = TRUE)/sum(!is.na(x)))})
+      
+      pval[which(pval0_flag)]=cur_pval
+      pval0_flag=(pval<1/(tol*B))
+    }
+  }
+  return(pval)
+}
+
 
 #real data test
 #res=matrix(ncol=1,nrow=1000)

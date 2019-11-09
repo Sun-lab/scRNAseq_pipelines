@@ -10,8 +10,8 @@
 #setwd("/Users/mzhang24/Desktop/fh/1.Testing_scRNAseq/")
 setwd("/fh/fast/sun_w/mengqi/1.Testing_scRNAseq/")
 
-r_mean=1.5  #r_mean/r_var should < 1+mean.shape
-r_var=4
+#r_mean=1.5  #r_mean/r_var should < 1+mean.shape
+#r_var=4
 
 sim_matrix=readRDS(paste0("../Data_PRJNA434002/10.Result/sim_matrix_",sim_method,"_",r_mean,"_",r_var,"_",file_tag,".rds"))
 meta=readRDS(paste0("../Data_PRJNA434002/10.Result/sim_meta_",sim_method,"_",r_mean,"_",r_var,"_",file_tag,".rds"))
@@ -20,14 +20,7 @@ meta=readRDS(paste0("../Data_PRJNA434002/10.Result/sim_meta_",sim_method,"_",r_m
 print("start MAST calculation: Part II: ZINB KLmean and JSD")
 
 library("moments")
-
-
-sim_matrix_log=apply(sim_matrix,2,log)
-sim_matrix_log[is.infinite(sim_matrix_log)]=0
-
-#remember this remove
-gene_count=apply(sim_matrix_log>0,1,sum)
-sim_matrix_log=sim_matrix_log[gene_count>10,]
+sim_matrix_log = log2(1 + sim_matrix)
 
 
 dim(sim_matrix_log)
@@ -71,7 +64,7 @@ if(perm_tag>0){
   colData(sca)$diagnosis=as.factor(diag_kind[ind_index,2])
 }
 
-b=zlm(formula=~diagnosis + ( 1 | ind ) + cngeneson, sca=sca, method = "glmer", ebayes = F, silent=T)
+b=zlm(formula=~diagnosis + ind + cngeneson, sca=sca)
 bs=summary(b,logFC=TRUE,doLRT = paste0("diagnosis","Control"), level = 0.95)
 
 
@@ -85,10 +78,7 @@ MAST_cur=MAST_cur[MAST_cur$contrast=="diagnosisControl",c("component","primerid"
 #restriction for our analysis on model H
 MAST_cur_pval=c(MAST_cur[MAST_cur$component=="H","Pr(>Chisq)"])
 MAST_cur_pval=unlist(MAST_cur_pval)
-final_pval=matrix(ncol=1,nrow=nrow(sim_matrix))
-rownames(final_pval)=rownames(sim_matrix)
-final_pval[gene_count>10]=as.numeric(MAST_cur_pval)
-saveRDS(final_pval,paste0("../Data_PRJNA434002/10.Result/MAST_org_pval_",sim_method,"_",r_mean,"_",r_var,"_",file_tag,"_",perm_tag,".rds"))
+saveRDS(MAST_cur_pval,paste0("../Data_PRJNA434002/10.Result/MAST_org_pval_",sim_method,"_",r_mean,"_",r_var,"_",file_tag,"_",perm_tag,".rds"))
 
 
 sessionInfo()

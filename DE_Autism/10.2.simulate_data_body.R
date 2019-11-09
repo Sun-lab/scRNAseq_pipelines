@@ -1,154 +1,42 @@
-#this code used for the
-
-# Simulate scRNA-seq data using splatter
-# Using their default simulator for now. We can consider simulate 5000 genes in 40 individuals, with 20 cases vs. 20 controls. We can set DE for 500 genes in terms of mean expression difference, and another 500 genes DE in terms of variance difference. In the simulation, try to set the total read-depth across samples to be the same. 
-# As an initial analysis, do not add any covariates. 
-# For each gene, calculate density, and then JSD across samples, and then use PERMANOVA to calculate p-value for each gene. 
-# Also calculate p-value for each gene using MAST-mixed effect model (less priority for now). 
-# Collapse gene expression across cells per individual, then run DESeq2 for differential expression testing. 
-# Type I error is the proportion of those 4000 equivalently expressed genes with p-value smaller than 0.05. 
-# Power1, the proportion of the first 500 genest with p-value < 0.05
-# Power2, the proportion of the next 500 genest with p-value < 0.05
-
-
-# ##### a. Simulation Plan (method 4 was choisen)#############
-
-# ####### method1: 1 batch, 40 groups, de.prob=rep(0.5,0.5),  "de.facScale", .25,  "de.facLoc", 1
-# eg: DEseq2 methods:from https://bioconductor.github.io/BiocWorkshops/rna-seq-data-analysis-with-deseq2.html
-#   library("splatter")
-# params <- newSplatParams()
-# params <- setParam(params, "de.facLoc", 1) 
-# params <- setParam(params, "de.facScale", .25)
-# params <- setParam(params, "dropout.type", "experiment")
-# params <- setParam(params, "dropout.mid", 3)
-# set.seed(1)
-# sim <- splatSimulate(params, group.prob=c(.5,.5), method="groups")
-# 
-# 
-# pros:
-# easy to operated,have examples
-# 
-# cons:
-# 1. no individual differences--batch effects
-# 2. hard to characterize the differences.
-# 
-# 
-# ####### method2: times simulation,each is 1 batch, 20 batch have group.prob=1(DE or DV), 20 batch have group.prob=0
-# 
-# pros:
-# easy to operated
-# 
-# cons:
-# can't fix the genes who's differential expressed. Need some further steps to putting them together...
-# 
-# 
-# ####### method3: 40 batch, each has 3 group de.prob=c(0.33,0.33,0.33), 
-#                       group1 change mean "de.facScale", .25,  "de.facLoc", 1
-#                       group2 change variance  
-#                       group3 Set default
-#                       
-# Then doing the DE analysis with 
-# (1).mean comparison: first 20 group1 cell vs latter 20 group3 cell
-# (2).mean comparison: first 20 group2 cell vs latter 20 group3 cell
-# 
-# 
-# Based on all of those, I plan to take method 3 for the simulation.
-# Something remaining:
-# (1)make sure where is the influence place for "de.facScale",  "de.facLoc", what it influence on the gamma distribution mean.rate and mean.shape.
-# (2)make sure the DE genes are consistence between batches in your simulation.
-
-
-# ####### method4: generate 6 sets, each with 20 batch
-#After carefully implement of method 3(chosen from the 1,2,3 method),we found that the parameter de.prob/de.fracLoc/de.fracScale are all applied on the place of outlier location, which means they are not able for the adjustment of the variance without non-influence on the mean.
-
-#personally, in this situation, I would prefer to use Lun2 method, which is more straight forward.
-
-
-
-#based on that, we plan to simulate 6 parts separately
-#               case         |       Control
-#MeanDE Genes                |
-#VarDE  Genes                |
-#NochangeGenes               |
-
-#according to http://www.math.wm.edu/~leemis/chart/UDR/PDFs/Gammapoisson.pdf. The gamma-poission distribution will have the 
-#mean= alpha*beta
-#variance=alpha*beta+alpha^2*beta
-#Thus we will adjust the alphaand beta to make our changes.
-
-
-# ####### method5: Using ZINB method directly ##########
+#this code used for the scRNAseq simulation
 
 
 ##### Start simulation from here #############
+# #something from the head files please uncomment the following lines to run it separately.
+# file_tag=1
+# sim_method="splat.org" #splat.mean or splat.var--method 5, separate the mean and variance using splat
+#                         #splat.org--method 4, change the mean.shape and mean.rate originally
+# 
+# #r_mean/r_var should < 1+mean.shape
+# r_mean=1.2  #1.2,1.5,2,4,8
+# r_var=4 #2,4,6,8,10
 
-#file_tag=1
-#sim_method="zinb.naive" #splat.mean or splat.var--method 3, separate the mean and variance using splat
-#splat.org--method 4, change the mean.shape and mean.rate originally
-#zinb.naive--method 5, using naive zinb models to do so.
-
-
-#setwd("~/Desktop/fh/1.Testing_scRNAseq/")
-#setwd("/Users/mzhang24/Desktop/fh/1.Testing_scRNAseq/")
 setwd("/fh/fast/sun_w/mengqi/1.Testing_scRNAseq/")
 
 library("splatter")
 library("scater")
 library("ggplot2")
 
-nGeneMean=500
-nGeneVar=500
-nGeneBlank=4000
+nGeneMean=300
+nGeneVar=300
+nGeneBlank=2400
 nGeneTotal=nGeneMean+nGeneVar+nGeneBlank
 ncase=20
 nctrl=20
 ncell=100
 
-r_mean=1.5  #r_mean/r_var should < 1+mean.shape
-r_var=4
+i_mean=1:nGeneMean
+i_var=(nGeneMean+1):(nGeneMean+nGeneVar)
+i_blank=(nGeneMean+nGeneVar+1):nGeneTotal
+
+i_case=1:ncase*ncell
+i_ctrl=(ncase*ncell+1):((ncase+nctrl)*ncell)
 
 ##############functions#################
 
 
 
 ####this function returns the parameters for changing mean and variance of the gamma-poission distribution
-# meanCase: a'b'=r_m*ab and (1+a')a'b'=(1+a)ab
-#(1+a')r_m*ab=(1+a)ab
-#(1+a')r_m=(1+a)
-
-#a'=(1+a)/r_m-1
-#b'=r_m*ab/a'=r_m*ab/((1+a)/r_m-1)
-
-# var case:  (1+a')a'b'=r_v* (1+a)ab and a'b'=ab
-# Then:
-# 1+a'=r_v*(1+a)
-# So:
-#a'=r_v*(1+a)-a
-#b'=ab/a'=ab/(r_v*(1+a)-a)
-
-#complex case: a'b'=r_m*ab and (1+a')a'b'=r_v* (1+a)ab
-#then
-#a'=(a+1)*r_v/r_m - 1
-#b'=a*b*r_m*r_m/((a+1)*r_v - r_m)
-
-#require: r_m>0,r_v>0, r_m/r_v <a +1
-calc_gapois_param=function(a,b,r_m=1,r_v=1){
-  #alpha=shape
-  #beta=rate
-  alpha=(a+1)*r_v/r_m - 1
-  beta=a*b*r_m*r_m/((a+1)*r_v - r_m)
-  return(c(alpha,beta))
-}
-
-
-####this function returns the parameters for changing mean and variance of the gamma-poission distribution
-
-
-#complex case: mu'=r_m*mu and mu'*(1+mu'/theta')=r_v* mu * (1+mu/theta)
-#then
-#mu'=r_m*mu
-#theta'=theta*r_m*r_m*mu/(mu*r_v+(r_v-r_m)*theta)
-
 #require:  r_m/r_v <1+mu/theta
 calc_nb_param=function(mu,theta,r_m=1,r_v=1){
   #mu=mean
@@ -158,184 +46,69 @@ calc_nb_param=function(mu,theta,r_m=1,r_v=1){
   return(c(mu2,theta2))
 }
 
-
-############ Simulation data with Method 3###############################
-
-
-# ####### method3: 40 batch, each has 3 group de.prob=c(0.33,0.33,0.33),
-#                       group1 change mean "de.facScale", .25,  "de.facLoc", 1
-#                       group2 change variance
-#                       group3 Set default
-#
-# Then doing the DE analysis with
-# (1).mean comparison: first 20 group1 cell vs latter 20 group3 cell
-# (2).mean comparison: first 20 group2 cell vs latter 20 group3 cell
-#
-#
-if(sim_method=="splat.mean"|sim_method=="splat.var"){
-  params.groups=newSplatParams(batchCells = rep(2*ncell,(ncase+nctrl)), nGenes = nGeneTotal)
-  # sim_total=splatSimulateGroups(params.groups,
-  #                               group.prob = c(0.25, 0.25, 0.25, 0.25),
-  #                               de.prob = c(0.1, 0.1, 0.1, 0),
-  #                               de.downProb = c(0.4, 0.4, 0.4, 0),
-  #                               de.facLoc = c(1, 0, 0.1, 0),
-  #                               de.facScale = c(0, 1, 0.4, 0),
-  #                               verbose = FALSE)
-  
-  if(sim_method=="splat.mean"){
-    sim_total=splatSimulateGroups(params.groups,
-                                  group.prob = c(0.5, 0.5),
-                                  de.prob = c(0.1, 0),
-                                  de.downProb = c(0.5,  0),
-                                  de.facLoc = c(0.6,  0),
-                                  de.facScale = c(0, 0),
-                                  verbose = FALSE)
-    
-  }
-  if(sim_method=="splat.var"){
-    sim_total=splatSimulateGroups(params.groups,
-                                  group.prob = c(0.5, 0.5),
-                                  de.prob = c(0.1, 0),
-                                  de.downProb = c(0.5,  0),
-                                  de.facLoc = c(0,  0),
-                                  de.facScale = c(0.6, 0),
-                                  verbose = FALSE)
-    
-  }
-  
-  group_label=as.character(colData(sim_total)$Group)
-  
-  batch_label=as.character(colData(sim_total)$Batch)
-  batch_label= as.numeric(sub("Batch", "", batch_label))
-  ctrl_flag=(batch_label>ncase)
-  case_flag=(batch_label<=ncase)
-  sim_Case=sim_total[,(case_flag & group_label=="Group1")]
-  sim_Ctrl=sim_total[,(ctrl_flag & group_label=="Group2")]
-  
-  pdf(paste0("../Data_PRJNA434002/10.Result/plot_sim_",sim_method,"_",file_tag,".pdf"),height = 6,width = 4)
-  op=par(mfrow = c(3, 2), pty = "s")
-  hist(log(apply(counts(sim_Case),1,mean)),col=rgb(1,0,0,0.3))
-  hist(log(apply(counts(sim_Ctrl),1,mean)))
-  
-  hist(log(apply(counts(sim_Case),1,var)),col=rgb(1,0,0,0.3))
-  hist(log(apply(counts(sim_Ctrl),1,var)))
-  
-  plot(sort(log(apply(counts(sim_Ctrl),1,mean))),sort(log(apply(counts(sim_Case),1,mean))))
-  lines(c(-10,10),c(-10,10),col="red")
-  plot(sort(log(apply(counts(sim_Ctrl),1,var))),sort(log(apply(counts(sim_Case),1,var))))
-  lines(c(-10,10),c(-10,10),col="red")
-  par(op)
-  dev.off()
-  sim_matrix=sim_total[,(case_flag & (group_label=="Group1"))|(ctrl_flag & (group_label=="Group2"))]
-
-  if(sim_method=="splat.mean"){
-    de.mean=(rowData(sim_matrix)$DEFacGroup1!=1)+0
-  }
-  if(sim_method=="splat.var"){
-    de.var=(rowData(sim_matrix)$DEFacGroup1!=1)+0
-  }
-  sim_matrix=counts(sim_matrix)
-  phenotype=c(rep(1,sum((case_flag & (group_label=="Group1")))),rep(0,sum((ctrl_flag & (group_label=="Group2")))))
-  individual=paste0("ind",batch_label[(case_flag & (group_label=="Group1"))|(ctrl_flag & (group_label=="Group2"))])
-}
-
-
-
 # # ############ Simulation data with Method 4###############################
 
 if(sim_method=="splat.org"){
-  #1.meanCtrl
-  params=newSplatParams(batchCells=rep(ncell,nctrl), nGenes = nGeneMean)
-  getParams(params, c("nGenes", "mean.rate", "mean.shape"))
-  sim_meanCtrl=splatSimulate(params)
   
+  #blank
+  params_blank=newSplatParams(batchCells=rep(ncell,(ncase+nctrl)), nGenes = nGeneTotal,seed=seedtag)
+  getParams(params_blank, c("nGenes", "mean.rate", "mean.shape"))
+  sim_matrix=splatSimulate(params_blank)
   
-  #2.varCtrl
-  params=newSplatParams(batchCells=rep(ncell,nctrl), nGenes = nGeneVar)
-  getParams(params, c("nGenes", "mean.rate", "mean.shape"))
-  sim_varCtrl=splatSimulate(params)
+  sim_matrix=counts(sim_matrix)
   
+  ref_mean=apply(sim_matrix,1,mean)
+  ref_matrix=matrix(rep(ref_mean,(ncase*ncell)),ncol=(ncase*ncell))
   
-  #3.blankCtrl
-  params=newSplatParams(batchCells=rep(ncell,nctrl), nGenes = nGeneBlank)
-  getParams(params, c("nGenes", "mean.rate", "mean.shape"))
-  sim_blankCtrl=splatSimulate(params)
-  
-  #1.meanCase
+  sim_matrix[i_mean,i_case]=round(sim_matrix[i_mean,i_case]+ref_matrix[i_mean,i_case]*(r_mean-1))
+  sim_matrix[i_var,i_case]= pmax(round(ref_matrix[i_var,i_case]+sqrt(1/r_var)*(sim_matrix[i_var,i_case]-
+                                                                                 ref_matrix[i_var,i_case])),0)
 
-  
-  params=newSplatParams()
-  ref=getParams(params, c("mean.shape", "mean.rate"))
-  cur=calc_gapois_param(a=ref$mean.shape,b=ref$mean.rate,r_m=r_mean)
-  params=newSplatParams(batchCells=rep(ncell,ncase), nGenes = nGeneMean)
-  params=setParams(params, update = list(mean.shape = cur[1],
-                                         mean.rate = cur[2]))
-  getParams(params, c("nGenes", "mean.rate", "mean.shape"))
-  sim_meanCase=splatSimulate(params)
-  
-  #3.varCase
-
-  
-  params=newSplatParams()
-  ref=getParams(params, c("mean.shape", "mean.rate"))
-  cur=calc_gapois_param(ref$mean.shape,ref$mean.rate,r_v=r_var)
-  params=newSplatParams(batchCells=rep(ncell,ncase), nGenes = nGeneVar)
-  params=setParams(params, update = list(mean.shape = cur[1],
-                                         mean.rate = cur[2]))
-  getParams(params, c("nGenes", "mean.rate", "mean.shape"))
-  sim_varCase=splatSimulate(params)
-  
-  #6.blankCase
-  params=newSplatParams(batchCells=rep(ncell,ncase), nGenes = nGeneBlank)
-  getParams(params, c("nGenes", "mean.rate", "mean.shape"))
-  sim_blankCase=splatSimulate(params)
+  sim_matrix[1:10,1991:2010]
+  sim_matrix[301:310,1991:2010]
+  sim_matrix[601:610,1991:2010]
   
   pdf(paste0("../Data_PRJNA434002/10.Result/plot_sim_",sim_method,"_",file_tag,".pdf"),height = 4,width = 6)
   op=par(mfrow = c(2, 3), pty = "s")
-  hist(log(apply(counts(sim_blankCtrl),1,mean)))
-  hist(log(apply(counts(sim_meanCtrl),1,mean)))
-  hist(log(apply(counts(sim_varCtrl),1,mean)))
+  hist(log(apply(sim_matrix[i_blank,i_case],1,mean)),col=rgb(1,0,0,0.3))
+  hist(log(apply(sim_matrix[i_mean,i_case],1,mean)),col=rgb(1,0,0,0.3))
+  hist(log(apply(sim_matrix[i_var,i_case],1,mean)),col=rgb(1,0,0,0.3))
+  
+  hist(log(apply(sim_matrix[i_blank,i_ctrl],1,mean)))
+  hist(log(apply(sim_matrix[i_mean,i_ctrl],1,mean)))
+  hist(log(apply(sim_matrix[i_var,i_ctrl],1,mean)))
+  
+  hist(log(apply(sim_matrix[i_blank,i_case],1,var)),col=rgb(1,0,0,0.3))
+  hist(log(apply(sim_matrix[i_mean,i_case],1,var)),col=rgb(1,0,0,0.3))
+  hist(log(apply(sim_matrix[i_var,i_case],1,var)),col=rgb(1,0,0,0.3))
+  
+  hist(log(apply(sim_matrix[i_blank,i_ctrl],1,var)))
+  hist(log(apply(sim_matrix[i_mean,i_ctrl],1,var)))
+  hist(log(apply(sim_matrix[i_var,i_ctrl],1,var)))
+  
+  plot(sort(log(apply(sim_matrix[i_mean,i_ctrl],1,mean))),
+       sort(log(apply(sim_matrix[i_mean,i_case],1,mean))))
+  lines(c(-10,10),c(-10,10),col="red")
+  plot(sort(log(apply(sim_matrix[i_var,i_ctrl],1,mean))),
+       sort(log(apply(sim_matrix[i_var,i_case],1,mean))))
+  lines(c(-10,10),c(-10,10),col="red")
+  plot(sort(log(apply(sim_matrix[i_blank,i_ctrl],1,mean))),
+       sort(log(apply(sim_matrix[i_blank,i_case],1,mean))))
+  lines(c(-10,10),c(-10,10),col="red")
+  
+  plot(sort(log(apply(sim_matrix[i_mean,i_ctrl],1,var))),
+       sort(log(apply(sim_matrix[i_mean,i_case],1,var))))
+  lines(c(-10,10),c(-10,10),col="red")
+  plot(sort(log(apply(sim_matrix[i_var,i_ctrl],1,var))),
+       sort(log(apply(sim_matrix[i_var,i_case],1,var))))
+  lines(c(-10,10),c(-10,10),col="red")
+  plot(sort(log(apply(sim_matrix[i_blank,i_ctrl],1,var))),
+       sort(log(apply(sim_matrix[i_blank,i_case],1,var))))
+  lines(c(-10,10),c(-10,10),col="red")
 
-  hist(log(apply(counts(sim_blankCase),1,mean)),col=rgb(1,0,0,0.3))
-  hist(log(apply(counts(sim_meanCase),1,mean)),col=rgb(1,0,0,0.3))
-  hist(log(apply(counts(sim_varCase),1,mean)),col=rgb(1,0,0,0.3))
-
-  hist(log(apply(counts(sim_blankCtrl),1,var)))
-  hist(log(apply(counts(sim_meanCtrl),1,var)))
-  hist(log(apply(counts(sim_varCtrl),1,var)))
-
-  hist(log(apply(counts(sim_blankCase),1,var)),col=rgb(1,0,0,0.3))
-  hist(log(apply(counts(sim_meanCase),1,var)),col=rgb(1,0,0,0.3))
-  hist(log(apply(counts(sim_varCase),1,var)),col=rgb(1,0,0,0.3))
-  
-  
-  plot(sort(log(apply(counts(sim_blankCtrl),1,mean))),sort(log(apply(counts(sim_blankCase),1,mean))))
-  lines(c(-10,10),c(-10,10),col="red")
-  plot(sort(log(apply(counts(sim_meanCtrl),1,mean))),sort(log(apply(counts(sim_meanCase),1,mean))))
-  lines(c(-10,10),c(-10,10),col="red")
-  plot(sort(log(apply(counts(sim_varCtrl),1,mean))),sort(log(apply(counts(sim_varCase),1,mean))))
-  lines(c(-10,10),c(-10,10),col="red")
-  
-  
-  plot(sort(log(apply(counts(sim_blankCtrl),1,var))),sort(log(apply(counts(sim_blankCase),1,var))))
-  lines(c(-10,10),c(-10,10),col="red")
-  plot(sort(log(apply(counts(sim_meanCtrl),1,var))),sort(log(apply(counts(sim_meanCase),1,var))))
-  lines(c(-10,10),c(-10,10),col="red")
-  plot(sort(log(apply(counts(sim_varCtrl),1,var))),sort(log(apply(counts(sim_varCase),1,var))))
-  lines(c(-10,10),c(-10,10),col="red")
-  
   par(op)
   dev.off()
   
-  counts(sim_meanCase)[1:10,1:10]
-  
-  head(rowData(sim_meanCase))
-  head(colData(sim_meanCase))
-  names(assays(sim_meanCase))
-  
-  sim_matrix=as.matrix(rbind(cbind(counts(sim_meanCase),counts(sim_meanCtrl)),
-                             cbind(counts(sim_varCase),counts(sim_varCtrl)),
-                             cbind(counts(sim_blankCase),counts(sim_blankCtrl))))
   
   de.mean=c(rep(1,nGeneMean),rep(0,nGeneVar),rep(0,nGeneBlank))
   de.var=c(rep(0,nGeneMean),rep(1,nGeneVar),rep(0,nGeneBlank))
@@ -344,7 +117,6 @@ if(sim_method=="splat.org"){
   phenotype=c(rep(1,ncase*ncell),rep(0,nctrl*ncell))
   individual=paste0("ind",c(rep(1:(ncase+nctrl),each=ncell)))
 }
-
 
 
 # ############ Simulation data with Method 5 ###############################
@@ -366,9 +138,9 @@ if(sim_method=="zinb.naive"){
   log_disp_sample=(log(as.numeric(mid_dispersion)))
   logit_drop_sample=(log(as.numeric(mid_dropout)/(1-as.numeric(mid_dropout))))
   
-  Pram_log_mean=rnorm(nGeneMean+nGeneVar+nGeneBlank,mean = mean(log_mean_sample),sd=sd(log_mean_sample))
-  Pram_log_disp=rnorm(nGeneMean+nGeneVar+nGeneBlank,mean = mean(log_disp_sample),sd=sd(log_disp_sample))
-  Pram_logit_drop=rnorm(nGeneMean+nGeneVar+nGeneBlank,mean = mean(logit_drop_sample),sd=sd(logit_drop_sample))
+  Pram_log_mean=rnorm(nGeneMean+nGeneVar+nGeneBlank,mean = (log_mean_sample),sd=sd(log_mean_sample))
+  Pram_log_disp=rnorm(nGeneMean+nGeneVar+nGeneBlank,mean = (log_disp_sample),sd=sd(log_disp_sample))
+  Pram_logit_drop=rnorm(nGeneMean+nGeneVar+nGeneBlank,mean = (logit_drop_sample),sd=sd(logit_drop_sample))
   
   sample_data=cbind(log_mean_sample,log_disp_sample,logit_drop_sample)
   sample_mean=apply(sample_data,2,mean)
@@ -388,17 +160,16 @@ if(sim_method=="zinb.naive"){
   gpar_case=gpar_ctrl
   
   special_index=sample.int(nGeneTotal,(nGeneMean+nGeneVar))
-  mean_index=as.numeric(special_index[1:nGeneMean])
-  var_index=as.numeric(special_index[(nGeneMean+1):(nGeneMean+nGeneVar)])
+  mean_index=as.numeric(special_index[i_mean])
+  var_index=as.numeric(special_index[i_var])
   
-  if(r_mean>1){r_mean=1/r_mean}
-  if(r_var<1){r_var=1/r_var}
+  r_mean2=r_mean
+  r_var2=r_var  
+  if(r_mean>1){r_mean2=1/r_mean}
+  if(r_var<1){r_var2=1/r_var}
   
-  gpar_case[mean_index,1:2]=t(apply(gpar_case[mean_index,1:2,drop=FALSE],1,function(x){return(calc_nb_param(x[1],x[2],r_m=r_mean))})) #50% enlarge #50%shrinkage
-  gpar_case[var_index,1:2]=t(apply(gpar_case[var_index,1:2,drop=FALSE],1,function(x){return(calc_nb_param(x[1],x[2],r_v=r_var))})) #50% enlarge #50%shrinkage
- 
-  if(r_mean<1){r_mean=1/r_mean}
-  if(r_var>1){r_var=1/r_var}
+  gpar_case[mean_index,1:2]=t(apply(gpar_case[mean_index,1:2,drop=FALSE],1,function(x){return(calc_nb_param(x[1],x[2],r_m=r_mean2))})) #50% enlarge #50%shrinkage
+  gpar_case[var_index,1:2]=t(apply(gpar_case[var_index,1:2,drop=FALSE],1,function(x){return(calc_nb_param(x[1],x[2],r_v=r_var2))})) #50% enlarge #50%shrinkage
   
   sim_case=matrix(nrow=nGeneTotal,ncol=ncase*ncell)
   sim_ctrl=matrix(nrow=nGeneTotal,ncol=nctrl*ncell)

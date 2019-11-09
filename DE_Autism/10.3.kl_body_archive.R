@@ -130,7 +130,7 @@ saveRDS(dist_array,paste0("../Data_PRJNA434002/10.Result/",dist_method,"_",fit_m
 print("start permanova calculation")
 
 #real data test
-#dist_array=round(dist_array,5)
+dist_array=round(dist_array,5)
 dist_pval=cal_permanova_pval2(dist_array,phenotype)
 #dist_pval=apply(dist_array,1,function(x){tryCatch(return(cal_permanova_pval(x,phenotype)), error = function(e) {NA} )})
 saveRDS(dist_pval,paste0("../Data_PRJNA434002/10.Result/",dist_method,"_",fit_method,"_raw_pval_",sim_method,"_",r_mean,"_",r_var,"_",file_tag,".rds"))
