@@ -331,9 +331,9 @@ hist(read_depth)
 ##package and functions ###############
 library("emdbook")
 library("ggplot2")
-source("./Command/7.0_ZINB_fit_functions.R")
-source("./Command/8.0_kl_divergence_functions.R")
-source("./Command/9.0_Fstat_functions.R")
+source("/fh/fast/sun_w/mengqi/1.Testing_scRNAseq/Command/7.0_ZINB_fit_functions.R")
+source("/fh/fast/sun_w/mengqi/1.Testing_scRNAseq/Command/8.0_kl_divergence_functions.R")
+source("/fh/fast/sun_w/mengqi/1.Testing_scRNAseq/Command/9.0_Fstat_functions.R")
 
 
 cur_info=meta[,c("individual","phenotype")]
