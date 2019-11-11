@@ -1,5 +1,7 @@
 #this code care with the results of simulation data, and calculate the MAST
 
+#note! please be sure to use 10.3.MAST_postArrangment.R when all permutation results are ready.
+
 #perm_tag=0
 #file_tag=1
 #sim_method="zinb.naive" #splat.mean or splat.var--method 3, separate the mean and variance using splat

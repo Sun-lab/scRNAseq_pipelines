@@ -44,10 +44,10 @@ if(fit_method!="empirical"){
     #logsum_count=log(apply(sim_matrix,2,sum))
     quantile99=log(apply(sim_matrix,2,function(x)return(quantile(x,0.99)+1)))
     covariate=as.matrix(quantile99)
-    pdf(paste0("../Data_PRJNA434002/10.Result/hist_sim_ind_raw_",covariate_flag,"_",file_tag,".pdf"),height = 4,width = 6)
+    pdf(paste0("../Data_PRJNA434002/10.Result/hist_sim_ind_raw_",covariate_flag,"_",sim_method,"_",r_mean,"_",r_var,"_",file_tag,".pdf"),height = 4,width = 6)
   }
   if(is.na(covariate_flag)){
-    pdf(paste0("../Data_PRJNA434002/10.Result/hist_sim_ind_raw_",file_tag,".pdf"),height = 4,width = 6)
+    pdf(paste0("../Data_PRJNA434002/10.Result/hist_sim_ind_raw_",sim_method,"_",r_mean,"_",r_var,"_",file_tag,".pdf"),height = 4,width = 6)
   }
   sim_fit=array(dim=c(nrow(sim_matrix),length(cur_individual),3),
                 dimnames = list(rownames(sim_matrix),cur_individual,c("logmean","dispersion","dropout_rate")))
