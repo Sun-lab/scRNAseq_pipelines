@@ -214,6 +214,10 @@ if(sim_method=="zinb.naive"){
   t_mean=read.table(paste0("../Data_PRJNA434002/res_dca_rawM",input_file_tag,"/mean.tsv"),stringsAsFactors = FALSE)
   t_dispersion=read.table(paste0("../Data_PRJNA434002/res_dca_rawM",input_file_tag,"/dispersion.tsv"),stringsAsFactors = FALSE,row.names = 1)
   t_dropout=read.table(paste0("../Data_PRJNA434002/res_dca_rawM",input_file_tag,"/dropout.tsv"),stringsAsFactors = FALSE,row.names = 1)
+  #t_mean2=read.table(paste0("../Data_PRJNA434002/res_dca_rawM",input_file_tag,"/mean_signif4.tsv.gz"),stringsAsFactors = FALSE)
+  #t_dispersion2=read.table(paste0("../Data_PRJNA434002/res_dca_rawM",input_file_tag,"/dispersion_signif4.tsv.gz"),stringsAsFactors = FALSE,row.names = 1)
+  #t_dropout2=read.table(paste0("../Data_PRJNA434002/res_dca_rawM",input_file_tag,"/dropout_signif4.tsv.gz"),stringsAsFactors = FALSE,row.names = 1)
+  
   
   mid_mean=apply(t_mean,1,median)
   mid_dispersion=apply(t_dispersion,1,median)

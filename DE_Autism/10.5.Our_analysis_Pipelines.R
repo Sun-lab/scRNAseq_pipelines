@@ -85,10 +85,9 @@ i_ctrl=(ncase*ncell+1):((ncase+nctrl)*ncell)
 #load the data
 setwd("/Users/mzhang24/Desktop/fh/Data_PRJNA434002/res_dca_rawM3k10/")
 setwd("/fh/fast/sun_w/mengqi/Data_PRJNA434002/res_dca_rawM3k10/")
-t_mean=read.table(paste0("mean.tsv"),stringsAsFactors = FALSE)
-t_dispersion=read.table(paste0("dispersion.tsv"),stringsAsFactors = FALSE,row.names = 1)
-t_dropout=read.table(paste0("dropout.tsv"),stringsAsFactors = FALSE,row.names = 1)
-
+t_mean=read.table(paste0("mean_signif4.tsv.gz"),stringsAsFactors = FALSE)
+t_dispersion=read.table(paste0("dispersion_signif4.tsv.gz"),stringsAsFactors = FALSE,row.names = 1)
+t_dropout=read.table(paste0("dropout_signif4.tsv.gz"),stringsAsFactors = FALSE,row.names = 1)
 
 
 ###################### simulation based on real data ##########################
