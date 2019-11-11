@@ -1,5 +1,87 @@
-#this code used for the scRNAseq simulation
+#this code used for the simulation
 
+# Simulate scRNA-seq data using splatter
+# Using their default simulator for now. We can consider simulate 3000 genes in 40 individuals, with 20 cases vs. 20 controls. We can set DE for 300 genes in terms of mean expression difference, and another 300 genes DE in terms of variance difference. In the simulation, try to set the total read-depth across samples to be the same. 
+# As an initial analysis, do not add any covariates. 
+# For each gene, calculate density, and then JSD across samples, and then use PERMANOVA to calculate p-value for each gene. 
+# Also calculate p-value for each gene using MAST-mixed effect model (less priority for now). 
+# Collapse gene expression across cells per individual, then run DESeq2 for differential expression testing. 
+# Type I error is the proportion of those 2400 equivalently expressed genes with p-value smaller than 0.05. 
+# Power1, the proportion of the first 300 genest with p-value < 0.05
+# Power2, the proportion of the next 300 genest with p-value < 0.05
+
+
+# ##### a. Simulation Plan (method 4 was choisen)#############
+
+# ####### method1: 1 batch, 40 groups, de.prob=rep(0.5,0.5),  "de.facScale", .25,  "de.facLoc", 1
+# eg: DEseq2 methods:from https://bioconductor.github.io/BiocWorkshops/rna-seq-data-analysis-with-deseq2.html
+#   library("splatter")
+# params <- newSplatParams()
+# params <- setParam(params, "de.facLoc", 1) 
+# params <- setParam(params, "de.facScale", .25)
+# params <- setParam(params, "dropout.type", "experiment")
+# params <- setParam(params, "dropout.mid", 3)
+# set.seed(1)
+# sim <- splatSimulate(params, group.prob=c(.5,.5), method="groups")
+# 
+# 
+# pros:
+# easy to operated,have examples
+# 
+# cons:
+# 1. no individual differences--batch effects
+# 2. hard to characterize the differences.
+# 
+# 
+# ####### method2: times simulation,each is 1 batch, 20 batch have group.prob=1(DE or DV), 20 batch have group.prob=0
+# 
+# pros:
+# easy to operated
+# 
+# cons:
+# can't fix the genes who's differential expressed. Need some further steps to putting them together...
+# 
+# 
+# ####### method3: 40 batch, each has 3 group de.prob=c(0.33,0.33,0.33), 
+#                       group1 change mean "de.facScale", .25,  "de.facLoc", 1
+#                       group2 change variance  
+#                       group3 Set default
+#                       
+# Then doing the DE analysis with 
+# (1).mean comparison: first 20 group1 cell vs latter 20 group3 cell
+# (2).mean comparison: first 20 group2 cell vs latter 20 group3 cell
+# 
+# 
+# Based on all of those, I plan to take method 3 for the simulation.
+# Something remaining:
+# (1)make sure where is the influence place for "de.facScale",  "de.facLoc", what it influence on the gamma distribution mean.rate and mean.shape.
+# (2)make sure the DE genes are consistence between batches in your simulation.
+
+
+# ####### method4: generate 6 sets, each with 20 batch
+#After carefully implement of method 3(chosen from the 1,2,3 method),we found that the parameter de.prob/de.fracLoc/de.fracScale are all applied on the place of outlier location, which means they are not able for the adjustment of the variance without non-influence on the mean.
+
+#personally, in this situation, I would prefer to use Lun2 method, which is more straight forward.
+
+
+
+#based on that, we plan to simulate 6 parts separately
+#               case         |       Control
+#MeanDE Genes                |
+#VarDE  Genes                |
+#NochangeGenes               |
+
+#according to http://www.math.wm.edu/~leemis/chart/UDR/PDFs/Gammapoisson.pdf. The gamma-poission distribution will have the 
+#mean= alpha*beta
+#variance=alpha*beta+alpha^2*beta
+#Thus we will adjust the alphaand beta to make our changes.
+
+
+
+#However, this method doesn't work since the parameter mean.rate influence nothing in the package, so finally we plan to simulate 40 batches by the splatter, then manually modify the mean and variance different on the output count data.
+
+
+# ####### method5: Using ZINB method directly ##########
 
 ##### Start simulation from here #############
 # #something from the head files please uncomment the following lines to run it separately.
@@ -11,6 +93,8 @@
 # r_mean=1.2  #1.2,1.5,2,4,8
 # r_var=4 #2,4,6,8,10
 
+#setwd("~/Desktop/fh/1.Testing_scRNAseq/")
+#setwd("/Users/mzhang24/Desktop/fh/1.Testing_scRNAseq/")
 setwd("/fh/fast/sun_w/mengqi/1.Testing_scRNAseq/")
 
 library("splatter")
