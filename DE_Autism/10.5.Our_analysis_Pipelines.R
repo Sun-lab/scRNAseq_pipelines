@@ -340,38 +340,46 @@ cur_info=meta[,c("individual","phenotype")]
 cur_info=unique(cur_info)
 rownames(cur_info)=cur_info$individual
 phenotype=as.numeric(cur_info[,2])-1
+cur_individual=unique(meta$individual)
 
+###### STEP 0: choose your statistical analysis method ####################
+#change the following 2 lines for your customized method
+dist_method = "JSD"        #c("mean","JSD")
+fit_method = "zinb"   #c("empirical","zinb")
 
 ##### STEP 1: fit sim data by with ZINB models #####
 
-# this part fits the distribution of counts of each individuals of each gene with ZINB models,
-# NOTE!! opt out this part if only interested in describing this distribution with empirical method.
+# this part fits the distribution of counts of each individuals and
+# each gene with ZINB models,
+# Note!! opt out this part if only interested in describing this distribution 
+# with empirical method.
 
-cur_individual=unique(meta$individual)
-sim_fit=array(dim=c(nrow(sim_matrix),length(cur_individual),3),
-              dimnames = list(rownames(sim_matrix),cur_individual,c("logmean","dispersion","dropout_rate")))
-
-for(i_g in 1:nrow(sim_matrix)){
-  for(i_ind in 1:length(cur_individual)){
-    cur_ind=cur_individual[i_ind]
-    #fit org
-    cur_org_ind=sim_matrix[i_g,meta$individual==cur_ind]
-    sim_fit[i_g,i_ind,]=fit_nbzinb(cur_org_ind)
-    
-    #visualization for some of the distribution
-    if(i_g<=5 & i_ind<=3){
-      cur_org_ind=data.frame(cur_org_ind)
-      colnames(cur_org_ind)="raw_count"
-      ggplot(cur_org_ind, aes(x=raw_count),stat="count") + geom_histogram(fill="lightblue")+
-        labs(title=paste0("Histogram of rawcount, ",rownames(sim_matrix)[i_g]," of ",cur_ind),x="Count", y = "Frequency")
-      #+theme_classic()
+if(fit_method == "zinb" ){
+  sim_fit=array(dim=c(nrow(sim_matrix),length(cur_individual),3),
+                dimnames = list(rownames(sim_matrix),cur_individual,c("logmean","dispersion","dropout_rate")))
+  
+  for(i_g in 1:nrow(sim_matrix)){
+    for(i_ind in 1:length(cur_individual)){
+      cur_ind=cur_individual[i_ind]
+      #fit org
+      cur_org_ind=sim_matrix[i_g,meta$individual==cur_ind]
+      sim_fit[i_g,i_ind,]=fit_nbzinb(cur_org_ind)
+      
+      #visualization for some of the distribution
+      if(i_g<=5 & i_ind<=3){
+        cur_org_ind=data.frame(cur_org_ind)
+        colnames(cur_org_ind)="raw_count"
+        ggplot(cur_org_ind, aes(x=raw_count),stat="count") + geom_histogram(fill="lightblue")+
+          labs(title=paste0("Histogram of rawcount, ",rownames(sim_matrix)[i_g]," of ",cur_ind),x="Count", y = "Frequency")
+        #+theme_classic()
+      }
     }
+    print(c("ind fit",i_g))
   }
-  print(c("ind fit",i_g))
+  
+  sim_fit[,,1]=exp(sim_fit[,,1]) #change the log mean to mean!!!
+  
 }
-
-sim_fit[,,1]=exp(sim_fit[,,1]) #change the log mean to mean!!!
-
 
 ####STEP 2: JSD and KL calculation ######
 #   Calculate the distance between each individuals, 
@@ -386,46 +394,49 @@ sim_fit[,,1]=exp(sim_fit[,,1]) #change the log mean to mean!!!
 #           JSD=1/2 * (D(P||M)+D(Q||M))
 
 
-dist_method="JSD"        #c("mean","JSD")
-fit_method="empirical"   #c("empirical","zinb")
-
 
 dist_array=array(dim=c(nrow(sim_matrix),length(cur_individual),length(cur_individual)),
                  dimnames = list(rownames(sim_matrix),cur_individual,cur_individual))
 
 ###Option 1: if we fitted the distribution of expression with empirical method, we calculate:
 
-for(i_g in 1:nrow(sim_matrix)){
-  cur_sim=sim_matrix[i_g,]
-  for(i_ind_a in 1:length(cur_individual)){
-    for(i_ind_b in 1:length(cur_individual)){
-      cur_ind_a=cur_individual[i_ind_a]
-      cur_ind_b=cur_individual[i_ind_b]
-      #fit sim
-      cur_sim_ind_a=as.numeric(cur_sim[meta$individual==cur_ind_a])
-      cur_sim_ind_b=as.numeric(cur_sim[meta$individual==cur_ind_b])
-      
-      dist_array[i_g,i_ind_a,i_ind_b]=tryCatch(mean_KL_dens(cur_sim_ind_a,cur_sim_ind_b,alter=dist_method,fit_model=fit_method), error = function(e) {NA} )
+if(fit_method == "empirical" ){
+  for(i_g in 1:nrow(sim_matrix)){
+    cur_sim=sim_matrix[i_g,]
+    for(i_ind_a in 1:length(cur_individual)){
+      for(i_ind_b in 1:length(cur_individual)){
+        cur_ind_a=cur_individual[i_ind_a]
+        cur_ind_b=cur_individual[i_ind_b]
+        #fit sim
+        cur_sim_ind_a=as.numeric(cur_sim[meta$individual==cur_ind_a])
+        cur_sim_ind_b=as.numeric(cur_sim[meta$individual==cur_ind_b])
+        
+        dist_array[i_g,i_ind_a,i_ind_b]=tryCatch(mean_KL_dens(cur_sim_ind_a,cur_sim_ind_b,alter=dist_method,fit_model=fit_method), error = function(e) {NA} )
+      }
     }
+    print(i_g)
   }
-  print(i_g)
 }
+
 
 
 ###Option 2:if we fitted the distribution of expression with zinb model, we calculate:
 
-for(i_g in 1:nrow(sim_fit)){
-  cur_fit=sim_fit[i_g,,]
-  for(i_ind_a in 1:length(cur_individual)){
-    for(i_ind_b in 1:length(cur_individual)){
-      cur_a=cur_fit[i_ind_a,]
-      cur_b=cur_fit[i_ind_b,]
-      #kl and jsd
-      dist_array[i_g,i_ind_a,i_ind_b]=tryCatch(mean_KL_dens(cur_a,cur_b,alter=dist_method,zinb.quantile=0.975,fit_model=fit_method), error = function(e) {NA} )
+if(fit_method == "zinb" ){
+  for(i_g in 1:nrow(sim_fit)){
+    cur_fit=sim_fit[i_g,,]
+    for(i_ind_a in 1:length(cur_individual)){
+      for(i_ind_b in 1:length(cur_individual)){
+        cur_a=cur_fit[i_ind_a,]
+        cur_b=cur_fit[i_ind_b,]
+        #kl and jsd
+        dist_array[i_g,i_ind_a,i_ind_b]=tryCatch(mean_KL_dens(cur_a,cur_b,alter=dist_method,zinb.quantile=0.975,fit_model=fit_method), error = function(e) {NA} )
+      }
     }
+    print(i_g)
   }
-  print(i_g)
 }
+
 
 
 #####STEP3: pval calculation: manova and permanova-S method #######################
