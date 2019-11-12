@@ -297,7 +297,7 @@ for(i_ind in 1:length(cur_individual)){
   phenotype_ind[i_ind]=meta$phenotype[meta$individual==cur_ind][1]
   
   zero_rate_ind[,i_ind]=apply(cur_ind_m==0,1,function(x){return(sum(x,na.rm = TRUE))})/cell_num[i_ind]
-  sim_matrix_bulk[,i_ind]=apply(cur_ind_m==0,1,function(x){return(sum(x,na.rm = TRUE))})
+  sim_matrix_bulk[,i_ind]=apply(cur_ind_m,1,function(x){return(sum(x,na.rm = TRUE))})
 }
 
 hist(read_depth)
@@ -345,7 +345,7 @@ phenotype=as.numeric(cur_info[,2])-1
 ##### STEP 1: fit sim data by with ZINB models #####
 
 # this part fits the distribution of counts of each individuals of each gene with ZINB models,
-# opt out this part if only interested in describing this distribution with empirical method.
+# NOTE!! opt out this part if only interested in describing this distribution with empirical method.
 
 cur_individual=unique(meta$individual)
 sim_fit=array(dim=c(nrow(sim_matrix),length(cur_individual),3),
@@ -412,7 +412,7 @@ for(i_g in 1:nrow(sim_matrix)){
 }
 
 
-#if we fitted the distribution of expression with zinb model, we calculate:
+###Option 2:if we fitted the distribution of expression with zinb model, we calculate:
 
 for(i_g in 1:nrow(sim_fit)){
   cur_fit=sim_fit[i_g,,]

@@ -14,21 +14,32 @@ setwd("/fh/fast/sun_w/mengqi/1.Testing_scRNAseq/")
 #r_mean=1.5  #r_mean/r_var should < 1+mean.shape
 #r_var=4
 
-
-
 perm_num=500
 
 
-
-
-
-sim_matrix_bulk=readRDS(paste0("../Data_PRJNA434002/10.Result/sim_matrix_bulk_",sim_method,"_",r_mean,"_",r_var,"_",file_tag,".rds"))
+sim_matrix=readRDS(paste0("../Data_PRJNA434002/10.Result/sim_matrix_",sim_method,"_",r_mean,"_",r_var,"_",file_tag,".rds"))
 meta=readRDS(paste0("../Data_PRJNA434002/10.Result/sim_meta_",sim_method,"_",r_mean,"_",r_var,"_",file_tag,".rds"))
 
 cur_info=meta[,c("individual","phenotype")]
 cur_info=unique(cur_info)
 rownames(cur_info)=cur_info$individual
 ######################Other method comparison: DESeq2 #################################
+print("start DESeq2 preparation")
+#individual level info
+cur_individual=unique(meta$individual)
+sim_matrix_bulk=matrix(nrow=nrow(sim_matrix),ncol=length(cur_individual))
+rownames(sim_matrix_bulk)=rownames(sim_matrix)
+colnames(sim_matrix_bulk)=cur_individual
+
+for(i_ind in 1:length(cur_individual)){
+  cur_ind=cur_individual[i_ind]
+  cur_ind_m=sim_matrix[,meta$individual==cur_ind]
+  sim_matrix_bulk[,i_ind]=apply(cur_ind_m,1,function(x){return(sum(x,na.rm = TRUE))})
+}
+
+saveRDS(sim_matrix_bulk,paste0("../Data_PRJNA434002/10.Result/sim_matrix_bulk_",sim_method,"_",r_mean,"_",r_var,"_",file_tag,".rds"))
+
+
 print("start DESeq2 calculation")
 
 perm_num=500

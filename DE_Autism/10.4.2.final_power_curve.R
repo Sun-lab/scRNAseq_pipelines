@@ -7,8 +7,8 @@ sim_method_seq=c("splat.org","zinb.naive") #"splat.mean","splat.var"
 file_tag_seq=1:3
 
 
-power_array1=readRDS(paste0("../Data_PRJNA434002/10.Result/final_power_array_round1.rds"))
-power_array2=readRDS(paste0("../Data_PRJNA434002/10.Result/final_power_array_round2.rds"))
+power_array1=readRDS(paste0("../Data_PRJNA434002/10.Result/final_power_array_param1.rds"))
+power_array2=readRDS(paste0("../Data_PRJNA434002/10.Result/final_power_array_param2.rds"))
 
 
 library("RColorBrewer")
@@ -41,10 +41,10 @@ power_plot1=function(y_matrix,cur_main="",cur_xlab="",cur_ylab="Power",x_seq=NA,
 }
 
 
-
+pdf(paste0("../Data_PRJNA434002/10.Result/power_curve_final.pdf"),height = 16,width = 16)
 op=par(mfrow = c(2, 2), pty = "s")
-for(i_file in 1:length(file_tag_seq)){
-  for(i_sim in 1:length(sim_method_seq)){
+for(i_sim in length(sim_method_seq):1){
+  for(i_file in 1:length(file_tag_seq)){
     file_tag=file_tag_seq[i_file]
     sim_method=sim_method_seq[i_sim]
     
@@ -61,3 +61,4 @@ for(i_file in 1:length(file_tag_seq)){
   }
 }
 par(op)
+dev.off()

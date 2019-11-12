@@ -4,7 +4,7 @@ setwd("/Users/mzhang24/Desktop/fh/1.Testing_scRNAseq/")
 #setwd("/fh/fast/sun_w/mengqi/1.Testing_scRNAseq/")
 
 
-param_tag=1
+param_tag=2
 
 if(param_tag==1){
   r_mean_seq=c(1.2,1.5,2,4,6)
@@ -15,11 +15,11 @@ if(param_tag==2){
   r_mean_seq=1.5
   r_var_seq=c(1.2,1.5,2,4,6)
 }
-r_mean_seq=1.5
-r_var_seq=1.5
+#r_mean_seq=1.5
+#r_var_seq=1.5
 
 sim_method_seq=c("splat.org","zinb.naive") #"splat.mean","splat.var"
-file_tag_seq=1:3
+file_tag_seq=1:5
 
 
 # #test
@@ -180,7 +180,7 @@ for(i_file in 1:length(file_tag_seq)){
         points(power_matrix[6,3],power_matrix[6,1],col="green",pch=3,cex=3)
         points(power_matrix[6,3],power_matrix[6,2],col="green",pch=4,cex=3)
         
-        legend("topright",c(rownames(power_matrix),"mean diff","var diff"),pch=c(rep(15,6),4,3),cex=1,col=c("red","blue","pink","brown","orange","green","black","black"))
+        legend("topright",c(rownames(power_matrix),"mean diff","var diff"),pch=c(rep(15,6),3,4),cex=1,col=c("red","blue","pink","brown","orange","green","black","black"))
         
         dev.off()
         
@@ -197,8 +197,30 @@ for(i_file in 1:length(file_tag_seq)){
 saveRDS(power_array,paste0("../Data_PRJNA434002/10.Result/final_power_array_param",param_tag,".rds"))
 
 
-
-
-
+#more plot
+pdf(paste0("../Data_PRJNA434002/10.Result/final_power_",sim_method,"_param",param_tag,"_",file_tag,".pdf"),height = 16,width = 12)
+for(i_sim in length(sim_method_seq):1){
+  for(i_file in 1:length(file_tag_seq)){
+    file_tag=file_tag_seq[i_file]
+    sim_method=sim_method_seq[i_sim]
+    cur_power_array=power_array[i_file,i_sim,,,,]
+    plot(cur_power_array[,1,3],cur_power_array[,1,1],xlim=c(0,1),ylim=c(0,1),xlab="False positive rate (FPR)",ylab="True positive rate (TPR)",type="p",col="red",pch=3,cex=3,main=paste0("power scatter: ",file_tag,"_",sim_method))
+    points(cur_power_array[,1,3],cur_power_array[,1,2],col="red",pch=4,cex=3)
+    points(cur_power_array[,2,3],cur_power_array[,2,1],col="blue",pch=3,cex=3)
+    points(cur_power_array[,2,3],cur_power_array[,2,2],col="blue",pch=4,cex=3)
+    points(cur_power_array[,3,3],cur_power_array[,3,1],col="pink",pch=3,cex=3)
+    points(cur_power_array[,3,3],cur_power_array[,3,2],col="pink",pch=4,cex=3)
+    points(cur_power_array[,4,3],cur_power_array[,4,1],col="brown",pch=3,cex=3)
+    points(cur_power_array[,4,3],cur_power_array[,4,2],col="brown",pch=4,cex=3)
+    points(cur_power_array[,5,3],cur_power_array[,5,1],col="orange",pch=3,cex=3)
+    points(cur_power_array[,5,3],cur_power_array[,5,2],col="orange",pch=4,cex=3)
+    points(cur_power_array[,6,3],cur_power_array[,6,1],col="green",pch=3,cex=3)
+    points(cur_power_array[,6,3],cur_power_array[,6,2],col="green",pch=4,cex=3)
+    
+    legend("topright",c(dimnames(cur_power_array)[[2]],"mean diff","var diff"),pch=c(rep(15,6),3,4),cex=1,col=c("red","blue","pink","brown","orange","green","black","black"))
+    
+  }
+}
+dev.off()
 
 

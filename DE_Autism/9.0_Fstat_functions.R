@@ -32,14 +32,14 @@ calc_F_permanova2=function(dist_array,label,covariate_x=NA){
 
 #cal F version 2############
 #almost no difference in cal speed between cal1 and cal2, for possible better numerical resuls(no evidence, by feeling), we may prefer cal1.
-calG_1=function(m){
+calG_1=function(m){#m is a matrix dim2=dim3=n_individual
   m=m*m
   n=nrow(m)
   preGn=(diag(n)-matrix(1/n,n,n))
   -1/2*preGn%*%m%*%preGn
 }
 
-calG_2=function(m){
+calG_2=function(m){ #m is a matrix dim2=dim3=n_individual
   m=m*m
   n=nrow(m)
   preGn=(diag(n)*n-matrix(1,n,n))
@@ -47,14 +47,42 @@ calG_2=function(m){
 }
 
 #more suitable for large matrix, say, larger than 40
-calG_3=function(m){
+calG_3=function(m){#m is a matrix dim2=dim3=n_individual
   m=m*m
   n=nrow(m)
   res=m+matrix(sum(m)/(n*n),n,n)-1/n *(matrix((rep(rowSums(m),times=n)+rep(colSums(m),each=n)),n,n))
   -1/2*res
 }
 
+calG_1a=function(m){#m is array dim1=n_genes dim2=dim3=n_individual
+  m=m*m
+  n=dim(m)[2]
+  preGn=(diag(n)-matrix(1/n,n,n))
+  res=apply(m,1,function(x){return(-1/2*preGn%*%x%*%preGn)})
+  dim(res)=c(n,n,dim(m)[1])
+  res
+}
+
+calG_2a=function(m){ #m is array dim1=n_genes dim2=dim3=n_individual
+  m=m*m
+  n=dim(m)[2]
+  preGn=(diag(n)*n-matrix(1,n,n))
+  res=apply(m,1,function(x){return(-1/(2*n*n)*preGn%*%x%*%preGn)})
+  dim(res)=c(n,n,dim(m)[1])
+  res
+}
+
+#more suitable for large matrix, say, larger than 40
+calG_3a=function(m){#m is array dim1=n_genes dim2=dim3=n_individual
+  m=m*m
+  n=dim(m)[2]
+  res=-1/2*apply(m,1,function(x){return(x+matrix(sum(x)/(n*n),n,n)-1/n *(matrix((rep(rowSums(x),times=n)+rep(colSums(x),each=n)),n,n)))})
+  dim(res)=c(n,n,dim(m)[1])
+  res
+}
+
 calH=function(x){
+  x=as.matrix(x)
   x%*% solve(crossprod(x))%*%t(x)
 }
 
@@ -90,11 +118,48 @@ calc_F_permanovaS=function(dist_matrix,label,covariate_x=NA,G_method=NA){ #G_met
       G=calG_3(dist_matrix)
     }
   }
+  
+  label=as.matrix(label)
+  label=as.matrix(apply(label,2,as.numeric))
   H=calH(label)
   IH=diag(nrow(H))-H
   Fstat=calTrace(G,H)/calTrace(G,IH)
   return(Fstat)
 }
+
+
+
+calc_F_permanovaS2=function(dist_array,label,covariate_x=NA,G_method=NA){ #G_method=c(NA,1,2,3)
+  if(!is.na(covariate_x)){
+    label=cbind(label,covariate_x)
+  }
+  if(!is.na(G_method)){
+    if(G_method==1){
+      G=calG_1a(dist_array)
+    }
+    if(G_method==2){
+      G=calG_2a(dist_array)
+    }
+    if(G_method==3){
+      G=calG_3a(dist_array)
+    }
+  }
+  if(is.na(G_method)){
+    if(nrow(dist_array)<=40){
+      G=calG_1a(dist_array)
+    }
+    if(nrow(dist_array)>40){
+      G=calG_3a(dist_array)
+    }
+  }
+  label=as.matrix(label)
+  label=as.matrix(apply(label,2,as.numeric))
+  H=calH(label)
+  IH=diag(nrow(H))-H
+  Fstat=apply(G,3,function(x){return(calTrace(x,H)/calTrace(x,IH))})
+  return(Fstat)
+}
+
 
 
 #example:
@@ -125,7 +190,7 @@ cal_permanova_pval=function(dist_matrix,diagnose,cov_x=NA,F_method="p",perm_num.
   pval=sum(F_perm>F_ob,na.rm = TRUE)/sum(!is.na(F_perm))
   while(B<=perm_num.max){
     if(pval>=1/(tol*B)){
-      return(pval)
+      break
     }
     else{
       B=B*10
@@ -159,7 +224,7 @@ cal_permanova_pval2=function(dist_array,diagnose,cov_x=NA,F_method="p",perm_num.
   pval0_flag=(pval<1/(tol*B))
   while(B<=perm_num.max){
     if(sum(pval0_flag,na.rm = TRUE)==0){
-      return(pval)
+      break
     }
     else{
       B=B*10

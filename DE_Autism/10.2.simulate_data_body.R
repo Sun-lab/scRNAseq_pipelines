@@ -360,7 +360,7 @@ for(i_ind in 1:length(cur_individual)){
   phenotype_ind[i_ind]=meta$phenotype[meta$individual==cur_ind][1]
   
   zero_rate_ind[,i_ind]=apply(cur_ind_m==0,1,function(x){return(sum(x,na.rm = TRUE))})/cell_num[i_ind]
-  sim_matrix_bulk[,i_ind]=apply(cur_ind_m==0,1,function(x){return(sum(x,na.rm = TRUE))})
+  sim_matrix_bulk[,i_ind]=apply(cur_ind_m,1,function(x){return(sum(x,na.rm = TRUE))})
 }
 
 hist(read_depth)
