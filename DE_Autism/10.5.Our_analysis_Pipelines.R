@@ -106,6 +106,13 @@ log_mean_sample=(log(as.numeric(mid_mean)))
 log_disp_sample=(log(as.numeric(mid_dispersion)))
 logit_drop_sample=(log(as.numeric(mid_dropout)/(1-as.numeric(mid_dropout))))
 
+pdf("figures/his_mean_disp_drop.pdf", width = 9, height = 3)
+par(mfrow = c(1, 3), mar = c(5, 4, 1, 1), cex = 1)
+hist(log_mean, main = "")
+hist(log_disp, main = "")
+hist(logit_drop, main = "")
+dev.off()
+
 #simulate parameters based on the real data, based on gaussian distribution.
 Pram_log_mean=rnorm(nGeneMean+nGeneVar+nGeneBlank,mean = (log_mean_sample),sd=sd(log_mean_sample))
 Pram_log_disp=rnorm(nGeneMean+nGeneVar+nGeneBlank,mean = (log_disp_sample),sd=sd(log_disp_sample))
@@ -150,24 +157,39 @@ if(r_var<1){r_var2=1/r_var}
 
 #tune the parameters for targeted mean/variance changes.
 
-#the function calc_nb_param 
-# returns the parameters for changing mean and variance of the negative binomial distribution
-#require:  r_m/r_v <1+mu/theta
-calc_nb_param=function(mu,theta,r_m=1,r_v=1){
+calc_nb_param_var = function(x, r_v) {
   #mu=mean
   #theta=overdispersion
-  mu2=r_m*mu
-  theta2=theta*r_m*r_m*mu/(mu*r_v+(r_v-r_m)*theta)
-  return(c(mu2,theta2))
+  mu    = x[1]
+  theta = x[2]
+  mu2   = mu
+  theta2 = theta  * mu / (mu * r_v + (r_v - 1) * theta)
+  if(theta2 < 0){ stop("negative theta2\n") }
+  return(c(mu2, theta2))
 }
 
-#modify parameters for cases.
+# modify parameters for cases.
 gpar_case=gpar_ctrl
-gpar_case[mean_index,1:2]=t(apply(gpar_case[mean_index,1:2,drop=FALSE],1,
-                                  function(x){return(calc_nb_param(x[1],x[2],r_m=r_mean2))})) #50% enlarge #50%shrinkage
-gpar_case[var_index,1:2]=t(apply(gpar_case[var_index,1:2,drop=FALSE],1,
-                                 function(x){return(calc_nb_param(x[1],x[2],r_v=r_var2))})) #50% enlarge #50%shrinkage
 
+#now r_m is smaller than 1. We need to modify gene expression in 
+# x proportion of genes by fold r_m and (1-x) proportion of genes by 
+# fold of 1/r_m, so that x(1-r_m)=(1-x)(1/r_m-1)
+# x(1-r_m+1/r_m-1)=(1/r_m-1)=>x=(1-r_m)/(1-r_m^2). 
+# so if r_m=1/2,x=(1/2)/(3/4)=2/3. 
+
+nGene_down=round((1-r_mean2)/(1-r_mean2^2)*nGeneMean)
+mean_index_down=mean_index[1:nGene_down]
+mean_index_up=mean_index[(nGene_down+1):nGeneMean]
+
+gpar_case[mean_index_down,1]=gpar_case[mean_index_down,1]*r_mean2
+gpar_case[mean_index_up,1]=gpar_case[mean_index_up,1]*(1/r_mean2)
+
+new_par=apply(gpar_case[var_index,1:2,drop=FALSE],1,calc_nb_param_var,r_v=r_var2)
+gpar_case[var_index,1:2]=t(new_par)
+
+# check the total read depth
+sum(gpar_case[,1])
+sum(gpar_ctrl[,1])
 #simulate scRNAseq based on zinb parameters of cases and controls:
 sim_case=matrix(nrow=nGeneTotal,ncol=ncase*ncell)
 sim_ctrl=matrix(nrow=nGeneTotal,ncol=nctrl*ncell)

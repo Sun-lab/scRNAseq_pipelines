@@ -51,14 +51,52 @@ dim(meta)
 #individual level info
 CDR=matrix(ncol=1,nrow=nrow(meta))
 colnames(CDR)="CDR"
-
+CDR_ind=matrix(ncol=1,nrow=length(cur_individual))
+colnames(CDR_ind)="CDR_ind"
+  
+  
 for(i_ind in 1:length(cur_individual)){
   cur_ind=cur_individual[i_ind]
   #fit org
   cur_ind_m=sim_matrix[,meta$individual==cur_ind]
   cur_CDR=sum(cur_ind_m>0,na.rm = TRUE)/sum(cur_ind_m>-1,na.rm = TRUE)
   CDR[meta$individual==cur_ind]=cur_CDR
+  CDR_ind[i_ind]=cur_CDR
 }
+
+#individual level info
+cur_individual=unique(meta$individual)
+cell_num=matrix(ncol=1,nrow=length(cur_individual))
+rownames(cell_num)=cur_individual
+colnames(cell_num)="cell_num"
+read_depth=matrix(ncol=1,nrow=length(cur_individual))
+rownames(read_depth)=cur_individual
+colnames(read_depth)="read_depth"
+
+
+zero_rate_ind=matrix(nrow=nrow(sim_matrix),ncol=length(cur_individual))
+rownames(zero_rate_ind)=rownames(sim_matrix)
+colnames(zero_rate_ind)=cur_individual
+sim_matrix_bulk=matrix(nrow=nrow(sim_matrix),ncol=length(cur_individual))
+rownames(sim_matrix_bulk)=rownames(sim_matrix)
+colnames(sim_matrix_bulk)=cur_individual
+
+for(i_ind in 1:length(cur_individual)){
+  cur_ind=cur_individual[i_ind]
+  #fit org
+  cur_ind_m=sim_matrix[,meta$individual==cur_ind]
+  cell_num[i_ind]=ncol(cur_ind_m)
+  read_depth[i_ind]=sum(cur_ind_m,na.rm = TRUE)/cell_num[i_ind]*1000
+  
+  zero_rate_ind[,i_ind]=apply(cur_ind_m==0,1,function(x){return(sum(x,na.rm = TRUE))})/cell_num[i_ind]
+  sim_matrix_bulk[,i_ind]=apply(cur_ind_m,1,function(x){return(sum(x,na.rm = TRUE))})
+}
+
+hist(read_depth)
+
+plot(read_depth,CDR_ind)
+cor(read_depth,CDR_ind)
+
 
 
 

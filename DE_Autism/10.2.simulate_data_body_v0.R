@@ -130,18 +130,6 @@ calc_nb_param=function(mu,theta,r_m=1,r_v=1){
   return(c(mu2,theta2))
 }
 
-#tune the parameters for targeted mean/variance changes.(from Wei)
-
-calc_nb_param_var = function(x, r_v) {
-  #mu=mean
-  #theta=overdispersion
-  mu    = x[1]
-  theta = x[2]
-  mu2   = mu
-  theta2 = theta  * mu / (mu * r_v + (r_v - 1) * theta)
-  if(theta2 < 0){ stop("negative theta2\n") }
-  return(c(mu2, theta2))
-}
 # # ############ Simulation data with Method 4###############################
 
 if(sim_method=="splat.org"){
@@ -267,21 +255,9 @@ if(sim_method=="zinb.naive"){
   r_var2=r_var  
   if(r_mean>1){r_mean2=1/r_mean}
   if(r_var<1){r_var2=1/r_var}
-
-  # now r_m is smaller than 1. We need to modify gene expression in 
-  # x proportion of genes by fold r_m and (1-x) proportion of genes by 
-  # fold of 1/r_m, so that x(1 - r_m) = (1-x)(1/r_m - 1) 
-  # x (1 - r_m + 1/r_m -1) = (1/r_m -1) => x = (1 - r_m)/(1 - r_m^2). 
-  # so if r_m = 1/2, x = (1/2) / (3/4) = 2/3. 
   
-  nGene_down = round((1 - r_mean2)/(1 - r_mean2^2)*nGeneMean)
-  mean_index_down = mean_index[1:nGene_down]
-  mean_index_up   = mean_index[(nGene_down + 1):nGeneMean]
-  
-  gpar_case[mean_index_down, 1] = gpar_case[mean_index_down, 1]*r_mean2
-  gpar_case[mean_index_up, 1]   = gpar_case[mean_index_up, 1]*(1/r_mean2)
-  
-  gpar_case[var_index,1:2]=t(apply(gpar_case[var_index,1:2,drop=FALSE],1,function(x){return(calc_nb_param_var(x,r_v=r_var2))})) #50% enlarge #50%shrinkage
+  gpar_case[mean_index,1:2]=t(apply(gpar_case[mean_index,1:2,drop=FALSE],1,function(x){return(calc_nb_param(x[1],x[2],r_m=r_mean2))})) #50% enlarge #50%shrinkage
+  gpar_case[var_index,1:2]=t(apply(gpar_case[var_index,1:2,drop=FALSE],1,function(x){return(calc_nb_param(x[1],x[2],r_v=r_var2))})) #50% enlarge #50%shrinkage
   
   sim_case=matrix(nrow=nGeneTotal,ncol=ncase*ncell)
   sim_ctrl=matrix(nrow=nGeneTotal,ncol=nctrl*ncell)
@@ -290,10 +266,6 @@ if(sim_method=="zinb.naive"){
     sim_case[ig,]=emdbook::rzinbinom(ncase*ncell,gpar_case[ig,1], gpar_case[ig,2], gpar_case[ig,3])
     sim_ctrl[ig,]=emdbook::rzinbinom(ncase*ncell,gpar_ctrl[ig,1], gpar_ctrl[ig,2], gpar_ctrl[ig,3])
   }
-  
-  # check the total read depth
-  sum(gpar_case[,1])
-  sum(gpar_ctrl[,1])
   
   de.mean=matrix(0,ncol=1,nrow=nGeneTotal)
   de.var=matrix(0,ncol=1,nrow=nGeneTotal)
