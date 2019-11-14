@@ -4,7 +4,7 @@ setwd("/Users/mzhang24/Desktop/fh/1.Testing_scRNAseq/")
 #setwd("/fh/fast/sun_w/mengqi/1.Testing_scRNAseq/")
 
 
-param_tag=2
+param_tag=1
 
 if(param_tag==1){
   r_mean_seq=c(1.2,1.5,2,4,6)
@@ -79,10 +79,10 @@ for(i_file in 1:length(file_tag_seq)){
         tryCatch({jsd_empirical_pval=readRDS(paste0("../Data_PRJNA434002/10.Result/JSD_empirical_raw_pval_",sim_method,"_",r_mean,"_",r_var,"_",file_tag,".rds"))}, error = function(e) {NA} )
         tryCatch({klmean_zinb_pval=readRDS(paste0("../Data_PRJNA434002/10.Result/mean_zinb_raw_pval_",sim_method,"_",r_mean,"_",r_var,"_",file_tag,".rds"))}, error = function(e) {NA} )
         tryCatch({klmean_empirical_pval=readRDS(paste0("../Data_PRJNA434002/10.Result/mean_empirical_raw_pval_",sim_method,"_",r_mean,"_",r_var,"_",file_tag,".rds"))}, error = function(e) {NA} )
-        tryCatch({deseq2_pval=readRDS(paste0("../Data_PRJNA434002/10.Result/DESeq2_raw_pval_",sim_method,"_",r_mean,"_",r_var,"_",file_tag,".rds"))}, error = function(e) {NA} )
+        tryCatch({deseq2_pval=readRDS(paste0("../Data_PRJNA434002/10.Result/DESeq2_ob_pval_",sim_method,"_",r_mean,"_",r_var,"_",file_tag,".rds"))}, error = function(e) {NA} )
         
         #note! please be sure to use 10.3.MAST_postArrangment.R when all permutation results are ready.
-        tryCatch({MAST_pval=readRDS(paste0("../Data_PRJNA434002/10.Result/MAST_pval_",sim_method,"_",r_mean,"_",r_var,"_",file_tag,".rds"))}, error = function(e) {NA} )
+        tryCatch({MAST_pval=readRDS(paste0("../Data_PRJNA434002/10.Result/MAST_org_pval_",sim_method,"_",r_mean,"_",r_var,"_",file_tag,"_0.rds"))}, error = function(e) {NA} )
         
         
         

@@ -90,8 +90,8 @@
 #                         #splat.org--method 4, change the mean.shape and mean.rate originally
 # 
 # #r_mean/r_var should < 1+mean.shape
-# r_mean=1.2  #1.2,1.5,2,4,8
-# r_var=4 #2,4,6,8,10
+# r_mean=1.2  #1.2,1.5,2,4,6
+# r_var=2 #1.2,1.5,2,4,6
 
 #setwd("~/Desktop/fh/1.Testing_scRNAseq/")
 #setwd("/Users/mzhang24/Desktop/fh/1.Testing_scRNAseq/")
@@ -113,7 +113,10 @@ i_mean=1:nGeneMean
 i_var=(nGeneMean+1):(nGeneMean+nGeneVar)
 i_blank=(nGeneMean+nGeneVar+1):nGeneTotal
 
-i_case=1:ncase*ncell
+switch_flag=rbinom(nGeneTotal,1,0.5)
+i_switch=which(switch_flag==1) #randomlized settings, switching cases and control samples to make sure the library sizes the same
+
+i_case=1:(ncase*ncell)
 i_ctrl=(ncase*ncell+1):((ncase+nctrl)*ncell)
 
 ##############functions#################
@@ -159,6 +162,11 @@ if(sim_method=="splat.org"){
   sim_matrix[i_mean,i_case]=round(sim_matrix[i_mean,i_case]+ref_matrix[i_mean,i_case]*(r_mean-1))
   sim_matrix[i_var,i_case]= pmax(round(ref_matrix[i_var,i_case]+sqrt(1/r_var)*(sim_matrix[i_var,i_case]-
                                                                                  ref_matrix[i_var,i_case])),0)
+
+  #switch
+  switch_temp=sim_matrix[i_switch,i_case]
+  sim_matrix[i_switch,i_case]=sim_matrix[i_switch,i_ctrl]
+  sim_matrix[i_switch,i_ctrl]=switch_temp
 
   sim_matrix[1:10,1991:2010]
   sim_matrix[301:310,1991:2010]
@@ -230,6 +238,11 @@ if(sim_method=="zinb.naive"){
   #t_dispersion2=read.table(paste0("../Data_PRJNA434002/res_dca_rawM",input_file_tag,"/dispersion_signif4.tsv.gz"),stringsAsFactors = FALSE,row.names = 1)
   #t_dropout2=read.table(paste0("../Data_PRJNA434002/res_dca_rawM",input_file_tag,"/dropout_signif4.tsv.gz"),stringsAsFactors = FALSE,row.names = 1)
   
+  #randomlize the orders of genes
+  random_index=sample.int(nrow(t_mean))
+  t_mean=t_mean[random_index,]  
+  t_dispersion=t_dispersion[random_index,]  
+  t_dropout=t_dropout[random_index,]  
   
   mid_mean=apply(t_mean,1,median)
   mid_dispersion=apply(t_dispersion,1,median)
@@ -237,6 +250,13 @@ if(sim_method=="zinb.naive"){
   log_mean_sample=(log(as.numeric(mid_mean)))
   log_disp_sample=(log(as.numeric(mid_dispersion)))
   logit_drop_sample=(log(as.numeric(mid_dropout)/(1-as.numeric(mid_dropout))))
+  
+  pdf(paste0("../Data_PRJNA434002/10.Result/his_mean_disp_drop_",sim_method,"_",file_tag,".pdf"), width = 9, height = 3)
+  par(mfrow = c(1, 3), mar = c(5, 4, 1, 1), cex = 1)
+  hist(log_mean_sample, main = "")
+  hist(log_disp_sample, main = "")
+  hist(logit_drop_sample, main = "")
+  dev.off()
   
   Pram_log_mean=rnorm(nGeneMean+nGeneVar+nGeneBlank,mean = (log_mean_sample),sd=sd(log_mean_sample))
   Pram_log_disp=rnorm(nGeneMean+nGeneVar+nGeneBlank,mean = (log_disp_sample),sd=sd(log_disp_sample))
@@ -302,39 +322,82 @@ if(sim_method=="zinb.naive"){
   
   pdf(paste0("../Data_PRJNA434002/10.Result/plot_sim_",sim_method,"_",file_tag,".pdf"),height = 4,width = 6)
   op=par(mfrow = c(2, 3), pty = "s")
-  hist(log(apply(sim_ctrl[de.mean+de.var==0,],1,mean)))
-  hist(log(apply(sim_ctrl[de.mean==1,],1,mean)))
-  hist(log(apply(sim_ctrl[de.var==1,],1,mean)))
   
-  hist(log(apply(sim_case[de.mean+de.var==0,],1,mean)),col=rgb(1,0,0,0.3))
-  hist(log(apply(sim_case[de.mean==1,],1,mean)),col=rgb(1,0,0,0.3))
-  hist(log(apply(sim_case[de.var==1,],1,mean)),col=rgb(1,0,0,0.3))
+  #histograms
+  hist(log(apply(sim_ctrl[de.mean+de.var==0,],1,mean)),
+       breaks=15,xlim=c(-6,2), main="log of mean count, non-DE genes in control")
+  hist(log(apply(sim_ctrl[de.mean==1,],1,mean)),
+       breaks=15, xlim=c(-6,2), main="log of mean count, Mean-DE genes in control")
+  hist(log(apply(sim_ctrl[de.var==1,],1,mean)),
+       breaks=15, xlim=c(-6,2), main="log of mean count, Var-DE genes in control")
   
-  hist(log(apply(sim_ctrl[de.mean+de.var==0,],1,var)))
-  hist(log(apply(sim_ctrl[de.mean==1,],1,var)))
-  hist(log(apply(sim_ctrl[de.var==1,],1,var)))
+  hist(log(apply(sim_case[de.mean+de.var==0,],1,mean)),
+       col=rgb(1,0,0,0.3),breaks=15, xlim=c(-6,2), main="log of mean count, non-DE genes in case")
+  hist(log(apply(sim_case[de.mean==1,],1,mean)),
+       col=rgb(1,0,0,0.3),breaks=15, xlim=c(-6,2), main="log of mean count, Mean-DE genes in case")
+  hist(log(apply(sim_case[de.var==1,],1,mean)),
+       col=rgb(1,0,0,0.3),breaks=15, xlim=c(-6,2), main="log of mean count, Var-DE genes in case")
   
-  hist(log(apply(sim_case[de.mean+de.var==0,],1,var)),col=rgb(1,0,0,0.3))
-  hist(log(apply(sim_case[de.mean==1,],1,var)),col=rgb(1,0,0,0.3))
-  hist(log(apply(sim_case[de.var==1,],1,var)),col=rgb(1,0,0,0.3))
+  hist(log(apply(sim_ctrl[de.mean+de.var==0,],1,var)),
+       breaks=15, xlim=c(-6,2), main="log of var count, non-DE genes in control")
+  hist(log(apply(sim_ctrl[de.mean==1,],1,var)),
+       breaks=15, xlim=c(-6,2), main="log of var count, Mean-DE genes in control")
+  hist(log(apply(sim_ctrl[de.var==1,],1,var)),
+       breaks=15, xlim=c(-6,2), main="log of var count, Var-DE genes in control")
   
+  hist(log(apply(sim_case[de.mean+de.var==0,],1,var)),
+       col=rgb(1,0,0,0.3),breaks=15, xlim=c(-6,2), main="log of var count, non-DE genes in case")
+  hist(log(apply(sim_case[de.mean==1,],1,var)),
+       col=rgb(1,0,0,0.3),breaks=15, xlim=c(-6,2), main="log of var count, Mean-DE genes in case")
+  hist(log(apply(sim_case[de.var==1,],1,var)),
+       col=rgb(1,0,0,0.3),breaks=15, xlim=c(-6,2), main="log of var count, Var-DE genes in case")
   
-  plot(sort(log(apply(sim_ctrl[de.mean+de.var==0,],1,mean))),sort(log(apply(sim_case[de.mean+de.var==0,],1,mean))))
+  #QQ plots
+  plot(sort(log(apply(sim_ctrl[de.mean+de.var==0,],1,mean))),sort(log(apply(sim_case[de.mean+de.var==0,],1,mean))),
+       cex=.1, xlab="control cells",ylab="case cells",main="QQ plot: log of mean count, non-DE genes")
   lines(c(-10,10),c(-10,10),col="red")
-  plot(sort(log(apply(sim_ctrl[de.mean==1,],1,mean))),sort(log(apply(sim_case[de.mean==1,],1,mean))))
+  plot(sort(log(apply(sim_ctrl[de.mean==1,],1,mean))),sort(log(apply(sim_case[de.mean==1,],1,mean))),
+       cex=.1, xlab="control cells",ylab="case cells",main="QQ plot: log of mean count, Mean-DE genes")
   lines(c(-10,10),c(-10,10),col="red")
-  plot(sort(log(apply(sim_ctrl[de.var==1,],1,mean))),sort(log(apply(sim_case[de.var==1,],1,mean))))
+  plot(sort(log(apply(sim_ctrl[de.var==1,],1,mean))),sort(log(apply(sim_case[de.var==1,],1,mean))),
+       cex=.1, xlab="control cells",ylab="case cells",main="QQ plot: log of mean count, Var-DE genes")
   lines(c(-10,10),c(-10,10),col="red")
   
   
-  plot(sort(log(apply(sim_ctrl[de.mean+de.var==0,],1,var))),sort(log(apply(sim_case[de.mean+de.var==0,],1,var))))
+  plot(sort(log(apply(sim_ctrl[de.mean+de.var==0,],1,var))),sort(log(apply(sim_case[de.mean+de.var==0,],1,var))),
+       cex=.1, xlab="control cells",ylab="case cells",main="QQ plot: log of var count, non-DE genes")
   lines(c(-10,10),c(-10,10),col="red")
-  plot(sort(log(apply(sim_ctrl[de.mean==1,],1,var))),sort(log(apply(sim_case[de.mean==1,],1,var))))
+  plot(sort(log(apply(sim_ctrl[de.mean==1,],1,var))),sort(log(apply(sim_case[de.mean==1,],1,var))),
+       cex=.1, xlab="control cells",ylab="case cells",main="QQ plot: log of var count, Mean-DE genes")
   lines(c(-10,10),c(-10,10),col="red")
-  plot(sort(log(apply(sim_ctrl[de.var==1,],1,var))),sort(log(apply(sim_case[de.var==1,],1,var))))
+  plot(sort(log(apply(sim_ctrl[de.var==1,],1,var))),sort(log(apply(sim_case[de.var==1,],1,var))),
+       cex=.1, xlab="control cells",ylab="case cells",main="QQ plot: log of var count, Var-DE genes")
+  lines(c(-10,10),c(-10,10),col="red")
+  
+  #Scatters
+  plot(log(apply(sim_ctrl[de.mean+de.var==0,],1,mean)),log(apply(sim_case[de.mean+de.var==0,],1,mean)),
+       cex=.1, xlab="control cells",ylab="case cells",main="log of mean count, non-DE genes")
+  lines(c(-10,10),c(-10,10),col="red")
+  plot(log(apply(sim_ctrl[de.mean==1,],1,mean)),log(apply(sim_case[de.mean==1,],1,mean)),
+       cex=.1, xlab="control cells",ylab="case cells",main="log of mean count, Mean-DE genes")
+  lines(c(-10,10),c(-10,10),col="red")
+  plot(log(apply(sim_ctrl[de.var==1,],1,mean)),log(apply(sim_case[de.var==1,],1,mean)),
+       cex=.1, xlab="control cells",ylab="case cells",main="log of mean count, Var-DE genes")
+  lines(c(-10,10),c(-10,10),col="red")
+  
+  
+  plot(log(apply(sim_ctrl[de.mean+de.var==0,],1,var)),log(apply(sim_case[de.mean+de.var==0,],1,var)),
+       cex=.1, xlab="control cells",ylab="case cells",main="log of var count, non-DE genes")
+  lines(c(-10,10),c(-10,10),col="red")
+  plot(log(apply(sim_ctrl[de.mean==1,],1,var)),log(apply(sim_case[de.mean==1,],1,var)),
+       cex=.1, xlab="control cells",ylab="case cells",main="log of var count, Mean-DE genes")
+  lines(c(-10,10),c(-10,10),col="red")
+  plot(log(apply(sim_ctrl[de.var==1,],1,var)),log(apply(sim_case[de.var==1,],1,var)),
+       cex=.1, xlab="control cells",ylab="case cells",main="log of var count, Var-DE genes")
   lines(c(-10,10),c(-10,10),col="red")
   
   par(op)
+
   dev.off()
   sim_matrix=cbind(sim_case,sim_ctrl)
   
@@ -398,6 +461,7 @@ hist(read_depth)
 #almost no need to adjust library size.
 tryCatch(saveRDS(de.mean,paste0("../Data_PRJNA434002/10.Result/sim_de.mean_",sim_method,"_",r_mean,"_",r_var,"_",file_tag,".rds")), error = function(e) {NA} )
 tryCatch(saveRDS(de.var,paste0("../Data_PRJNA434002/10.Result/sim_de.var_",sim_method,"_",r_mean,"_",r_var,"_",file_tag,".rds")), error = function(e) {NA} )
+tryCatch(saveRDS(switch_flag,paste0("../Data_PRJNA434002/10.Result/sim_switch_flag_",sim_method,"_",r_mean,"_",r_var,"_",file_tag,".rds")), error = function(e) {NA} )
 
 saveRDS(read_depth,paste0("../Data_PRJNA434002/10.Result/sim_ind_readdepth_",sim_method,"_",r_mean,"_",r_var,"_",file_tag,".rds"))
 saveRDS(zero_rate_ind,paste0("../Data_PRJNA434002/10.Result/sim_ind_zero_rate_",sim_method,"_",r_mean,"_",r_var,"_",file_tag,".rds"))

@@ -96,6 +96,12 @@ t_dropout=read.table(paste0("dropout_signif4.tsv.gz"),stringsAsFactors = FALSE,r
 #for better catch of the parameters, we get the gene specific medians of each parameter.
 # We then do a log/logit transform and using the gaussian distribution to model them and simulate parameters.
 
+#randomlize the orders of genes
+random_index=sample.int(nrow(t_mean))
+t_mean=t_mean[random_index,]  
+t_dispersion=t_dispersion[random_index,]  
+t_dropout=t_dropout[random_index,] 
+
 #get the median
 mid_mean=apply(t_mean,1,median)
 mid_dispersion=apply(t_dispersion,1,median)
@@ -108,9 +114,9 @@ logit_drop_sample=(log(as.numeric(mid_dropout)/(1-as.numeric(mid_dropout))))
 
 pdf("figures/his_mean_disp_drop.pdf", width = 9, height = 3)
 par(mfrow = c(1, 3), mar = c(5, 4, 1, 1), cex = 1)
-hist(log_mean, main = "")
-hist(log_disp, main = "")
-hist(logit_drop, main = "")
+hist(log_mean_sample, main = "")
+hist(log_disp_sample, main = "")
+hist(logit_drop_sample, main = "")
 dev.off()
 
 #simulate parameters based on the real data, based on gaussian distribution.
@@ -577,7 +583,7 @@ if(perm_tag>0){
   colData(sca)$diagnosis=as.factor(diag_kind[ind_index,2])
 }
 
-b=zlm(formula=~diagnosis + ind + cngeneson, sca=sca)
+b=zlm(formula=~diagnosis + (1|ind), sca=sca,method='glmer', ebayes=FALSE,strictConvergence = FALSE)
 bs=summary(b,logFC=TRUE,doLRT = paste0("diagnosis","Control"), level = 0.95)
 
 
