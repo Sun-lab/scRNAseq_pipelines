@@ -147,7 +147,7 @@ if(perm_tag>0){
   colData(sca)$diagnosis=as.factor(diag_kind[ind_index,2])
 }
 
-b=zlm(formula=~diagnosis + ind + cngeneson, sca=sca)
+b=zlm(formula=~diagnosis + (1|ind) + cngeneson, sca=sca, method='glmer', ebayes=FALSE,strictConvergence = FALSE)
 bs=summary(b,logFC=TRUE,doLRT = paste0("diagnosis","Control"), level = 0.95)
 
 

@@ -3,13 +3,17 @@
 
 setwd("/Users/mzhang24/Desktop/fh/1.Testing_scRNAseq/")
 
-sim_method_seq=c("splat.org","zinb.naive") #"splat.mean","splat.var"
-file_tag_seq=1:3
+#sim_method_seq=c("splat.org","zinb.naive") #"splat.mean","splat.var"
+
+sim_method_seq="zinb.naive"
+file_tag_seq=1:5
 
 
 power_array1=readRDS(paste0("../Data_PRJNA434002/10.Result/final_power_array_param1.rds"))
 power_array2=readRDS(paste0("../Data_PRJNA434002/10.Result/final_power_array_param2.rds"))
 
+power_array1[power_array1==0]=NA
+power_array2[power_array2==0]=NA
 
 library("RColorBrewer")
 #power_plot is used for plotting the power curves

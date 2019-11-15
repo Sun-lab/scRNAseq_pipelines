@@ -19,6 +19,8 @@ if(param_tag==2){
 #r_var_seq=1.5
 
 sim_method_seq=c("splat.org","zinb.naive") #"splat.mean","splat.var"
+sim_method_seq="zinb.naive"
+
 file_tag_seq=1:5
 
 
@@ -52,7 +54,10 @@ power_array=array(dim=c(
                     c("mean_diff","var_diff","control(FDR)")
                   ))
 
-
+count=1
+zeros=matrix(ncol=6,nrow=50)
+rownames_zeros=matrix(ncol=1,nrow=50)
+colnames(zeros)=c("jsd_zinb_pval","jsd_empirical_pval","klmean_zinb_pval","klmean_empirical_pval","MAST_pval","deseq2_pval")
 for(i_file in 1:length(file_tag_seq)){
   for(i_sim in 1:length(sim_method_seq)){
     for(i_mean in 1:length(r_mean_seq)){
@@ -81,11 +86,15 @@ for(i_file in 1:length(file_tag_seq)){
         tryCatch({klmean_empirical_pval=readRDS(paste0("../Data_PRJNA434002/10.Result/mean_empirical_raw_pval_",sim_method,"_",r_mean,"_",r_var,"_",file_tag,".rds"))}, error = function(e) {NA} )
         tryCatch({deseq2_pval=readRDS(paste0("../Data_PRJNA434002/10.Result/DESeq2_ob_pval_",sim_method,"_",r_mean,"_",r_var,"_",file_tag,".rds"))}, error = function(e) {NA} )
         
+        
+        
         #note! please be sure to use 10.3.MAST_postArrangment.R when all permutation results are ready.
         tryCatch({MAST_pval=readRDS(paste0("../Data_PRJNA434002/10.Result/MAST_org_pval_",sim_method,"_",r_mean,"_",r_var,"_",file_tag,"_0.rds"))}, error = function(e) {NA} )
         
-        
-        
+      
+        zeros[count,]=c(sum(is.na(jsd_zinb_pval)),sum(is.na(jsd_empirical_pval)),sum(is.na(klmean_zinb_pval)),sum(is.na(klmean_empirical_pval)),sum(is.na(MAST_pval)),sum(is.na(deseq2_pval)))
+        rownames_zeros[count]=paste0(file_tag,"_",sim_method,"_",r_mean,"_",r_var)
+        count=count+1  
         
         #histogram
         pdf(paste0("../Data_PRJNA434002/10.Result/final_power_",sim_method,"_",r_mean,"_",r_var,"_",file_tag,".pdf"),height = 16,width = 12)
@@ -196,6 +205,9 @@ for(i_file in 1:length(file_tag_seq)){
 
 saveRDS(power_array,paste0("../Data_PRJNA434002/10.Result/final_power_array_param",param_tag,".rds"))
 
+rownames(zeros)=rownames_zeros
+View(zeros)
+saveRDS(power_array,paste0("../Data_PRJNA434002/10.Result/pval_NAs_param",param_tag,".rds"))
 
 #more plot
 pdf(paste0("../Data_PRJNA434002/10.Result/final_power_",sim_method,"_param",param_tag,"_",file_tag,".pdf"),height = 16,width = 12)

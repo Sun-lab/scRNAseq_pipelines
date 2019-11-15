@@ -229,14 +229,18 @@ cal_permanova_pval2=function(dist_array,diagnose,cov_x=NA,F_method="p",perm_num.
     else{
       B=B*10
       cur_dist_array=dist_array[which(pval0_flag),,,drop=FALSE]
-      cur_F_ob=F_ob[pval0_flag]
-      F_perm=t(matrix(ncol=B,nrow=1))
+      cur_F_ob=as.numeric(F_ob[pval0_flag])
+      F_perm=matrix(ncol=1,nrow=B)
       F_perm=as.matrix(apply(F_perm,1,function(x){
         return(cur_cal_F(cur_dist_array,covariate_x=cov_x,label=diagnose[sample.int(length(diagnose))]))}))
-      F_perm=t(as.matrix(apply(F_perm,1,function(x){return(x-cur_F_ob)})))
+      F_perm=as.matrix(apply(F_perm,2,function(x){return(x-cur_F_ob)}))
       
-      cur_pval=apply(F_perm>0,1,function(x){return(sum(x,na.rm = TRUE)/sum(!is.na(x)))})
-      
+      if(length(cur_F_ob)==1){
+        cur_pval=sum(F_perm>0,na.rm = TRUE)/sum(!is.na(F_perm))
+      }
+      if(length(cur_F_ob)>1){
+        cur_pval=apply(F_perm>0,1,function(x){return(sum(x,na.rm = TRUE)/sum(!is.na(x)))})
+      }
       pval[which(pval0_flag)]=cur_pval
       pval0_flag=(pval<1/(tol*B))
     }
