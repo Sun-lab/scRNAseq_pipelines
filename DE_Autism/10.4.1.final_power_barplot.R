@@ -4,7 +4,7 @@ setwd("/Users/mzhang24/Desktop/fh/1.Testing_scRNAseq/")
 #setwd("/fh/fast/sun_w/mengqi/1.Testing_scRNAseq/")
 
 
-param_tag=1
+param_tag=2
 
 if(param_tag==1){
   r_mean_seq=c(1.2,1.5,2,4,6)
