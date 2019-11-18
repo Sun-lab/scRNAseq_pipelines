@@ -41,11 +41,11 @@ power_plot1=function(y_matrix,cur_main="",cur_xlab="",cur_ylab="Power",x_seq=NA,
     points(x_seq,y_matrix[,i_c],col=cur_col[i_c],pch=i_c,cex=2)
   }
   
-  legend("bottomright",cur_legend,pch=1:ncol(y_matrix),col=cur_col)
+  legend("bottomright",cur_legend,pch=1:ncol(y_matrix),col=cur_col,cex=.5)
 }
 
 
-pdf(paste0("../Data_PRJNA434002/10.Result/power_curve_final.pdf"),height = 16,width = 16)
+pdf(paste0("../Data_PRJNA434002/10.Result/power_curve_final.pdf"),height = 8,width = 8)
 op=par(mfrow = c(2, 2), pty = "s")
 for(i_sim in length(sim_method_seq):1){
   for(i_file in 1:length(file_tag_seq)){

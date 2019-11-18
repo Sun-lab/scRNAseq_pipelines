@@ -4,16 +4,16 @@ setwd("/Users/mzhang24/Desktop/fh/1.Testing_scRNAseq/")
 #setwd("/fh/fast/sun_w/mengqi/1.Testing_scRNAseq/")
 
 
-param_tag=2
+param_tag=1
 
 if(param_tag==1){
-  r_mean_seq=c(1.2,1.5,2,4,6)
+  r_mean_seq=c(1.2,1.5,2,4)
   r_var_seq=2
   
 }
 if(param_tag==2){
   r_mean_seq=1.5
-  r_var_seq=c(1.2,1.5,2,4,6)
+  r_var_seq=c(1.2,1.5,2,4)
 }
 #r_mean_seq=1.5
 #r_var_seq=1.5
@@ -89,7 +89,7 @@ for(i_file in 1:length(file_tag_seq)){
         
         
         #note! please be sure to use 10.3.MAST_postArrangment.R when all permutation results are ready.
-        tryCatch({MAST_pval=readRDS(paste0("../Data_PRJNA434002/10.Result/MAST_org_pval_",sim_method,"_",r_mean,"_",r_var,"_",file_tag,"_0.rds"))}, error = function(e) {NA} )
+        tryCatch({MAST_pval=readRDS(paste0("../Data_PRJNA434002/10.Result/MAST_pval_",sim_method,"_",r_mean,"_",r_var,"_",file_tag,".rds"))}, error = function(e) {NA} )
         
       
         zeros[count,]=c(sum(is.na(jsd_zinb_pval)),sum(is.na(jsd_empirical_pval)),sum(is.na(klmean_zinb_pval)),sum(is.na(klmean_empirical_pval)),sum(is.na(MAST_pval)),sum(is.na(deseq2_pval)))

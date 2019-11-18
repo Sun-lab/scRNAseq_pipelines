@@ -86,7 +86,7 @@
 ##### Start simulation from here #############
 # #something from the head files please uncomment the following lines to run it separately.
 # file_tag=1
-# sim_method="splat.org" #splat.mean or splat.var--method 5, separate the mean and variance using splat
+# sim_method="zinb.naive" #splat.mean or splat.var--method 5, separate the mean and variance using splat
 #                         #splat.org--method 4, change the mean.shape and mean.rate originally
 # 
 # #r_mean/r_var should < 1+mean.shape
@@ -100,14 +100,19 @@ setwd("/fh/fast/sun_w/mengqi/1.Testing_scRNAseq/")
 library("splatter")
 library("scater")
 library("ggplot2")
+library("emdbook")
 
 nGeneMean=300
 nGeneVar=300
 nGeneBlank=2400
 nGeneTotal=nGeneMean+nGeneVar+nGeneBlank
-ncase=20
-nctrl=20
+ncase=20   #!!!!!!!!Different from Wei codes, this is inside the body.
+nctrl=20   #!!!!!!!!Different from Wei codes, this is inside the body.
 ncell=100
+nall=ncase+nctrl
+
+HET=0 #0/1 label: if HET==0, generate case cells from completely case condition
+      #           if HET==1, generate 1/2 case cells from completely case condition
 
 i_mean=1:nGeneMean
 i_var=(nGeneMean+1):(nGeneMean+nGeneVar)
@@ -231,230 +236,312 @@ if(sim_method=="splat.org"){
 
 if(sim_method=="zinb.naive"){
   input_file_tag="3k10"
-  t_mean=read.table(paste0("../Data_PRJNA434002/res_dca_rawM",input_file_tag,"/mean.tsv"),stringsAsFactors = FALSE)
-  t_dispersion=read.table(paste0("../Data_PRJNA434002/res_dca_rawM",input_file_tag,"/dispersion.tsv"),stringsAsFactors = FALSE,row.names = 1)
-  t_dropout=read.table(paste0("../Data_PRJNA434002/res_dca_rawM",input_file_tag,"/dropout.tsv"),stringsAsFactors = FALSE,row.names = 1)
-  #t_mean2=read.table(paste0("../Data_PRJNA434002/res_dca_rawM",input_file_tag,"/mean_signif4.tsv.gz"),stringsAsFactors = FALSE)
-  #t_dispersion2=read.table(paste0("../Data_PRJNA434002/res_dca_rawM",input_file_tag,"/dispersion_signif4.tsv.gz"),stringsAsFactors = FALSE,row.names = 1)
-  #t_dropout2=read.table(paste0("../Data_PRJNA434002/res_dca_rawM",input_file_tag,"/dropout_signif4.tsv.gz"),stringsAsFactors = FALSE,row.names = 1)
+  t_mean = read.table(paste0("../Data_PRJNA434002/res_dca_rawM",input_file_tag,"/mean_signif4.tsv.gz"), 
+                      sep = "\t", header = TRUE)
   
-  #randomlize the orders of genes
-  random_index=sample.int(nrow(t_mean))
-  t_mean=t_mean[random_index,]  
-  t_dispersion=t_dispersion[random_index,]  
-  t_dropout=t_dropout[random_index,]  
+  t_disp = read.table(paste0("../Data_PRJNA434002/res_dca_rawM",input_file_tag,"/dispersion_signif4.tsv.gz"),
+                      sep = "\t", header = TRUE)
   
-  mid_mean=apply(t_mean,1,median)
-  mid_dispersion=apply(t_dispersion,1,median)
-  mid_dropout=apply(t_dropout,1,median)
-  log_mean_sample=(log(as.numeric(mid_mean)))
-  log_disp_sample=(log(as.numeric(mid_dispersion)))
-  logit_drop_sample=(log(as.numeric(mid_dropout)/(1-as.numeric(mid_dropout))))
+  t_drop = read.table(paste0("../Data_PRJNA434002/res_dca_rawM",input_file_tag,"/dropout_signif4.tsv.gz"),
+                      sep = "\t", header = TRUE)
   
-  pdf(paste0("../Data_PRJNA434002/10.Result/his_mean_disp_drop_",sim_method,"_",file_tag,".pdf"), width = 9, height = 3)
-  par(mfrow = c(1, 3), mar = c(5, 4, 1, 1), cex = 1)
-  hist(log_mean_sample, main = "")
-  hist(log_disp_sample, main = "")
-  hist(logit_drop_sample, main = "")
-  dev.off()
+  dim(t_mean)
+  t_mean[1:2,1:5]
   
-  Pram_log_mean=rnorm(nGeneMean+nGeneVar+nGeneBlank,mean = (log_mean_sample),sd=sd(log_mean_sample))
-  Pram_log_disp=rnorm(nGeneMean+nGeneVar+nGeneBlank,mean = (log_disp_sample),sd=sd(log_disp_sample))
-  Pram_logit_drop=rnorm(nGeneMean+nGeneVar+nGeneBlank,mean = (logit_drop_sample),sd=sd(logit_drop_sample))
+  dim(t_disp)
+  t_disp[1:2,1:5]
   
-  sample_data=cbind(log_mean_sample,log_disp_sample,logit_drop_sample)
-  sample_mean=apply(sample_data,2,mean)
-  sample_var=apply(sample_data,2,var)
+  dim(t_drop)
+  t_drop[1:2,1:5]
   
-  cov_matrix=matrix(NA,3,3)
-  for(i in 1:3){
-    for(j in 1:3){
-      cov_matrix[i,j]=cov(sample_data[,i],sample_data[,j])
+  ############### collect sample information ###################
+  
+  col_info   = strsplit(names(t_mean), split="_")
+  sample_ids = sapply(col_info, function(x){paste(x[-1], collapse="_")})
+  table(sample_ids)
+  
+  tapply_mean <- function(x){tapply(x, sample_ids, mean)}
+  tapply_sd <- function(x){tapply(x, sample_ids, sd)}
+  
+  sample_log_mean = t(apply(log(t_mean), 1, tapply_mean))
+  sample_disp = t(apply(t_disp, 1, tapply_mean))
+  sample_drop = t(apply(t_drop, 1, tapply_mean))
+  
+  sample_log_mean_sd = t(apply(log(t_mean), 1, tapply_sd))
+  
+  dim(sample_log_mean)
+  dim(sample_disp)
+  dim(sample_drop)
+  dim(sample_log_mean_sd)
+  
+  sample_log_mean[1:2,1:5]
+  sample_log_mean_sd[1:2,1:5]
+  
+  # the sd within an individual, across cells is large, 
+  # probably becaue the cells are from different cell types
+  # so we reduce them by a factor of 10 here. 
+  summary(apply(sample_log_mean, 1, sd))
+  summary(apply(sample_log_mean_sd,1,mean))
+  
+  sample_log_mean_sd = sample_log_mean_sd/10
+  
+  ###################### simulation based on real data ######################
+  
+  # extract information from the data
+  # We use the gene specific medians of each parameter.
+  # and simulate parameters assuming log-normal or logic-normal distribution.
+  
+  # randomlize the orders of genes and samples, and take 40 samples
+  # set.seed(2019)
+  
+  random_idx_gene = sample.int(nrow(sample_log_mean))
+  random_idx_sam  = sample.int(ncol(sample_log_mean))[1:nall]
+  
+  sample_log_mean = sample_log_mean[random_idx_gene, random_idx_sam]
+  sample_drop = sample_drop[random_idx_gene, random_idx_sam]
+  sample_disp = sample_disp[random_idx_gene, random_idx_sam]
+  
+  sample_log_mean_sd = sample_log_mean_sd[random_idx_gene, random_idx_sam]
+  
+  dim(sample_log_mean)
+  dim(sample_drop)
+  dim(sample_disp)
+  
+  dim(sample_log_mean_sd)
+  
+  #################  calculate parameters for the case data #################
+  
+  # sample gene index for genes differential expressed by mean or variance.
+  special_index = sample.int(nGeneTotal, (nGeneMean + nGeneVar))
+  mean_index    = as.numeric(special_index[i_mean])
+  var_index     = as.numeric(special_index[i_var])
+  
+  # label and save the DE index information.
+  de.mean = rep(0, nGeneTotal)
+  de.var  = rep(0, nGeneTotal)
+  de.mean[mean_index] = 1
+  de.var[var_index]   = 1
+  
+  # To make sure all parameters are non-negative, we do some transformation
+  r_mean2 = r_mean
+  r_var2  = r_var
+  
+  if (r_mean > 1) {
+    r_mean2 = 1 / r_mean
+  }
+  
+  if (r_var < 1) {
+    r_var2 = 1 / r_var
+  }
+  
+  # the function calc_nb_param_var returns the parameters for changing 
+  # variance of the negative binomial distribution. 
+  # to make sure theta is larger than 0, r_v should be > 1. 
+  
+  calc_nb_param_var = function(mu, theta, r_v) {
+    theta2 = theta  * mu / (mu * r_v + (r_v - 1) * theta)
+    if(theta2 < 0){ stop("negative theta2\n") }
+    theta2
+  }
+  
+  # modify parameters for cases.
+  # now r_m (r_mean2) is smaller than 1. We need to modify gene expression in 
+  # x proportion of genes by fold r_m and (1-x) proportion of genes by 
+  # fold of 1/r_m, so that x(1 - r_m) = (1-x)(1/r_m - 1) 
+  # x (1 - r_m + 1/r_m -1) = (1/r_m -1) => x = 1/(1 + r_m) 
+  
+  nGene_down = round(1/(1 + r_mean2)*nGeneMean)
+  w_down     = sample.int(length(mean_index), nGene_down)
+  mean_idx_down = mean_index[w_down]
+  mean_idx_up   = mean_index[-w_down]
+  
+  sample_mean = exp(sample_log_mean)
+  
+  sample_mean_cases = sample_mean[,(nctrl+1):nall]
+  sample_disp_cases = sample_disp[,(nctrl+1):nall]
+  sample_drop_cases = sample_drop[,(nctrl+1):nall]
+  
+  sample_mean_cases[mean_idx_down,] = sample_mean_cases[mean_idx_down,]*r_mean2
+  sample_mean_cases[mean_idx_up, ]  = sample_mean_cases[mean_idx_up,]*(1/r_mean2)
+  
+  for(j in var_index){
+    for(i in 1:ncol(sample_disp_cases)){
+      mu_ji    = sample_mean_cases[j,i]
+      theta_ji = sample_disp_cases[j,i]
+      sample_disp_cases[j,i] = calc_nb_param_var(mu_ji, theta_ji, r_var2)
     }
   }
   
-  require(MASS)
-  gpar_ctrl=exp(mvrnorm(nGeneMean+nGeneVar+nGeneBlank, mu = sample_mean, Sigma = cov_matrix,empirical = TRUE))
-  gpar_ctrl[,3]=gpar_ctrl[,3]/(1+gpar_ctrl[,3])
   
-  gpar_case=gpar_ctrl
-  
-  special_index=sample.int(nGeneTotal,(nGeneMean+nGeneVar))
-  mean_index=as.numeric(special_index[i_mean])
-  var_index=as.numeric(special_index[i_var])
-  
-  r_mean2=r_mean
-  r_var2=r_var  
-  if(r_mean>1){r_mean2=1/r_mean}
-  if(r_var<1){r_var2=1/r_var}
-
-  # now r_m is smaller than 1. We need to modify gene expression in 
-  # x proportion of genes by fold r_m and (1-x) proportion of genes by 
-  # fold of 1/r_m, so that x(1 - r_m) = (1-x)(1/r_m - 1) 
-  # x (1 - r_m + 1/r_m -1) = (1/r_m -1) => x = (1 - r_m)/(1 - r_m^2). 
-  # so if r_m = 1/2, x = (1/2) / (3/4) = 2/3. 
-  
-  nGene_down = round((1 - r_mean2)/(1 - r_mean2^2)*nGeneMean)
-  mean_index_down = mean_index[1:nGene_down]
-  mean_index_up   = mean_index[(nGene_down + 1):nGeneMean]
-  
-  gpar_case[mean_index_down, 1] = gpar_case[mean_index_down, 1]*r_mean2
-  gpar_case[mean_index_up, 1]   = gpar_case[mean_index_up, 1]*(1/r_mean2)
-  
-  gpar_case[var_index,1:2]=t(apply(gpar_case[var_index,1:2,drop=FALSE],1,function(x){return(calc_nb_param_var(x,r_v=r_var2))})) #50% enlarge #50%shrinkage
-  
-  sim_case=matrix(nrow=nGeneTotal,ncol=ncase*ncell)
-  sim_ctrl=matrix(nrow=nGeneTotal,ncol=nctrl*ncell)
-  
-  for(ig in 1:nGeneTotal){
-    sim_case[ig,]=emdbook::rzinbinom(ncase*ncell,gpar_case[ig,1], gpar_case[ig,2], gpar_case[ig,3])
-    sim_ctrl[ig,]=emdbook::rzinbinom(ncase*ncell,gpar_ctrl[ig,1], gpar_ctrl[ig,2], gpar_ctrl[ig,3])
-  }
+  #################  check the parameters  ###################
   
   # check the total read depth
-  sum(gpar_case[,1])
-  sum(gpar_ctrl[,1])
+  summary(colSums(sample_mean))
+  summary(colSums(sample_mean_cases))
   
-  de.mean=matrix(0,ncol=1,nrow=nGeneTotal)
-  de.var=matrix(0,ncol=1,nrow=nGeneTotal)
-  de.mean[mean_index]=1
-  de.var[var_index]=1
+  ratio.adjust = median(colSums(sample_mean_cases))/median(colSums(sample_mean))
+  sample_mean_cases = sample_mean_cases/ratio.adjust
   
-  pdf(paste0("../Data_PRJNA434002/10.Result/plot_sim_",sim_method,"_",file_tag,".pdf"),height = 4,width = 6)
-  op=par(mfrow = c(2, 3), pty = "s")
+  # scatter plot 
+  pdf(paste0("../Data_PRJNA434002/10.Result/check_simulation_scatter_",sim_method,"_",file_tag,".pdf"), 
+      width = 9, height = 6)
+  par(mfrow = c(2, 3), pty = "s")
   
-  #histograms
-  hist(log(apply(sim_ctrl[de.mean+de.var==0,],1,mean)),
-       breaks=15,xlim=c(-6,2), main="log of mean count, non-DE genes in control")
-  hist(log(apply(sim_ctrl[de.mean==1,],1,mean)),
-       breaks=15, xlim=c(-6,2), main="log of mean count, Mean-DE genes in control")
-  hist(log(apply(sim_ctrl[de.var==1,],1,mean)),
-       breaks=15, xlim=c(-6,2), main="log of mean count, Var-DE genes in control")
+  plot(log10(apply(sample_mean[de.mean + de.var == 0,1:nctrl], 1, mean)),
+       log10(apply(sample_mean_cases[de.mean + de.var == 0,], 1, mean)),
+       cex = .2, xlab = "control cells", ylab = "case cells",
+       main = "log10 mean, non-DE genes")
+  abline(0, 1, col = "red")
   
-  hist(log(apply(sim_case[de.mean+de.var==0,],1,mean)),
-       col=rgb(1,0,0,0.3),breaks=15, xlim=c(-6,2), main="log of mean count, non-DE genes in case")
-  hist(log(apply(sim_case[de.mean==1,],1,mean)),
-       col=rgb(1,0,0,0.3),breaks=15, xlim=c(-6,2), main="log of mean count, Mean-DE genes in case")
-  hist(log(apply(sim_case[de.var==1,],1,mean)),
-       col=rgb(1,0,0,0.3),breaks=15, xlim=c(-6,2), main="log of mean count, Var-DE genes in case")
+  plot(log10(apply(sample_mean[de.mean == 1,1:nctrl], 1, mean)),
+       log10(apply(sample_mean_cases[de.mean== 1,], 1, mean)),
+       cex = .2, xlab = "control cells", ylab = "case cells",
+       main = "log10 mean, Mean-DE genes")
+  abline(0, 1, col = "red")
   
-  hist(log(apply(sim_ctrl[de.mean+de.var==0,],1,var)),
-       breaks=15, xlim=c(-6,2), main="log of var count, non-DE genes in control")
-  hist(log(apply(sim_ctrl[de.mean==1,],1,var)),
-       breaks=15, xlim=c(-6,2), main="log of var count, Mean-DE genes in control")
-  hist(log(apply(sim_ctrl[de.var==1,],1,var)),
-       breaks=15, xlim=c(-6,2), main="log of var count, Var-DE genes in control")
+  plot(log10(apply(sample_mean[de.var == 1,1:nctrl], 1, mean)),
+       log10(apply(sample_mean_cases[de.var== 1,], 1, mean)),
+       cex = .2, xlab = "control cells", ylab = "case cells",
+       main = "log10 mean, Var-DE genes")
+  abline(0, 1, col = "red")
   
-  hist(log(apply(sim_case[de.mean+de.var==0,],1,var)),
-       col=rgb(1,0,0,0.3),breaks=15, xlim=c(-6,2), main="log of var count, non-DE genes in case")
-  hist(log(apply(sim_case[de.mean==1,],1,var)),
-       col=rgb(1,0,0,0.3),breaks=15, xlim=c(-6,2), main="log of var count, Mean-DE genes in case")
-  hist(log(apply(sim_case[de.var==1,],1,var)),
-       col=rgb(1,0,0,0.3),breaks=15, xlim=c(-6,2), main="log of var count, Var-DE genes in case")
+  plot(log10(apply(sample_disp[de.mean + de.var == 0,1:nctrl], 1, mean)),
+       log10(apply(sample_disp_cases[de.mean + de.var == 0,], 1, mean)),
+       cex = .2, xlab = "control cells", ylab = "case cells",
+       main = "log10 dispersion, non-DE genes")
+  abline(0, 1, col = "red")
   
-  #QQ plots
-  plot(sort(log(apply(sim_ctrl[de.mean+de.var==0,],1,mean))),sort(log(apply(sim_case[de.mean+de.var==0,],1,mean))),
-       cex=.1, xlab="control cells",ylab="case cells",main="QQ plot: log of mean count, non-DE genes")
-  lines(c(-10,10),c(-10,10),col="red")
-  plot(sort(log(apply(sim_ctrl[de.mean==1,],1,mean))),sort(log(apply(sim_case[de.mean==1,],1,mean))),
-       cex=.1, xlab="control cells",ylab="case cells",main="QQ plot: log of mean count, Mean-DE genes")
-  lines(c(-10,10),c(-10,10),col="red")
-  plot(sort(log(apply(sim_ctrl[de.var==1,],1,mean))),sort(log(apply(sim_case[de.var==1,],1,mean))),
-       cex=.1, xlab="control cells",ylab="case cells",main="QQ plot: log of mean count, Var-DE genes")
-  lines(c(-10,10),c(-10,10),col="red")
+  plot(log10(apply(sample_disp[de.mean == 1,1:nctrl], 1, mean)),
+       log10(apply(sample_disp_cases[de.mean== 1,], 1, mean)),
+       cex = .2, xlab = "control cells", ylab = "case cells",
+       main = "log10 dispersion, Mean-DE genes")
+  abline(0, 1, col = "red")
   
+  plot(log10(apply(sample_disp[de.var == 1,1:nctrl], 1, mean)),
+       log10(apply(sample_disp_cases[de.var== 1,], 1, mean)),
+       cex = .2, xlab = "control cells", ylab = "case cells",
+       main = "log10 dispersion, Var-DE genes")
+  abline(0, 1, col = "red")
   
-  plot(sort(log(apply(sim_ctrl[de.mean+de.var==0,],1,var))),sort(log(apply(sim_case[de.mean+de.var==0,],1,var))),
-       cex=.1, xlab="control cells",ylab="case cells",main="QQ plot: log of var count, non-DE genes")
-  lines(c(-10,10),c(-10,10),col="red")
-  plot(sort(log(apply(sim_ctrl[de.mean==1,],1,var))),sort(log(apply(sim_case[de.mean==1,],1,var))),
-       cex=.1, xlab="control cells",ylab="case cells",main="QQ plot: log of var count, Mean-DE genes")
-  lines(c(-10,10),c(-10,10),col="red")
-  plot(sort(log(apply(sim_ctrl[de.var==1,],1,var))),sort(log(apply(sim_case[de.var==1,],1,var))),
-       cex=.1, xlab="control cells",ylab="case cells",main="QQ plot: log of var count, Var-DE genes")
-  lines(c(-10,10),c(-10,10),col="red")
-  
-  #Scatters
-  plot(log(apply(sim_ctrl[de.mean+de.var==0,],1,mean)),log(apply(sim_case[de.mean+de.var==0,],1,mean)),
-       cex=.1, xlab="control cells",ylab="case cells",main="log of mean count, non-DE genes")
-  lines(c(-10,10),c(-10,10),col="red")
-  plot(log(apply(sim_ctrl[de.mean==1,],1,mean)),log(apply(sim_case[de.mean==1,],1,mean)),
-       cex=.1, xlab="control cells",ylab="case cells",main="log of mean count, Mean-DE genes")
-  lines(c(-10,10),c(-10,10),col="red")
-  plot(log(apply(sim_ctrl[de.var==1,],1,mean)),log(apply(sim_case[de.var==1,],1,mean)),
-       cex=.1, xlab="control cells",ylab="case cells",main="log of mean count, Var-DE genes")
-  lines(c(-10,10),c(-10,10),col="red")
-  
-  
-  plot(log(apply(sim_ctrl[de.mean+de.var==0,],1,var)),log(apply(sim_case[de.mean+de.var==0,],1,var)),
-       cex=.1, xlab="control cells",ylab="case cells",main="log of var count, non-DE genes")
-  lines(c(-10,10),c(-10,10),col="red")
-  plot(log(apply(sim_ctrl[de.mean==1,],1,var)),log(apply(sim_case[de.mean==1,],1,var)),
-       cex=.1, xlab="control cells",ylab="case cells",main="log of var count, Mean-DE genes")
-  lines(c(-10,10),c(-10,10),col="red")
-  plot(log(apply(sim_ctrl[de.var==1,],1,var)),log(apply(sim_case[de.var==1,],1,var)),
-       cex=.1, xlab="control cells",ylab="case cells",main="log of var count, Var-DE genes")
-  lines(c(-10,10),c(-10,10),col="red")
-  
-  par(op)
-
   dev.off()
-  sim_matrix=cbind(sim_case,sim_ctrl)
   
-  phenotype=c(rep(1,ncase*ncell),rep(0,nctrl*ncell))
-  individual=paste0("ind",c(rep(1:(ncase+nctrl),each=ncell)))
+  
+  # simulate scRNAseq based on zinb parameters of cases and controls:
+  sim_matrix = matrix(nrow = nGeneTotal, ncol = nall * ncell)
+  date()
+  for(i in 1:nall){
+    idx_i = ((i-1)*ncell+1):(i*ncell)
+    for(k in 1:ncell){
+      if(HET){
+        if(i > nctrl && k > ncell/2 ){
+          mean_i = sample_mean_cases[,i-nctrl]
+          disp_i = sample_disp_cases[,i-nctrl]
+          drop_i = sample_drop_cases[,i-nctrl]
+        }else{
+          mean_i = sample_mean[,i]
+          disp_i = sample_disp[,i]
+          drop_i = sample_drop[,i]
+        }
+      }else{
+        if(i > nctrl){
+          mean_i = sample_mean_cases[,i-nctrl]
+          disp_i = sample_disp_cases[,i-nctrl]
+          drop_i = sample_drop_cases[,i-nctrl]
+        }else{
+          mean_i = sample_mean[,i]
+          disp_i = sample_disp[,i]
+          drop_i = sample_drop[,i]
+        }
+        
+      }
+      
+      sample_mean_k = exp(rnorm(nGeneTotal, log(mean_i), sample_log_mean_sd[,i]))
+      
+      for (ig in 1:nGeneTotal) {
+        sim_matrix[ig,idx_i[k]] = emdbook::rzinbinom(1, sample_mean_k[ig], 
+                                            disp_i[ig], drop_i[ig])
+      }
+    }
+  }
+  date()
+  
+  dim(sim_matrix)
+  sim_matrix[1:4,1:4]
+  
+  table(c(sim_matrix) == 0)
+  table(c(sim_matrix) == 0)/(nrow(sim_matrix)*ncol(sim_matrix))
 }
 
-####################### Count info for matrix ###########
-cell_id=paste0("cell",1:ncol(sim_matrix))
-gene_id=paste0("gene",1:nrow(sim_matrix))
-
-rownames(sim_matrix)=gene_id
-colnames(sim_matrix)=cell_id
-
-####################### Cell info for meta ###########
-
-cellsum=apply(sim_matrix,2,sum)
-genesum=apply(sim_matrix,1,sum)
-CDR=apply(sim_matrix>0,2,sum)/nrow(sim_matrix)
-meta=data.frame(cbind(cell_id,individual,phenotype,cellsum,CDR))
 
 
-######################Some basic stat (OPTIONS) ##############################
+####################### Meta information collection #################
 
+#the phenotype and individual information of simulated samples.
+phenotype = c(rep(0, nctrl * ncell), rep(1, ncase * ncell))
+individual = paste0("ind", c(rep(1:nall, each = ncell)))
 
-#individual level info
-cur_individual=unique(meta$individual)
-cell_num=matrix(ncol=1,nrow=length(cur_individual))
-rownames(cell_num)=cur_individual
-colnames(cell_num)="cell_num"
-read_depth=matrix(ncol=1,nrow=length(cur_individual))
-rownames(read_depth)=cur_individual
-colnames(read_depth)="read_depth"
-phenotype_ind=matrix(ncol=1,nrow=length(cur_individual))
-rownames(phenotype_ind)=cur_individual
-colnames(phenotype_ind)="phenotype"
+#Count info for matrix
+cell_id = paste0("cell", 1:ncol(sim_matrix))
+gene_id = paste0("gene", 1:nrow(sim_matrix))
 
-zero_rate_ind=matrix(nrow=nrow(sim_matrix),ncol=length(cur_individual))
-rownames(zero_rate_ind)=rownames(sim_matrix)
-colnames(zero_rate_ind)=cur_individual
-sim_matrix_bulk=matrix(nrow=nrow(sim_matrix),ncol=length(cur_individual))
-rownames(sim_matrix_bulk)=rownames(sim_matrix)
-colnames(sim_matrix_bulk)=cur_individual
+rownames(sim_matrix) = gene_id
+colnames(sim_matrix) = cell_id
 
-for(i_ind in 1:length(cur_individual)){
-  cur_ind=cur_individual[i_ind]
+#Cell info for meta
+cellsum = apply(sim_matrix, 2, sum)
+genesum = apply(sim_matrix, 1, sum)
+CDR  = apply(sim_matrix > 0, 2, sum) / nrow(sim_matrix)
+meta = data.frame(cell_id, individual, phenotype, cellsum, CDR, 
+                  stringsAsFactors=FALSE)
+dim(meta)
+meta[1:2,]
+
+pdf(paste0("../Data_PRJNA434002/10.Result/check_covariates_",sim_method,"_",file_tag,".pdf"), 
+    width=6, height=3)
+par(mfrow=c(1,2), mar=c(5,4,1,1), bty="n")
+boxplot(meta$cellsum ~ meta$phenotype, xlab="group", ylab="read-depth")
+boxplot(meta$CDR ~ meta$phenotype, xlab="group", ylab="CDR")
+dev.off()
+
+######### Some basic stat & Preparation for Bulk RNAseq analysis ############
+
+# individual level info
+cur_individual = unique(meta$individual)
+cell_num = matrix(ncol = 1, nrow = length(cur_individual))
+rownames(cell_num) = cur_individual
+colnames(cell_num) = "cell_num"
+
+read_depth = matrix(ncol = 1, nrow = length(cur_individual))
+rownames(read_depth) = cur_individual
+colnames(read_depth) = "read_depth"
+
+phenotype_ind = matrix(ncol = 1, nrow = length(cur_individual))
+rownames(phenotype_ind) = cur_individual
+colnames(phenotype_ind) = "phenotype"
+
+zero_rate_ind = matrix(nrow = nrow(sim_matrix),
+                       ncol = length(cur_individual))
+rownames(zero_rate_ind) = rownames(sim_matrix)
+colnames(zero_rate_ind) = cur_individual
+
+sim_matrix_bulk = matrix(nrow = nrow(sim_matrix),
+                         ncol = length(cur_individual))
+rownames(sim_matrix_bulk) = rownames(sim_matrix)
+colnames(sim_matrix_bulk) = cur_individual
+
+for (i_ind in 1:length(cur_individual)) {
+  cur_ind = cur_individual[i_ind]
   #fit org
-  cur_ind_m=sim_matrix[,meta$individual==cur_ind]
-  cell_num[i_ind]=ncol(cur_ind_m)
-  read_depth[i_ind]=sum(cur_ind_m,na.rm = TRUE)/cell_num[i_ind]*1000
-  phenotype_ind[i_ind]=meta$phenotype[meta$individual==cur_ind][1]
+  cur_ind_m = sim_matrix[, meta$individual == cur_ind]
+  cell_num[i_ind]   = ncol(cur_ind_m)
+  read_depth[i_ind] = sum(cur_ind_m, na.rm = TRUE) / cell_num[i_ind] * 1000
+  phenotype_ind[i_ind] = meta$phenotype[meta$individual == cur_ind][1]
   
-  zero_rate_ind[,i_ind]=apply(cur_ind_m==0,1,function(x){return(sum(x,na.rm = TRUE))})/cell_num[i_ind]
-  sim_matrix_bulk[,i_ind]=apply(cur_ind_m,1,function(x){return(sum(x,na.rm = TRUE))})
+  zero_rate_ind[, i_ind] = rowSums(cur_ind_m == 0, na.rm = TRUE)/cell_num[i_ind]
+  sim_matrix_bulk[, i_ind] = rowSums(cur_ind_m, na.rm = TRUE)
 }
 
-hist(read_depth)
+tapply(read_depth, phenotype_ind, summary)
 
 
 

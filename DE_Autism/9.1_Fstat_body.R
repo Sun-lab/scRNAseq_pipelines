@@ -47,23 +47,63 @@ if(is.na(covariate_flag)){
 
 dist_pval=cal_permanova_pval2(dist_array,phenotype,F_method=F_method)
 
+
+if(!is.na(covariate_flag)){
+  saveRDS(dist_pval,paste0("../Data_PRJNA434002/8.Result/",dist_method,"_",fit_method,"_",F_method,"_pval_",covariate_flag,"_",pre_tag,"_sim_",cluster_tag,"_",file_tag,".rds"))
+}
+if(is.na(covariate_flag)){
+  saveRDS(dist_pval,paste0("../Data_PRJNA434002/8.Result/",dist_method,"_",fit_method,"_",F_method,"_pval_",pre_tag,"_sim_",cluster_tag,"_",file_tag,".rds"))
+}
+
+####Second Chance, to see if we can get more from our method (OPTIONAL)##############################
+##here we give the NAs a second chance by removing missing samples/ missing distances, 
+# or fix the missing samples with median distances.
+
 second_index=which(is.na(dist_pval))
+tol_missing_dist=0 # tolerate missing p-values number, if missing numer is no bigger than it, we will make it up with median of distance.
+tol_missing_sample=dim(dist_array)[2]/2 #if effective sample less than this number, stop calculation
+
 for(i2 in second_index){
   print(i2)
   x=dist_array[i2,,]
-  flag=(!is.na(x[,1]))
-  if(sum(flag)>0&& max(as.numeric(x),na.rm=TRUE)>0){
-    dist_pval[i2]=cal_permanova_pval(x[flag,flag],phenotype[flag],F_method=F_method)
+  #calculate zeros
+  zero_sum=apply(is.na(x),2,sum)
+  
+  #first thres: to remove all zero inds
+  flag=(zero_sum<nrow(x))
+  if(sum(flag)>=tol_missing_sample){
+    x=x[flag,flag]
+    cur_pheno=phenotype[flag]
+    
+    #second thres:to remove inds with more than tolerate missing values
+    zero_sum=apply(is.na(x),2,sum)
+    flag=(zero_sum<=tol_missing_dist)
+    if(sum(flag)>=tol_missing_sample){ 
+      #third thres:to 
+      x=x[flag,flag]
+      cur_pheno=cur_pheno[flag]
+      #add missing values:
+      fill_index=which(!complete.cases(x))
+      if(length(fill_index)>0){
+        for(i_f in fill_index){
+          for(j_f in fill_index){
+            if(j_f>i_f){
+              x[i_f,j_f]=median(c(x[,i_f],x[,j_f]),na.rm = TRUE) #here is a little recurrence, but that's OK...
+              x[j_f,i_f]=x[i_f,j_f]
+            }
+          }
+        }
+      }
+      dist_pval[i2]=tryCatch(cal_permanova_pval(x,cur_pheno,F_method=F_method), error = function(e) {NA} )
     }
+  }
 }
-
-
 
 if(!is.na(covariate_flag)){
-  saveRDS(dist_pval,paste0("../Data_PRJNA434002/8.Result/",dist_method,"_",fit_method,"_pval_",covariate_flag,"_",pre_tag,"_sim_",cluster_tag,"_",file_tag,".rds"))
+  saveRDS(dist_pval,paste0("../Data_PRJNA434002/8.Result/",dist_method,"_",fit_method,"_",F_method,"_pval_",covariate_flag,"_",pre_tag,"_sim_",cluster_tag,"_",file_tag,".rds"))
 }
 if(is.na(covariate_flag)){
-  saveRDS(dist_pval,paste0("../Data_PRJNA434002/8.Result/",dist_method,"_",fit_method,"_pval_",pre_tag,"_sim_",cluster_tag,"_",file_tag,".rds"))
+  saveRDS(dist_pval,paste0("../Data_PRJNA434002/8.Result/",dist_method,"_",fit_method,"_",F_method,"_pval_",pre_tag,"_sim_",cluster_tag,"_",file_tag,".rds"))
 }
 
 sessionInfo()

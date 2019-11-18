@@ -97,9 +97,6 @@ hist(read_depth)
 plot(read_depth,CDR_ind)
 cor(read_depth,CDR_ind)
 
-
-
-
 ######################Other method comparison: MAST #################################
 print("start MAST calculation: Part II: ZINB KLmean and JSD")
 
@@ -132,37 +129,32 @@ colData(sca)$ind = as.factor(meta$individual)
 colData(sca)
 
 
-#do a permutation
-if(perm_tag>0){
-  #count cases and controls
-  diag_info=paste0(colData(sca)$ind,":",colData(sca)$diagnosis)
-  diag_kind=unique(diag_info)
-  diag_kind=t(apply(as.matrix(diag_kind),1,function(x){return(unlist(strsplit(x,":")))}))
-  
-  #permute
-  diag_kind[,2]=diag_kind[sample.int(nrow(diag_kind),nrow(diag_kind),replace=F),2]
-  
-  #match back to each individuals
-  ind_index=match(colData(sca)$ind,diag_kind[,1])
-  colData(sca)$diagnosis=as.factor(diag_kind[ind_index,2])
-}
+date()
+b0 = zlm(formula = ~ diagnosis, sca = sca, parallel = TRUE)
+date()
+b1 = zlm(formula = ~ diagnosis + ( 1 | ind ), sca = sca, method = 'glmer', 
+         ebayes = FALSE, parallel = TRUE)
+date()
 
-b=zlm(formula=~diagnosis + (1|ind) + cngeneson, sca=sca, method='glmer', ebayes=FALSE,strictConvergence = FALSE)
-bs=summary(b,logFC=TRUE,doLRT = paste0("diagnosis","Control"), level = 0.95)
+b0
+b1
 
+lrt0 = lrTest(b0, "diagnosis")
+lrt1 = lrTest(b1, "diagnosis")
 
-bs$datatable
+dim(lrt1)
+lrt1[1,,]
 
+MAST_pval0 = apply(lrt0, 1, function(x){x[3,3]})
+length(MAST_pval0)
+MAST_pval0[1:4]
 
-MAST_cur=bs$datatable
-MAST_cur=MAST_cur[MAST_cur$contrast=="diagnosisControl",c("component","primerid","Pr(>Chisq)")]
+MAST_pval1 = apply(lrt1, 1, function(x){x[3,3]})
+length(MAST_pval1)
+MAST_pval1[1:4]
 
-
-#restriction for our analysis on model H
-MAST_cur_pval=c(MAST_cur[MAST_cur$component=="H","Pr(>Chisq)"])
-MAST_cur_pval=unlist(MAST_cur_pval)
-saveRDS(MAST_cur_pval,paste0("../Data_PRJNA434002/8.Result/MAST_org_pval_",pre_tag,"_sim_",cluster_tag,"_",file_tag,"_",perm_tag,".rds"))
-
+saveRDS(MAST_pval0,paste0("../Data_PRJNA434002/8.Result/MAST_pval0_",pre_tag,"_sim_",cluster_tag,"_",file_tag,".rds"))
+saveRDS(MAST_pval1,paste0("../Data_PRJNA434002/8.Result/MAST_pval1_",pre_tag,"_sim_",cluster_tag,"_",file_tag,".rds"))
 
 sessionInfo()
 q(save="no")

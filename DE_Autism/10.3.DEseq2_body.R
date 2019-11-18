@@ -1,75 +1,42 @@
 #this code care with the results of simulation data, and calculate the DESeq2
 
-
 #file_tag=1
 #sim_method="zinb.naive" #splat.mean or splat.var--method 3, separate the mean and variance using splat
 #splat.org--method 4, change the mean.shape and mean.rate originally
 #zinb.naive--method 5, using naive zinb models to do so.
-
+#r_mean=1.5  #r_mean/r_var should < 1+mean.shape
+#r_var=4
 
 #setwd("~/Desktop/fh/1.Testing_scRNAseq/")
 #setwd("/Users/mzhang24/Desktop/fh/1.Testing_scRNAseq/")
 setwd("/fh/fast/sun_w/mengqi/1.Testing_scRNAseq/")
 
-#r_mean=1.5  #r_mean/r_var should < 1+mean.shape
-#r_var=4
+library("DESeq2")
 
-perm_num=500
-
-
-sim_matrix=readRDS(paste0("../Data_PRJNA434002/10.Result/sim_matrix_",sim_method,"_",r_mean,"_",r_var,"_",file_tag,".rds"))
+sim_matrix_bulk=readRDS(paste0("../Data_PRJNA434002/10.Result/sim_matrix_bulk_",sim_method,"_",r_mean,"_",r_var,"_",file_tag,".rds"))
 meta=readRDS(paste0("../Data_PRJNA434002/10.Result/sim_meta_",sim_method,"_",r_mean,"_",r_var,"_",file_tag,".rds"))
 
-cur_info=meta[,c("individual","phenotype")]
-cur_info=unique(cur_info)
-rownames(cur_info)=cur_info$individual
-######################Other method comparison: DESeq2 #################################
-print("start DESeq2 preparation")
-#individual level info
-cur_individual=unique(meta$individual)
-sim_matrix_bulk=matrix(nrow=nrow(sim_matrix),ncol=length(cur_individual))
-rownames(sim_matrix_bulk)=rownames(sim_matrix)
-colnames(sim_matrix_bulk)=cur_individual
 
-for(i_ind in 1:length(cur_individual)){
-  cur_ind=cur_individual[i_ind]
-  cur_ind_m=sim_matrix[,meta$individual==cur_ind]
-  sim_matrix_bulk[,i_ind]=apply(cur_ind_m,1,function(x){return(sum(x,na.rm = TRUE))})
-}
+# We calculate bulk information by summing up raw counts of
+# all cells(of certain cluster) of an individual within a genes
 
-saveRDS(sim_matrix_bulk,paste0("../Data_PRJNA434002/10.Result/sim_matrix_bulk_",sim_method,"_",r_mean,"_",r_var,"_",file_tag,".rds"))
+#inputs:
+# meta file
+# sim_matrix_bulk
 
+cur_info = meta[, c("individual", "phenotype")]
+cur_info = unique(cur_info)
+rownames(cur_info) = cur_info$individual
+cur_info$phenotype = as.factor(cur_info$phenotype)
 
-print("start DESeq2 calculation")
-
-perm_num=500
-
-library("DESeq2")
-dds=DESeqDataSetFromMatrix(countData = sim_matrix_bulk,
-                           colData = cur_info,
-                           design = ~ phenotype)
-
-dds=DESeq(dds)
-de_ob_pval=results(dds)$pvalue
-
-de_perm_pval=matrix(ncol=perm_num,nrow=nrow(sim_matrix_bulk))
-for(ip in 1:perm_num){
-  respval=1
-  cur_info$phenotype=cur_info$phenotype[sample.int(nrow(cur_info))]
-  dds=DESeqDataSetFromMatrix(countData = sim_matrix_bulk,
+# object construction
+dds = DESeqDataSetFromMatrix(countData = sim_matrix_bulk,
                              colData = cur_info,
                              design = ~ phenotype)
-  dds=DESeq(dds)
-  respval=results(dds)$pvalue
-  de_perm_pval[,ip]=respval
-  print(ip)
-}
 
-de_pval=rowSums(de_perm_pval-de_ob_pval<=0)/perm_num
+# observed pvalue calculation
+dds = DESeq(dds)
+deseq_pval = results(dds)$pvalue
 
-
-
-saveRDS(de_ob_pval,paste0("../Data_PRJNA434002/10.Result/DESeq2_ob_pval_",sim_method,"_",r_mean,"_",r_var,"_",file_tag,".rds"))
-saveRDS(de_perm_pval,paste0("../Data_PRJNA434002/10.Result/DESeq2_perm_pval_",sim_method,"_",r_mean,"_",r_var,"_",file_tag,".rds"))
-saveRDS(de_pval,paste0("../Data_PRJNA434002/10.Result/DESeq2_raw_pval_",sim_method,"_",r_mean,"_",r_var,"_",file_tag,".rds"))
+saveRDS(deseq_pval,paste0("../Data_PRJNA434002/10.Result/DESeq2_pval_",sim_method,"_",r_mean,"_",r_var,"_",file_tag,".rds"))
 

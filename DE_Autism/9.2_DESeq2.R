@@ -5,7 +5,7 @@
 #pre_tag="dca" #c("dca","scvi")
 
 library("DESeq2")
-perm_num=500
+#perm_num=500
 covariate_flag=NA #c(NA, "quantile99")
 
 #setwd("~/Desktop/fh/1.Testing_scRNAseq/")
@@ -82,27 +82,7 @@ dds=DESeqDataSetFromMatrix(countData = sim_matrix_bulk,
 dds=DESeq(dds)
 de_ob_pval=results(dds)$pvalue
 
-de_perm_pval=matrix(ncol=perm_num,nrow=nrow(sim_matrix_bulk))
-for(ip in 1:perm_num){
-  respval=1
-  cur_info$diagnosis=cur_info$diagnosis[sample.int(nrow(cur_info))]
-  dds=DESeqDataSetFromMatrix(countData = sim_matrix_bulk,
-                             colData = cur_info,
-                             design = ~ diagnosis)
-  dds=DESeq(dds)
-  respval=results(dds)$pvalue
-  de_perm_pval[,ip]=respval
-  print(ip)
-}
-
-de_pval=rowSums(de_perm_pval-de_ob_pval<=0)/perm_num
-
-
-
 saveRDS(de_ob_pval,paste0("../Data_PRJNA434002/8.Result/DESeq2_ob_pval_",pre_tag,"_sim_",cluster_tag,"_",file_tag,".rds"))
-saveRDS(de_perm_pval,paste0("../Data_PRJNA434002/8.Result/DESeq2_perm_pval_",pre_tag,"_sim_",cluster_tag,"_",file_tag,".rds"))
-saveRDS(de_pval,paste0("../Data_PRJNA434002/8.Result/DESeq2_raw_pval_",pre_tag,"_sim_",cluster_tag,"_",file_tag,".rds"))
-
 
 
 sessionInfo()
