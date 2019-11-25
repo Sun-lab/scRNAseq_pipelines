@@ -29,6 +29,11 @@ This markdown is for analyzing the paper [Single-cell genomics identifies cell t
 
 This is part II of the whole workflow of defferential expression data analysis-Autism. In part I, we do some basic data cleaning and processing. Then we take the first 3K genes who expressed in the most cells, and we randomly take 10 percentage of the single cells among all cells in the dataset. After this step, the data was denoised with [DCA](https://github.com/theislab/dca) package, a software to denoise the scRNAseq counts with autoencoder, an artificial neural network used to learn efficient data codings in an unsupervised manner.
 
+```{bash dca_comments,eval=!runcode}
+dca rawM3k10.csv res_dca_rawM3k10/
+```
+
+
 The output of DCA is an estimation of the expression of each gene and each cell in an ZINB distribution, which includes the estimation of the mean, dropout probabilities and dispersion for each cell and gene as an the ZINB distribution. This pipeline will start from these estimation. 
 
 The packages required for the analysis are as follows:

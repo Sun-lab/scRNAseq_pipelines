@@ -2,20 +2,20 @@
 
 #step1: simulate 10 samples based on the parameters of distributions on each cell each gene.
 #step2: compare the distribution with the original cells of certain type,certain individual
+# cluster_tag=1
+# file_tag="3k10"
+# pre_tag="dca" #c("dca","scvi")
+# 
+# setwd("~/Desktop/fh/1.Testing_scRNAseq/")
+#setwd("/Users/mzhang24/Desktop/fh/1.Testing_scRNAseq/")
+setwd("/fh/fast/sun_w/mengqi/1.Testing_scRNAseq/")
+
+sim_n=10
+covariate_flag=NA #c(NA, "quantile99","quantile99_readdepth","readdepth")
+
 
 library("ggplot2")
 library("emdbook")
-
-#cluster_tag=1
-#file_tag="3k10"
-#pre_tag="dca" #c("dca","scvi")
-
-sim_n=10
-covariate_flag=NA #c(NA, "quantile99")
-
-#setwd("~/Desktop/fh/1.Testing_scRNAseq/")
-#setwd("/Users/mzhang24/Desktop/fh/1.Testing_scRNAseq/")
-setwd("/fh/fast/sun_w/mengqi/1.Testing_scRNAseq/")
 
 ###########functions#############
 source("./Command/7.0_ZINB_fit_functions.R")
@@ -45,11 +45,13 @@ if(!is.na(unlist(strsplit(file_tag,"k"))[2])){
 
 #adjust t_mean with total read depth per 1000 counts.
 read_depth=readRDS(paste0("../Data_PRJNA434002/rawM_read_depth_per_1Kcell_ind.rds"))
-read_depth_median=median(read_depth)
-individual_index=match(tmeta$individual,rownames(read_depth))
 
-read_depth_weight=read_depth_median/read_depth[individual_index]
-t_mean=t(t(t_mean)*read_depth_weight)
+#Ajust option: adjust means with read depth
+#read_depth_median=median(read_depth)
+#individual_index=match(tmeta$individual,rownames(read_depth))
+
+#read_depth_weight=read_depth_median/read_depth[individual_index]
+#t_mean=t(t(t_mean)*read_depth_weight)
 
 ##########data processing############
 #1. restrict the cluster
@@ -73,8 +75,15 @@ sim_ind=array(dim=c(nrow(sub_mean),ncol(sub_mean),sim_n),
                       dimnames = list(rownames(sub_mean),colnames(sub_mean),1:sim_n))
 
 if(!is.na(covariate_flag)){
-  quantile99=log(apply(sub_mean,2,function(x)return(quantile(x,0.99)+1)))
-  covariate=as.matrix(quantile99)
+  if("quantile99" %in% covariate_flag){
+    quantile99=log(apply(sub_mean,2,function(x)return(quantile(x,0.99)+1)))
+    covariate=as.matrix(quantile99)
+  }
+  if("readdepth" %in% covariate_flag){
+    quantile99=log(apply(sub_mean,2,function(x)return(quantile(x,0.99)+1)))
+    covariate=log(apply(sub_mean,2,function(x)return(sum(x,na.rm = TRUE))))
+  }
+  
   pdf(paste0("../Data_PRJNA434002/7.Result/hist_",covariate_flag,"_",pre_tag,"_sim_",cluster_tag,"_",file_tag,".pdf"),height = 4,width = 6)
 }
 if(is.na(covariate_flag)){

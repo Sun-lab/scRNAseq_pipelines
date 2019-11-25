@@ -93,12 +93,11 @@ calTrace=function(H,G){
 
 
 #dist_matrix=nxn symmetric matrix with diag =0
-#covariate_x=nxp covariates
+#covariate_x=nxp covariates to test, it should be adjusted if tehre is covariates
+#label is a observed(nxpx1) or permutated(nxpx3) array
+label=diagnose
 
-calc_F_permanovaS=function(dist_matrix,label,covariate_x=NA,G_method=NA){ #G_method=c(NA,1,2,3)
-  if(!is.na(covariate_x)){
-    label=cbind(label,covariate_x)
-  }
+calc_F_permanovaS=function(dist_matrix,label_array,G_method=NA){ #G_method=c(NA,1,2,3)
   if(!is.na(G_method)){
     if(G_method==1){
       G=calG_1(dist_matrix)
@@ -118,21 +117,21 @@ calc_F_permanovaS=function(dist_matrix,label,covariate_x=NA,G_method=NA){ #G_met
       G=calG_3(dist_matrix)
     }
   }
-  
-  label=as.matrix(label)
-  label=as.matrix(apply(label,2,as.numeric))
-  H=calH(label)
-  IH=diag(nrow(H))-H
-  Fstat=calTrace(G,H)/calTrace(G,IH)
-  return(Fstat)
+  Fstat_total=matrix(ncol=1,nrow=dim(label_array)[3])
+  for(i_label in 1:dim(label_array)[3]){
+    label=label_array[,,i_label,drop=FALSE]
+    #label=as.matrix(label)
+    label=as.matrix(apply(label,2,as.numeric))
+    H=calH(label)
+    IH=diag(nrow(H))-H
+    Fstat_total[i_label]=calTrace(G,H)/calTrace(G,IH)
+  }
+  return(Fstat_total)
 }
 
 
 
-calc_F_permanovaS2=function(dist_array,label,covariate_x=NA,G_method=NA){ #G_method=c(NA,1,2,3)
-  if(!is.na(covariate_x)){
-    label=cbind(label,covariate_x)
-  }
+calc_F_permanovaS2=function(dist_array,label_array,G_method=NA){ #G_method=c(NA,1,2,3)
   if(!is.na(G_method)){
     if(G_method==1){
       G=calG_1a(dist_array)
@@ -152,24 +151,39 @@ calc_F_permanovaS2=function(dist_array,label,covariate_x=NA,G_method=NA){ #G_met
       G=calG_3a(dist_array)
     }
   }
-  label=as.matrix(label)
-  label=as.matrix(apply(label,2,as.numeric))
-  H=calH(label)
-  IH=diag(nrow(H))-H
-  Fstat=apply(G,3,function(x){return(calTrace(x,H)/calTrace(x,IH))})
-  return(Fstat)
+  
+  Fstat_total=matrix(nrow=dim(dist_array)[1],ncol=dim(label_array)[3])
+  for(i_label in 1:dim(label_array)[3]){
+    label=label_array[,,i_label]
+    label=as.matrix(label)
+    label=as.matrix(apply(label,2,as.numeric))
+    H=calH(label)
+    IH=diag(nrow(H))-H
+    Fstat_total[,i_label]=apply(G,3,function(x){return(calTrace(x,H)/calTrace(x,IH))})
+  }
+  return(Fstat_total)
 }
 
 
 
 #example:
-#cov_x=NA
-#F_method=c("p","ps")
-#perm_num.min=100
-#perm_num.max=10000
-#tol=1
-#diagnose=rbinom(10,1,.5)
-#dist_matrix=matrix(rnorm(100),10,10)
+cov_x=NA
+cov_x=matrix(rnorm(50,5,1),10,5)
+F_method=c("p","ps")
+perm_num.min=100
+perm_num.max=10000
+tol=1
+diagnose=rbinom(10,1,.5)
+#diagnose2=rnorm(10,1,1)
+
+dist_matrix=matrix(rnorm(100),10,10)
+for(i in 1:10){
+  dist_matrix[i,i]=0
+  for(j in (i+1):10){
+    dist_matrix[j,i]=dist_matrix[i,j]
+  }
+}
+
 
 cal_permanova_pval=function(dist_matrix,diagnose,cov_x=NA,F_method="p",perm_num.min=500,perm_num.max=500000,tol=0.2){
   if(F_method=="p"){

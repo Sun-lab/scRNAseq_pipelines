@@ -127,7 +127,7 @@ i_case_modify=which(case_modify_flag==1) #randomlized settings, switching cases 
 
 
 #first control, then case
-i_ctrl=1:(ntrl*ncell)
+i_ctrl=1:(nctrl*ncell)
 i_case=(nctrl*ncell+1):((ncase+nctrl)*ncell)
 
 ##############functions#################
@@ -469,7 +469,7 @@ ratio.adjust = median(colSums(sample_mean_cases))/median(colSums(sample_mean))
 sample_mean_cases = sample_mean_cases/ratio.adjust
 
 # scatter plot 
-pdf(paste0("../Data_PRJNA434002/10.Result/check_simulation_scatter_",file_tag,".pdf"), 
+pdf(paste0("../Data_PRJNA434002/10.Result/check_simulation_scatter_",r_mean,"_",r_var,"_",r_disp,"_",r_change_prop,"_",file_tag,".pdf"), 
     width = 9, height = 6)
 par(mfrow = c(3, 5), pty = "s")
 
@@ -641,7 +641,7 @@ meta = data.frame(cell_id, individual, phenotype, cellsum, CDR,
 dim(meta)
 meta[1:2,]
 
-pdf(paste0("../Data_PRJNA434002/10.Result/check_covariates_",file_tag,".pdf"), 
+pdf(paste0("../Data_PRJNA434002/10.Result/check_covariates_",r_mean,"_",r_var,"_",r_disp,"_",r_change_prop,"_",file_tag,".pdf"), 
     width=6, height=3)
 par(mfrow=c(1,2), mar=c(5,4,1,1), bty="n")
 boxplot(meta$cellsum ~ meta$phenotype, xlab="group", ylab="read-depth")
@@ -691,17 +691,18 @@ tapply(read_depth, phenotype_ind, summary)
 
 
 #almost no need to adjust library size.
-saveRDS(de.mean,paste0("../Data_PRJNA434002/10.Result/sim_de.mean_",r_mean,"_",r_var,"_",r_disp,"_",r_change_prop,".rds"))
-saveRDS(de.var,paste0("../Data_PRJNA434002/10.Result/sim_de.var_",r_mean,"_",r_var,"_",r_disp,"_",r_change_prop,".rds"))
-saveRDS(switch_flag,paste0("../Data_PRJNA434002/10.Result/sim_switch_flag_",r_mean,"_",r_var,"_",r_disp,"_",r_change_prop,".rds"))
+saveRDS(de.mean,paste0("../Data_PRJNA434002/10.Result/sim_de.mean_",r_mean,"_",r_var,"_",r_disp,"_",r_change_prop,"_",file_tag,".rds"))
+saveRDS(de.var,paste0("../Data_PRJNA434002/10.Result/sim_de.var_",r_mean,"_",r_var,"_",r_disp,"_",r_change_prop,"_",file_tag,".rds"))
+saveRDS(de.disp,paste0("../Data_PRJNA434002/10.Result/sim_de.disp_",r_mean,"_",r_var,"_",r_disp,"_",r_change_prop,"_",file_tag,".rds"))
+saveRDS(de.mult,paste0("../Data_PRJNA434002/10.Result/sim_de.mult_",r_mean,"_",r_var,"_",r_disp,"_",r_change_prop,"_",file_tag,".rds"))
 
-saveRDS(read_depth,paste0("../Data_PRJNA434002/10.Result/sim_ind_readdepth_",r_mean,"_",r_var,"_",r_disp,"_",r_change_prop,".rds"))
-saveRDS(zero_rate_ind,paste0("../Data_PRJNA434002/10.Result/sim_ind_zero_rate_",r_mean,"_",r_var,"_",r_disp,"_",r_change_prop,".rds"))
+saveRDS(read_depth,paste0("../Data_PRJNA434002/10.Result/sim_ind_readdepth_",r_mean,"_",r_var,"_",r_disp,"_",r_change_prop,"_",file_tag,".rds"))
+saveRDS(phenotype_ind,paste0("../Data_PRJNA434002/10.Result/sim_ind_phenotye_",r_mean,"_",r_var,"_",r_disp,"_",r_change_prop,"_",file_tag,".rds"))
+saveRDS(zero_rate_ind,paste0("../Data_PRJNA434002/10.Result/sim_ind_zero_rate_",r_mean,"_",r_var,"_",r_disp,"_",r_change_prop,"_",file_tag,".rds"))
 
-
-saveRDS(sim_matrix,paste0("../Data_PRJNA434002/10.Result/sim_matrix_",r_mean,"_",r_var,"_",r_disp,"_",r_change_prop,".rds"))
-saveRDS(meta,paste0("../Data_PRJNA434002/10.Result/sim_meta_",r_mean,"_",r_var,"_",r_disp,"_",r_change_prop,".rds"))
-saveRDS(sim_matrix_bulk,paste0("../Data_PRJNA434002/10.Result/sim_matrix_bulk_",r_mean,"_",r_var,"_",r_disp,"_",r_change_prop,".rds"))
+saveRDS(sim_matrix,paste0("../Data_PRJNA434002/10.Result/sim_matrix_",r_mean,"_",r_var,"_",r_disp,"_",r_change_prop,"_",file_tag,".rds"))
+saveRDS(meta,paste0("../Data_PRJNA434002/10.Result/sim_meta_",r_mean,"_",r_var,"_",r_disp,"_",r_change_prop,"_",file_tag,".rds"))
+saveRDS(sim_matrix_bulk,paste0("../Data_PRJNA434002/10.Result/sim_matrix_bulk_",r_mean,"_",r_var,"_",r_disp,"_",r_change_prop,"_",file_tag,".rds"))
 
 
 

@@ -1,21 +1,22 @@
 #this code care with the results of simulation data, and calculate the MAST
 
 #note! please be sure to use 10.3.MAST_postArrangment.R when all permutation results are ready.
-
-#file_tag=1
-#sim_method="zinb.naive" #splat.mean or splat.var--method 3, separate the mean and variance using splat
-#splat.org--method 4, change the mean.shape and mean.rate originally
-#zinb.naive--method 5, using naive zinb models to do so.
-
-#setwd("~/Desktop/fh/1.Testing_scRNAseq/")
+# 
+# file_tag=1
+# r_mean=1.5
+# r_var=1.5
+# r_disp=1.5
+# r_change_prop=0.75
+# 
+# setwd("~/Desktop/fh/1.Testing_scRNAseq/")
 #setwd("/Users/mzhang24/Desktop/fh/1.Testing_scRNAseq/")
 setwd("/fh/fast/sun_w/mengqi/1.Testing_scRNAseq/")
 
-#r_mean=1.5  #r_mean/r_var should < 1+mean.shape
-#r_var=4
+n_seq=c(20,15,10,5)
+ncell_seq=c(100,80,60,40,20)
 
-sim_matrix=readRDS(paste0("../Data_PRJNA434002/10.Result/sim_matrix_",sim_method,"_",r_mean,"_",r_var,"_",file_tag,".rds"))
-meta=readRDS(paste0("../Data_PRJNA434002/10.Result/sim_meta_",sim_method,"_",r_mean,"_",r_var,"_",file_tag,".rds"))
+sim_matrix=readRDS(paste0("../Data_PRJNA434002/10.Result/sim_matrix_",r_mean,"_",r_var,"_",r_disp,"_",r_change_prop,"_",file_tag,".rds"))
+t_meta=readRDS(paste0("../Data_PRJNA434002/10.Result/sim_meta_",r_mean,"_",r_var,"_",r_disp,"_",r_change_prop,"_",file_tag,".rds"))
 
 ######################Other method comparison: MAST #################################
 print("start MAST calculation: Part II: ZINB KLmean and JSD")
@@ -42,53 +43,71 @@ sim_matrix_log = log2(1 + sim_matrix) #log transformed data
 
 dim(sim_matrix_log)
 sim_matrix_log[1:10, 1:10]
-cell_id = colnames(sim_matrix_log)   #get the cell id from the data
-gene_id = rownames(sim_matrix_log)   #get the gene id from the data
-
-diagnosis = as.character(meta$phenotype) #
-diagnosis[diagnosis == 1] = "Case"
-diagnosis[diagnosis == 0] = "Control"
-
-fData = data.frame(primerid = gene_id)
-cData = data.frame(wellKey = cell_id)
-colnames(meta)
-length(fData)
-length(cData)
-
-sca = MAST::FromMatrix(sim_matrix_log, cData, fData)
-colData(sca)$cngeneson = as.numeric(meta$CDR)
-colData(sca)$diagnosis = as.factor(diagnosis)
-colData(sca)$ind = as.factor(meta$individual)
-
-colData(sca)
-
-date()
-b0 = MAST::zlm(formula = ~ diagnosis, sca = sca, parallel = TRUE)
-date()
-b1 = MAST::zlm(formula = ~ diagnosis + ( 1 | ind ), sca = sca, method = 'glmer', 
-         ebayes = FALSE, parallel = TRUE)
-date()
-
-b0
-b1
-
-lrt0 = MAST::lrTest(b0, "diagnosis")
-lrt1 = MAST::lrTest(b1, "diagnosis")
-
-dim(lrt1)
-lrt1[1,,]
-
-MAST_pval0 = apply(lrt0, 1, function(x){x[3,3]})
-length(MAST_pval0)
-MAST_pval0[1:4]
-
-MAST_pval1 = apply(lrt1, 1, function(x){x[3,3]})
-length(MAST_pval1)
-MAST_pval1[1:4]
 
 
-saveRDS(MAST_pval0,paste0("../Data_PRJNA434002/10.Result/MAST_pval0_",sim_method,"_",r_mean,"_",r_var,"_",file_tag,".rds"))
-saveRDS(MAST_pval1,paste0("../Data_PRJNA434002/10.Result/MAST_pval1_",sim_method,"_",r_mean,"_",r_var,"_",file_tag,".rds"))
+
+
+for(ncell in ncell_seq){
+  for(n in n_seq){
+    #set labels
+    selected_index=sample.int(20,n)
+    total_cell_index=matrix(ncol=1,nrow=0)
+    for(i_s in c(selected_index,(20+selected_index))){
+      cell_index=(100*i_s-ncell+1):(100*i_s)
+      total_cell_index=c(total_cell_index,cell_index)
+    }
+    
+    #calculation
+    cur_sim_matrix_log=sim_matrix_log[,total_cell_index]
+    
+    cell_id = colnames(cur_sim_matrix_log)   #get the cell id from the data
+    gene_id = rownames(cur_sim_matrix_log)   #get the gene id from the data
+    
+    fData = data.frame(primerid = gene_id)
+    cData = data.frame(wellKey = cell_id)
+    
+    meta=t_meta[total_cell_index,]
+    
+    
+    diagnosis = as.character(meta$phenotype) #
+    diagnosis[diagnosis == 1] = "Case"
+    diagnosis[diagnosis == 0] = "Control"
+    
+    sca = MAST::FromMatrix(cur_sim_matrix_log, cData, fData)
+    colData(sca)$cngeneson = as.numeric(meta$CDR)
+    colData(sca)$diagnosis = as.factor(diagnosis)
+    colData(sca)$ind = as.factor(meta$individual)
+    
+    colData(sca)
+    
+    b0=NA
+    b1=NA
+    lrt0=NA
+    lrt1=NA
+    MAST_pval0=NA
+    MAST_pval1=NA
+    
+    date()
+    b0 = tryCatch(MAST::zlm(formula = ~ diagnosis, sca = sca, parallel = TRUE), error = function(e) {NA} )
+    date()
+    b1 = tryCatch(MAST::zlm(formula = ~ diagnosis + ( 1 | ind ), sca = sca, method = 'glmer', ebayes = FALSE, parallel = TRUE), error = function(e) {NA} )
+    date()
+    
+    lrt0 = tryCatch(MAST::lrTest(b0, "diagnosis"), error = function(e) {NA} )
+    lrt1 = tryCatch(MAST::lrTest(b1, "diagnosis"), error = function(e) {NA} )
+    date()
+    
+    MAST_pval0 = tryCatch(apply(lrt0, 1, function(x){x[3,3]}), error = function(e) {NA} )
+    
+    MAST_pval1 = tryCatch(apply(lrt1, 1, function(x){x[3,3]}), error = function(e) {NA} )
+    
+    tryCatch(saveRDS(MAST_pval0,paste0("../Data_PRJNA434002/10.Result/MAST_pval0_",r_mean,"_",r_var,"_",r_disp,"_",r_change_prop,"_",file_tag,"_",(2*n),"_",ncell,".rds")), error = function(e) {NA} )
+    tryCatch(saveRDS(MAST_pval1,paste0("../Data_PRJNA434002/10.Result/MAST_pval1_",r_mean,"_",r_var,"_",r_disp,"_",r_change_prop,"_",file_tag,"_",(2*n),"_",ncell,".rds")), error = function(e) {NA} )
+    print(c(n,ncell))
+  }
+}
+
+
 
 sessionInfo()
 q(save="no")
