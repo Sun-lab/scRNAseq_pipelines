@@ -7,6 +7,7 @@
 library("DESeq2")
 #perm_num=500
 covariate_flag=NA #c(NA, "quantile99")
+perm_label=1 #perm_label =0 means calculate the observed data other wise, permutated data
 
 #setwd("~/Desktop/fh/1.Testing_scRNAseq/")
 #setwd("/Users/mzhang24/Desktop/fh/1.Testing_scRNAseq/")
@@ -75,6 +76,10 @@ rownames(cur_info)=cur_info$individual
 ###################calculation t#################################
 print("start DESeq2 calculation")
 
+if(perm_label>0){
+  cur_info[,"diagnosis"]=cur_info[sample.int(nrow(cur_info),nrow(cur_info)),"diagnosis"]
+}
+
 dds=DESeqDataSetFromMatrix(countData = sim_matrix_bulk,
                            colData = cur_info,
                            design = ~ diagnosis)
@@ -82,7 +87,7 @@ dds=DESeqDataSetFromMatrix(countData = sim_matrix_bulk,
 dds=DESeq(dds)
 de_ob_pval=results(dds)$pvalue
 
-saveRDS(de_ob_pval,paste0("../Data_PRJNA434002/8.Result/DESeq2_ob_pval_",pre_tag,"_sim_",cluster_tag,"_",file_tag,".rds"))
+saveRDS(de_ob_pval,paste0("../Data_PRJNA434002/8.Result/p",perm_label,"_DESeq2_ob_pval_",pre_tag,"_sim_",cluster_tag,"_",file_tag,".rds"))
 
 
 sessionInfo()

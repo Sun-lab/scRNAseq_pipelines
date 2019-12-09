@@ -17,6 +17,8 @@ setwd("/fh/fast/sun_w/mengqi/1.Testing_scRNAseq/")
 
 perm_num=500
 covariate_flag=NA #c(NA, "quantile99")
+tol=0.2
+
 
 t_sim_matrix=readRDS(paste0("../Data_PRJNA434002/10.Result/sim_matrix_",r_mean,"_",r_var,"_",r_disp,"_",r_change_prop,"_",file_tag,".rds"))
 t_meta=readRDS(paste0("../Data_PRJNA434002/10.Result/sim_meta_",r_mean,"_",r_var,"_",r_disp,"_",r_change_prop,"_",file_tag,".rds"))
@@ -147,11 +149,33 @@ if(fit_method!="empirical"){
 
 saveRDS(dist_array,paste0("../Data_PRJNA434002/10.Result/",dist_method,"_",fit_method,"_dist_array_",r_mean,"_",r_var,"_",r_disp,"_",r_change_prop,"_",file_tag,"_",(2*n),"_",ncell,".rds"))
 ###################Fstat calculation: Refer section 9 #######################
-print("start permanova calculation")
+print("start manova calculation")
 
 #real data test
 #dist_array=round(dist_array,5)
-dist_pval=cal_permanova_pval2(dist_array,phenotype)
+dist_pval=cal_permanova_pval2(dist_array,phenotype,perm_num.min = perm_num)
+thres=tol/perm_num
+second_index=which(dist_pval<thres)
+if(length(second_index)>0){
+  sub_dist_array=dist_array[second_index,,,drop=FALSE]
+  sub_dist_pval=cal_permanova_pval2(sub_dist_array,phenotype,perm_num.min = perm_num*10)
+  dist_pval[second_index]=sub_dist_pval
+  thres=tol/(perm_num*10)
+  second_index=which(dist_pval<thres)
+  if(length(second_index)>0){
+    sub_dist_array=dist_array[second_index,,,drop=FALSE]
+    sub_dist_pval=cal_permanova_pval2(sub_dist_array,phenotype,perm_num.min = perm_num*100)
+    dist_pval[second_index]=sub_dist_pval
+    thres=tol/(perm_num*100)
+    second_index=which(dist_pval<thres)
+    if(length(second_index)>0){
+      sub_dist_array=dist_array[second_index,,,drop=FALSE]
+      sub_dist_pval=cal_permanova_pval2(sub_dist_array,phenotype,perm_num.min = perm_num*1000)
+      dist_pval[second_index]=sub_dist_pval
+    }
+  }
+}
+
 #dist_pval=apply(dist_array,1,function(x){tryCatch(return(cal_permanova_pval(x,phenotype)), error = function(e) {NA} )})
 saveRDS(dist_pval,paste0("../Data_PRJNA434002/10.Result/",dist_method,"_",fit_method,"_raw_pval_",r_mean,"_",r_var,"_",r_disp,"_",r_change_prop,"_",file_tag,"_",(2*n),"_",ncell,".rds"))
 

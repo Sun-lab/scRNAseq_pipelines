@@ -8,10 +8,10 @@
 # fit_method="nbzinb"
 # F_method="p"
 
-
-covariate_flag=NA #c(NA, "quantile99")
-
-
+perm_label=0
+ind_covariate_flag="ind" #c(NA, "quantile99")
+perm_num=500
+tol=0.2
 #setwd("~/Desktop/fh/1.Testing_scRNAseq/")
 #setwd("/Users/mzhang24/Desktop/fh/1.Testing_scRNAseq/")
 setwd("/fh/fast/sun_w/mengqi/1.Testing_scRNAseq/")
@@ -38,22 +38,68 @@ phenotype[which(meta$diagnosis[match(cur_individual,meta$individual)]=="Control"
 ###################calculation t#################################
 print("start calculation: Part I: Empirical KLmean and JSD")
 
-if(!is.na(covariate_flag)){
-  dist_array=readRDS(paste0("../Data_PRJNA434002/8.Result/",dist_method,"_",fit_method,"_array_",covariate_flag,"_",pre_tag,"_sim_",cluster_tag,"_",file_tag,".rds"))
-}
-if(is.na(covariate_flag)){
-  dist_array=readRDS(paste0("../Data_PRJNA434002/8.Result/",dist_method,"_",fit_method,"_array_",pre_tag,"_sim_",cluster_tag,"_",file_tag,".rds"))
+#set input
+dist_array=readRDS(paste0("../Data_PRJNA434002/8.Result/",dist_method,"_",fit_method,"_array_",pre_tag,"_sim_",cluster_tag,"_",file_tag,".rds"))
+
+#set perm
+if(perm_label>0){
+  phenotype=phenotype[sample.int(length(phenotype),length(phenotype)),drop=FALSE]
 }
 
-dist_pval=cal_permanova_pval2(dist_array,phenotype,F_method=F_method)
+#set covariate
+if(is.na(ind_covariate_flag)){
+  covariate_model_matrix=NA
+}
+if(ind_covariate_flag=="ind"){
+  cur_covariate=meta[match(cur_individual,meta$individual),c("region","age","sex","Capbatch","Seqbatch")]
+  rownames(cur_covariate)=cur_individual
+  covariate_model_matrix=model.matrix(~region+age+sex+Capbatch+Seqbatch,cur_covariate)
+}
+
+dist_pval=cal_permanova_pval2(dist_array,phenotype,Fstat_method=F_method,perm_num.min = perm_num,zm=covariate_model_matrix)
+print("0 level complete")
+print(Sys.time())
+print(gc())
+thres=tol/perm_num
+second_index=which(dist_pval<thres)
+if(length(second_index)>0){
+  print("1st level")
+  print(Sys.time())
+  print(gc())
+  sub_dist_array=dist_array[second_index,,,drop=FALSE]
+  sub_dist_pval=cal_permanova_pval2(sub_dist_array,phenotype,perm_num.min = perm_num*10,Fstat_method=F_method,zm=covariate_model_matrix)
+  dist_pval[second_index]=sub_dist_pval
+  thres=tol/(perm_num*10)
+  second_index=which(dist_pval<thres)
+  if(length(second_index)>0){
+    print("2nd level")
+    print(Sys.time())
+    print(gc())
+    sub_dist_array=dist_array[second_index,,,drop=FALSE]
+    sub_dist_pval=cal_permanova_pval2(sub_dist_array,phenotype,perm_num.min = perm_num*100,Fstat_method=F_method,zm=covariate_model_matrix)
+    dist_pval[second_index]=sub_dist_pval
+    thres=tol/(perm_num*100)
+    second_index=which(dist_pval<thres)
+    if(length(second_index)>0){
+      print("3rd level")
+      print(Sys.time())
+      print(gc())
+      sub_dist_array=dist_array[second_index,,,drop=FALSE]
+      sub_dist_pval=cal_permanova_pval2(sub_dist_array,phenotype,perm_num.min = perm_num*1000,Fstat_method=F_method,zm=covariate_model_matrix)
+      dist_pval[second_index]=sub_dist_pval
+    }
+  }
+}
 
 
-if(!is.na(covariate_flag)){
-  saveRDS(dist_pval,paste0("../Data_PRJNA434002/8.Result/",dist_method,"_",fit_method,"_",F_method,"_pval_",covariate_flag,"_",pre_tag,"_sim_",cluster_tag,"_",file_tag,".rds"))
+if(!is.na(ind_covariate_flag)){
+  saveRDS(dist_pval,paste0("../Data_PRJNA434002/8.Result/p",perm_label,"_",dist_method,"_",fit_method,"_",F_method,"_pval_",ind_covariate_flag,"_",pre_tag,"_sim_",cluster_tag,"_",file_tag,".rds"))
+  
 }
-if(is.na(covariate_flag)){
-  saveRDS(dist_pval,paste0("../Data_PRJNA434002/8.Result/",dist_method,"_",fit_method,"_",F_method,"_pval_",pre_tag,"_sim_",cluster_tag,"_",file_tag,".rds"))
+if(is.na(ind_covariate_flag)){
+  saveRDS(dist_pval,paste0("../Data_PRJNA434002/8.Result/p",perm_label,"_",dist_method,"_",fit_method,"_",F_method,"_pval_",pre_tag,"_sim_",cluster_tag,"_",file_tag,".rds"))
 }
+
 
 ####Second Chance, to see if we can get more from our method (OPTIONAL)##############################
 ##here we give the NAs a second chance by removing missing samples/ missing distances, 
@@ -94,17 +140,32 @@ for(i2 in second_index){
           }
         }
       }
-      dist_pval[i2]=tryCatch(cal_permanova_pval(x,cur_pheno,F_method=F_method), error = function(e) {NA} )
+      dist_pval[i2]=tryCatch(cal_permanova_pval(x,cur_pheno,Fstat_method=F_method,perm_num.min = perm_num,zm=covariate_model_matrix), error = function(e) {NA} )
+      thres=tol/perm_num
+      if(!is.na(dist_pval[i2]) && dist_pval[i2]<thres){
+        dist_pval[i2]=tryCatch(cal_permanova_pval(x,cur_pheno,Fstat_method=F_method,perm_num.min = (perm_num*10),zm=covariate_model_matrix), error = function(e) {NA} )
+        thres=tol/(perm_num*10)
+        if(!is.na(dist_pval[i2]) && dist_pval[i2]<thres){
+          dist_pval[i2]=tryCatch(cal_permanova_pval(x,cur_pheno,Fstat_method=F_method,perm_num.min = (perm_num*100),zm=covariate_model_matrix), error = function(e) {NA} )
+          thres=tol/(perm_num*100)
+          if(!is.na(dist_pval[i2]) && dist_pval[i2]<thres){
+            dist_pval[i2]=tryCatch(cal_permanova_pval(x,cur_pheno,Fstat_method=F_method,perm_num.min = (perm_num*1000),zm=covariate_model_matrix), error = function(e) {NA} )
+          }
+        }
+      }
     }
   }
 }
 
-if(!is.na(covariate_flag)){
-  saveRDS(dist_pval,paste0("../Data_PRJNA434002/8.Result/",dist_method,"_",fit_method,"_",F_method,"_pval_",covariate_flag,"_",pre_tag,"_sim_",cluster_tag,"_",file_tag,".rds"))
+
+if(!is.na(ind_covariate_flag)){
+  saveRDS(dist_pval,paste0("../Data_PRJNA434002/8.Result/p",perm_label,"_",dist_method,"_",fit_method,"_",F_method,"_pval_",ind_covariate_flag,"_",pre_tag,"_sim_",cluster_tag,"_",file_tag,".rds"))
 }
-if(is.na(covariate_flag)){
-  saveRDS(dist_pval,paste0("../Data_PRJNA434002/8.Result/",dist_method,"_",fit_method,"_",F_method,"_pval_",pre_tag,"_sim_",cluster_tag,"_",file_tag,".rds"))
+if(is.na(ind_covariate_flag)){
+  saveRDS(dist_pval,paste0("../Data_PRJNA434002/8.Result/p",perm_label,"_",dist_method,"_",fit_method,"_",F_method,"_pval_",pre_tag,"_sim_",cluster_tag,"_",file_tag,".rds"))
 }
 
+  
 sessionInfo()
 q(save="no")
+  

@@ -4,10 +4,10 @@
 #file_tag="3k10"
 #pre_tag="dca" #c("dca","scvi")
 
-library("DESeq2")
 perm_num=500
 sim_n=10
 covariate_flag=NA #c(NA, "quantile99")
+perm_label=1 #perm_label =0 means calculate the observed data other wise, permutated data
 
 #setwd("~/Desktop/fh/1.Testing_scRNAseq/")
 #setwd("/Users/mzhang24/Desktop/fh/1.Testing_scRNAseq/")
@@ -122,9 +122,23 @@ length(fData)
 length(cData)
 
 sca=FromMatrix(sim_matrix_log, cData, fData)
-colData(sca)$cngeneson = as.numeric(CDR) #from Chong and Paul
+colData(sca)$cngeneson = as.numeric(CDR) 
 colData(sca)$diagnosis =as.factor(meta$diagnosis)
 colData(sca)$ind = as.factor(meta$individual)
+
+if(perm_label>0){
+  #count cases and controls
+  diag_info=paste0(colData(sca)$ind,":",colData(sca)$diagnosis)
+  diag_kind=unique(diag_info)
+  diag_kind=t(apply(as.matrix(diag_kind),1,function(x){return(unlist(strsplit(x,":")))}))
+  
+  #permute
+  diag_kind[,2]=diag_kind[sample.int(nrow(diag_kind),nrow(diag_kind),replace=F),2]
+  
+  #match back to each individuals
+  ind_index=match(colData(sca)$ind,diag_kind[,1])
+  colData(sca)$diagnosis=as.factor(diag_kind[ind_index,2])
+}
 
 colData(sca)
 
@@ -153,8 +167,8 @@ MAST_pval1 = apply(lrt1, 1, function(x){x[3,3]})
 length(MAST_pval1)
 MAST_pval1[1:4]
 
-saveRDS(MAST_pval0,paste0("../Data_PRJNA434002/8.Result/MAST_pval0_",pre_tag,"_sim_",cluster_tag,"_",file_tag,".rds"))
-saveRDS(MAST_pval1,paste0("../Data_PRJNA434002/8.Result/MAST_pval1_",pre_tag,"_sim_",cluster_tag,"_",file_tag,".rds"))
+saveRDS(MAST_pval0,paste0("../Data_PRJNA434002/8.Result/p",perm_label,"_MAST_pval0_",pre_tag,"_sim_",cluster_tag,"_",file_tag,".rds"))
+saveRDS(MAST_pval1,paste0("../Data_PRJNA434002/8.Result/p",perm_label,"_MAST_pval1_",pre_tag,"_sim_",cluster_tag,"_",file_tag,".rds"))
 
 sessionInfo()
 q(save="no")
