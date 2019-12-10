@@ -9,7 +9,7 @@
 # F_method="p"
 
 perm_label=0
-ind_covariate_flag="ind" #c(NA, "quantile99")
+ind_covariate_flag="ind" 
 perm_num=500
 tol=0.2
 #setwd("~/Desktop/fh/1.Testing_scRNAseq/")

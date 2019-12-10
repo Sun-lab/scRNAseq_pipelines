@@ -27,7 +27,7 @@ runcode=!FALSE
 
 This markdown is for analyzing the paper [Single-cell genomics identifies cell type–specific molecular changes in autism](https://science.sciencemag.org/content/364/6441/685.abstract). Some details of their analysis is provided [here](https://science.sciencemag.org/content/suppl/2019/05/15/364.6441.685.DC1). Briefly, there analysis are doing individual case-control study based on Kullback–Leibler divergence and Jensen–Shannon divergence on the gene differential expression analysis of certain cell type and compared the result with the [MAST](https://www.bioconductor.org/packages/release/bioc/html/MAST.html) packages(for scRNAseq) and the [DESeq2](https://bioconductor.org/packages/release/bioc/vignettes/DESeq2/inst/doc/DESeq2.html) packages(for bulk RNAseq)
 
-This is part II of the whole workflow of defferential expression data analysis-Autism. In part I, we do some basic data cleaning and processing. Then we take the first 3K genes who expressed in the most cells, and we randomly take 10 percentage of the single cells among all cells in the dataset. After this step, the data was denoised with [DCA](https://github.com/theislab/dca) package, a software to denoise the scRNAseq counts with autoencoder, an artificial neural network used to learn efficient data codings in an unsupervised manner.
+This is part II of the whole workflow of defferential expression data analysis-Autism. In part I, we do some basic data cleaning and processing. Then we take the first 3K genes who expressed in the most cells, and we randomly take 10 percentage of the single cells among all cells in the dataset. After this step, the data was denoised with [DCA](https://github.com/theislab/dca) package, a software to denoise the scRNAseq counts with autoencoder, an artificial neural network used to learn efficient data codings in an unsupervised manner.The input rawM3k10.csv includes a CSV/TSV-formatted raw count matrix with genes in rows and cells in columns.
 
 ```{bash dca_comments,eval=!runcode}
 dca rawM3k10.csv res_dca_rawM3k10/
@@ -36,11 +36,13 @@ dca rawM3k10.csv res_dca_rawM3k10/
 
 The output of DCA is an estimation of the expression of each gene and each cell in an ZINB distribution, which includes the estimation of the mean, dropout probabilities and dispersion for each cell and gene as an the ZINB distribution. This pipeline will start from these estimation. 
 
+Note: DCA itself includes the size factor of each cells in its pipelines.Thus the input of DCA should be the raw count data without any normalization or log transformation.
+
 The packages required for the analysis are as follows:
 
  - MASS: Tools for basic statistical calculation.
  - emdbook: Tools for fitting and simulating zero-inflated negative binomial(ZINB) distribution.
- - ggplot2: Tools for plotting.
+
  - moments: Tools support MAST.
  - MAST: Tools for scRNAseq differential expression analysis.
  - lme4: Tools support MAST.
@@ -52,7 +54,6 @@ R packages required in this pipeline:
 ```{r load_libraries,eval=runcode}
 library("MASS")
 library("emdbook")
-library("ggplot2")
 library("moments")
 library("MAST")
 library("lme4")
@@ -123,15 +124,6 @@ t_dispersion[1:2,1:5]
 dim(t_dropout)
 t_dropout[1:2,1:5]
 
-#adjust t_mean with total read depth per 1000 counts.
-read_depth = readRDS(paste0(data_dir,"rawM_read_depth_per_1Kcell_ind.rds"))
-read_depth_median=median(read_depth)
-individual_index=match(t_meta$individual,rownames(read_depth))
-
-read_depth_weight=read_depth_median/read_depth[individual_index]
-t_mean=t(t(t_mean)*read_depth_weight)
-
-
 ```
 
 ##certain cluster data processing
@@ -158,7 +150,7 @@ With the estimated parameters from DCA, we are able to reconstruct the counts of
 After this reconstruction, we gathers all counts of each gene of each individual, and then estimate the distance between individual by estimation the distance of these distributions. Here we provide two methods one is fitting this distribution to another negative binomial distribution, another is getting the impirical distribution by calculating their densities.
 
 ##Count reconstruction and individual level ZINB fitting.
-```{r count_reconstruction_fitting,eval=runcode, fig.dim = c(12,16)}
+```{r count_reconstruction_fitting,eval=runcode, fig.dim = c(15,20)}
 
 #for store count reconstruction result
 sim_data=array(dim=c(nrow(sub_mean),ncol(sub_mean),sim_n),
@@ -174,7 +166,7 @@ if(!is.na(covariate_flag)){
   covariate=as.matrix(quantile99)
 }
 
-op=par(mfrow = c(3, 4), pty = "s", bty="n")
+op=par(mfrow = c(3, 4),pty = "s") 
 for(i_g in 1:nrow(sub_mean)){
   cur_sim=matrix(ncol=sim_n,nrow=ncol(sub_mean))
   for(i_s in 1:ncol(sub_mean)){
@@ -196,12 +188,8 @@ for(i_g in 1:nrow(sub_mean)){
     }
     
     #plot
-    if(i_g<=4 & i_ind<=3){
-      cur_sim_ind=data.frame(cur_sim_ind)
-      colnames(cur_sim_ind)="simulated_count"
-      ggplot(cur_sim_ind, aes(x=simulated_count),stat="count") + geom_histogram(fill="lightblue")+
-        labs(title=paste0("Histogram of dca, ",rownames(sub_mean)[i_g]," of ",cur_ind,", ",cur_cluster),x="Simulated Count", y = "Frequency")
-      #+theme_classic()
+    if(i_g<=3 & i_ind<=4){
+      hist(cur_sim_ind,main=paste0("Histogram of dca, ",rownames(sub_mean)[i_g]," of ",cur_ind,", ",cur_cluster),xlab="Simulated Count", ylab = "Frequency")
     }
   }
   if(i_g%%500==0){
@@ -312,6 +300,10 @@ phenotype[which(meta$diagnosis[match(cur_individual,meta$individual)]=="Control"
 
 F_method="p" #c("p","ps") for Manova method or Permanova-S method
 
+ind_covariate_flag="ind"  #c(NA, "ind") the individual level covariate for regression, only works for permanova-S method
+perm_num=500              #the minimium permutation number.
+tol=0.2                   #a factor for threshold settings, p-values no bigger than the threshold(tol/perm_num) will put in a senario with 10 times of permutation size than current situation.
+
 tol_missing_dist=0 # tolerate missing p-values number, if missing numer is no bigger than it, we will make it up with median of distance.See details in next section.
 
 tol_missing_sample=round(length(cur_individual)/2) #if effective sample less than this number, stop calculation. See details in next section.
@@ -320,17 +312,74 @@ tol_missing_sample=round(length(cur_individual)/2) #if effective sample less tha
 ```
 
 ## p-value calculation
-We first use function cal_permanova_pval2, which is desire for array calculation for speeding. Then we give the NAs a second chance by removing missing samples/ missing distances, or fix the missing samples with median distances.
+We first use function cal_permanova_pval2, which is desire for array calculation for speeding. Then we give the NAs a second chance by removing missing samples/ missing distances, or fix the missing samples with median distances. 
+
+In the first use of function cal_permanova_pval2, we start from a small permutation size, which is the minimium permutation number (e.g. perm_num=500), then we define a factor for threshold settings(tol, range from 0 to 1), p-values no bigger than the threshold(tol/perm_num) will put in a senario with 10 times of permutation size than current situation.
 
 ```{r F_stat,eval=runcode}
 
-dist_pval=cal_permanova_pval2(dist_array,phenotype,F_method=F_method)
+#set covariate
+if(is.na(ind_covariate_flag)){
+  covariate_model_matrix=NA
+}
+if(ind_covariate_flag=="ind"){
+  cur_covariate=meta[match(cur_individual,meta$individual),c("region","age","sex","Capbatch","Seqbatch")]
+  rownames(cur_covariate)=cur_individual
+  covariate_model_matrix=model.matrix(~region+age+sex+Capbatch+Seqbatch,cur_covariate)
+}
 
-print("Second chances")
+dist_pval=cal_permanova_pval2(dist_array,phenotype,Fstat_method=F_method,perm_num.min = perm_num,zm=covariate_model_matrix)
+print("0 level complete")
+print(Sys.time())
+print(gc())
+thres=tol/perm_num
+second_index=which(dist_pval<thres)
+if(length(second_index)>0){
+  print("1st level")
+  print(Sys.time())
+  print(gc())
+  sub_dist_array=dist_array[second_index,,,drop=FALSE]
+  sub_dist_pval=cal_permanova_pval2(sub_dist_array,phenotype,perm_num.min = perm_num*10,Fstat_method=F_method,zm=covariate_model_matrix)
+  dist_pval[second_index]=sub_dist_pval
+  thres=tol/(perm_num*10)
+  second_index=which(dist_pval<thres)
+  if(length(second_index)>0){
+    print("2nd level")
+    print(Sys.time())
+    print(gc())
+    sub_dist_array=dist_array[second_index,,,drop=FALSE]
+    sub_dist_pval=cal_permanova_pval2(sub_dist_array,phenotype,perm_num.min = perm_num*100,Fstat_method=F_method,zm=covariate_model_matrix)
+    dist_pval[second_index]=sub_dist_pval
+    thres=tol/(perm_num*100)
+    second_index=which(dist_pval<thres)
+    if(length(second_index)>0){
+      print("3rd level")
+      print(Sys.time())
+      print(gc())
+      sub_dist_array=dist_array[second_index,,,drop=FALSE]
+      sub_dist_pval=cal_permanova_pval2(sub_dist_array,phenotype,perm_num.min = perm_num*1000,Fstat_method=F_method,zm=covariate_model_matrix)
+      dist_pval[second_index]=sub_dist_pval
+    }
+  }
+}
+
+
+```
+
+## p-value calculation II(OPTIONAL)
+Here we give the NAs a second chance by removing missing samples/ missing distances, or fix the missing samples with median distances.We use 2 parameter to decide the qualified genes.
+
+The tol_missing_dist is tolerate missing p-values number, if missing numer is no bigger than it, we will make it up with median of distance.See details in next section.
+
+The tol_missing_sample is a threshold that if effective sample less than this number, stop calculation. See details in next section.
+```{r F_stat_second_chance,eval=runcode}
+
 second_index=which(is.na(dist_pval))
+tol_missing_dist=0 # tolerate missing p-values number, if missing numer is no bigger than it, we will make it up with median of distance.
+tol_missing_sample=dim(dist_array)[2]/2 #if effective sample less than this number, stop calculation
 
 for(i2 in second_index){
-  #print(i2)
+  print(i2)
   x=dist_array[i2,,]
   #calculate zeros
   zero_sum=apply(is.na(x),2,sum)
@@ -360,12 +409,25 @@ for(i2 in second_index){
           }
         }
       }
-      dist_pval[i2]=tryCatch(cal_permanova_pval(x,cur_pheno,F_method=F_method), error = function(e) {NA} )
+      dist_pval[i2]=tryCatch(cal_permanova_pval(x,cur_pheno,Fstat_method=F_method,perm_num.min = perm_num,zm=covariate_model_matrix), error = function(e) {NA} )
+      thres=tol/perm_num
+      if(!is.na(dist_pval[i2]) && dist_pval[i2]<thres){
+        dist_pval[i2]=tryCatch(cal_permanova_pval(x,cur_pheno,Fstat_method=F_method,perm_num.min = (perm_num*10),zm=covariate_model_matrix), error = function(e) {NA} )
+        thres=tol/(perm_num*10)
+        if(!is.na(dist_pval[i2]) && dist_pval[i2]<thres){
+          dist_pval[i2]=tryCatch(cal_permanova_pval(x,cur_pheno,Fstat_method=F_method,perm_num.min = (perm_num*100),zm=covariate_model_matrix), error = function(e) {NA} )
+          thres=tol/(perm_num*100)
+          if(!is.na(dist_pval[i2]) && dist_pval[i2]<thres){
+            dist_pval[i2]=tryCatch(cal_permanova_pval(x,cur_pheno,Fstat_method=F_method,perm_num.min = (perm_num*1000),zm=covariate_model_matrix), error = function(e) {NA} )
+          }
+        }
+      }
     }
   }
 }
 
 head(dist_pval)
+
 
 ```
 
@@ -448,7 +510,7 @@ Inputs:
 
 Here we both test the regular model and mixed model. We get the p-values based on the Hurdle model ("H" model)
 
-```{r MAST_analysis,eval=runcode}
+```{r MAST_analysis_pre,eval=runcode}
 
 meta_flat=matrix(ncol=ncol(meta),nrow=0)
 for(im in 1:sim_n){
@@ -487,18 +549,29 @@ colData(sca)
 
 
 date()
+```
+
+```{r MAST_zlm,eval=runcode,echo=FALSE}
 b0 = zlm(formula = ~ diagnosis, sca = sca, parallel = TRUE)
-date()
 b1 = zlm(formula = ~ diagnosis + ( 1 | ind ), sca = sca, method = 'glmer', 
          ebayes = FALSE, parallel = TRUE)
+```
+
+```{r MAST_break,eval=runcode}
 date()
 
 b0
 b1
 
+```
+
+```{r MAST_lrTest,eval=runcode,echo=FALSE}
 lrt0 = lrTest(b0, "diagnosis")
 lrt1 = lrTest(b1, "diagnosis")
+```
 
+```{r MAST_analysis_post,eval=runcode}
+date()
 dim(lrt1)
 lrt1[1,,]
 
@@ -540,6 +613,207 @@ write.table(df1, paste0(data_dir,"pvals_",cluster_tag,"_3k10.txt"), append=FALSE
 ```
 
 
+#One-time permutation
+To evaluate the power and type I error. We do one time individual level case-control permuataion and calculate the p-values.
+
+##Individual level permutation example: Our method 
+```{r perm_jsd,eval=runcode }
+
+perm_label=1
+
+dist_pval=NA
+#set perm
+if(perm_label>0){
+  phenotype=phenotype[sample.int(length(phenotype),length(phenotype)),drop=FALSE]
+}
+
+#our method
+dist_pval=cal_permanova_pval2(dist_array,phenotype,Fstat_method=F_method,perm_num.min = perm_num,zm=covariate_model_matrix)
+print("0 level complete")
+print(Sys.time())
+print(gc())
+thres=tol/perm_num
+second_index=which(dist_pval<thres)
+if(length(second_index)>0){
+  print("1st level")
+  print(Sys.time())
+  print(gc())
+  sub_dist_array=dist_array[second_index,,,drop=FALSE]
+  sub_dist_pval=cal_permanova_pval2(sub_dist_array,phenotype,perm_num.min = perm_num*10,Fstat_method=F_method,zm=covariate_model_matrix)
+  dist_pval[second_index]=sub_dist_pval
+  thres=tol/(perm_num*10)
+  second_index=which(dist_pval<thres)
+  if(length(second_index)>0){
+    print("2nd level")
+    print(Sys.time())
+    print(gc())
+    sub_dist_array=dist_array[second_index,,,drop=FALSE]
+    sub_dist_pval=cal_permanova_pval2(sub_dist_array,phenotype,perm_num.min = perm_num*100,Fstat_method=F_method,zm=covariate_model_matrix)
+    dist_pval[second_index]=sub_dist_pval
+    thres=tol/(perm_num*100)
+    second_index=which(dist_pval<thres)
+    if(length(second_index)>0){
+      print("3rd level")
+      print(Sys.time())
+      print(gc())
+      sub_dist_array=dist_array[second_index,,,drop=FALSE]
+      sub_dist_pval=cal_permanova_pval2(sub_dist_array,phenotype,perm_num.min = perm_num*1000,Fstat_method=F_method,zm=covariate_model_matrix)
+      dist_pval[second_index]=sub_dist_pval
+    }
+  }
+}
+
+## p-value calculation II(OPTIONAL)
+second_index=which(is.na(dist_pval))
+tol_missing_dist=0 # tolerate missing p-values number, if missing numer is no bigger than it, we will make it up with median of distance.
+tol_missing_sample=dim(dist_array)[2]/2 #if effective sample less than this number, stop calculation
+
+for(i2 in second_index){
+  print(i2)
+  x=dist_array[i2,,]
+  #calculate zeros
+  zero_sum=apply(is.na(x),2,sum)
+  
+  #first thres: to remove all zero inds
+  flag=(zero_sum<nrow(x))
+  if(sum(flag)>=tol_missing_sample){
+    x=x[flag,flag]
+    cur_pheno=phenotype[flag]
+    
+    #second thres:to remove inds with more than tolerate missing values
+    zero_sum=apply(is.na(x),2,sum)
+    flag=(zero_sum<=tol_missing_dist)
+    if(sum(flag)>=tol_missing_sample){ 
+      #third thres:to 
+      x=x[flag,flag]
+      cur_pheno=cur_pheno[flag]
+      #add missing values:
+      fill_index=which(!complete.cases(x))
+      if(length(fill_index)>0){
+        for(i_f in fill_index){
+          for(j_f in fill_index){
+            if(j_f>i_f){
+              x[i_f,j_f]=median(c(x[,i_f],x[,j_f]),na.rm = TRUE) #here is a little recurrence, but that's OK...
+              x[j_f,i_f]=x[i_f,j_f]
+            }
+          }
+        }
+      }
+      dist_pval[i2]=tryCatch(cal_permanova_pval(x,cur_pheno,Fstat_method=F_method,perm_num.min = perm_num,zm=covariate_model_matrix), error = function(e) {NA} )
+      thres=tol/perm_num
+      if(!is.na(dist_pval[i2]) && dist_pval[i2]<thres){
+        dist_pval[i2]=tryCatch(cal_permanova_pval(x,cur_pheno,Fstat_method=F_method,perm_num.min = (perm_num*10),zm=covariate_model_matrix), error = function(e) {NA} )
+        thres=tol/(perm_num*10)
+        if(!is.na(dist_pval[i2]) && dist_pval[i2]<thres){
+          dist_pval[i2]=tryCatch(cal_permanova_pval(x,cur_pheno,Fstat_method=F_method,perm_num.min = (perm_num*100),zm=covariate_model_matrix), error = function(e) {NA} )
+          thres=tol/(perm_num*100)
+          if(!is.na(dist_pval[i2]) && dist_pval[i2]<thres){
+            dist_pval[i2]=tryCatch(cal_permanova_pval(x,cur_pheno,Fstat_method=F_method,perm_num.min = (perm_num*1000),zm=covariate_model_matrix), error = function(e) {NA} )
+          }
+        }
+      }
+    }
+  }
+}
+
+head(dist_pval)
+
+
+```
+
+
+##Individual level permutation example: DESeq2 analysis
+
+```{r perm_DESeq2_analysis,eval=runcode}
+
+dds=NA
+
+if(perm_label>0){
+  cur_info[,"diagnosis"]=cur_info[sample.int(nrow(cur_info),nrow(cur_info)),"diagnosis"]
+}
+
+dds=DESeqDataSetFromMatrix(countData = sim_matrix_bulk,
+                           colData = cur_info,
+                           design = ~ diagnosis)
+
+dds=DESeq(dds)
+deseq_pval=results(dds)$pvalue
+deseq_pval[1:10]
+
+
+```
+
+##Individual level permutation example: MAST analysis
+
+```{r perm_MAST_analysis,eval=runcode}
+
+if(perm_label>0){
+  #count cases and controls
+  diag_info=paste0(colData(sca)$ind,":",colData(sca)$diagnosis)
+  diag_kind=unique(diag_info)
+  diag_kind=t(apply(as.matrix(diag_kind),1,function(x){return(unlist(strsplit(x,":")))}))
+  
+  #permute
+  diag_kind[,2]=diag_kind[sample.int(nrow(diag_kind),nrow(diag_kind),replace=F),2]
+  
+  #match back to each individuals
+  ind_index=match(colData(sca)$ind,diag_kind[,1])
+  colData(sca)$diagnosis=as.factor(diag_kind[ind_index,2])
+}
+
+date()
+b0 = zlm(formula = ~ diagnosis, sca = sca, parallel = TRUE)
+date()
+b1 = zlm(formula = ~ diagnosis + ( 1 | ind ), sca = sca, method = 'glmer', 
+         ebayes = FALSE, parallel = TRUE)
+date()
+
+b0
+b1
+
+lrt0 = lrTest(b0, "diagnosis")
+lrt1 = lrTest(b1, "diagnosis")
+
+dim(lrt1)
+lrt1[1,,]
+
+MAST_pval0 = apply(lrt0, 1, function(x){x[3,3]})
+length(MAST_pval0)
+MAST_pval0[1:4]
+
+MAST_pval1 = apply(lrt1, 1, function(x){x[3,3]})
+length(MAST_pval1)
+MAST_pval1[1:4]
+
+```
+
+
+##Individual level permutation example: Check and Save Results
+
+```{r perm_save_results,eval=runcode, fig.dim = c(8,8)}
+df2=NA
+
+op=par(mfrow = c(2, 2), pty = "s", bty="n")
+
+hist(dist_pval, main="Our Method", xlab="p-value")
+
+hist(deseq_pval, main="DESeq2", xlab="p-value")
+
+hist(MAST_pval0, main="MAST bayesglm", xlab="p-value")
+
+hist(MAST_pval1, main="MAST glmer, mean-DE", xlab="p-value")
+
+par(op)
+
+df2 = data.frame(dist_pval, deseq_pval, MAST_pval0, MAST_pval1)
+rownames(df2)=rownames(sub_mean)
+colnames(df2)=c("dist_pval", "deseq_pval", "MAST_pval_bayesglm", "MAST_pval_glmer")
+dim(df2)
+df2[1:2,]
+
+write.table(df2, paste0(data_dir,"perm_",perm_label,"_pvals_",cluster_tag,"_3k10.txt"), append=FALSE, 
+            quote=FALSE, sep="\t", row.names = FALSE, col.names = TRUE)
+```
 
 # Session information
 ```{r ,eval=runcode}

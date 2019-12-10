@@ -1,0 +1,1054 @@
+---
+title:  "A workflow for Defferential expression data analysis"
+author: "Mengqi Zhang, Wei Sun"
+date: "`r Sys.Date()`"
+output: 
+  html_document:
+    theme: journal
+    highlight: tango
+    toc: true
+    toc_depth: 3
+    toc_float:
+      collapsed: true
+      smooth_scroll: false
+    number_sections: true
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r setup, include=FALSE}
+library(knitr)
+knitr::opts_chunk$set(echo=TRUE, cache = !TRUE, warning = FALSE, 
+                      message = FALSE, cache.lazy = FALSE)
+runcode=!FALSE
+```
+
+# Introduction
+
+This markdown is for individual case-control study based onJensen–Shannon divergence and permanova-S distance estimation on the gene differential expression (DE) analysis of certain cell type based on simulated scRNAseq data from zero-inflated negative binomial (ZINB) distribution and compared the result with the [MAST](https://www.bioconductor.org/packages/release/bioc/html/MAST.html) packages(for scRNAseq) and the [DESeq2](https://bioconductor.org/packages/release/bioc/vignettes/DESeq2/inst/doc/DESeq2.html) packages(for bulk RNAseq)
+
+The packages required for the analysis are as follows:
+
+ - MASS: Tools for basic statistical calculation.
+ - emdbook: Tools for fitting and simulating zero-inflated negative binomial(ZINB) distribution.
+ - moments: Tools support MAST.
+ - MAST: Tools for scRNAseq differential expression analysis.
+ - lme4: Tools support MAST.
+ - DESeq2: Tools for bulk RNAseq differential expression analysis.
+
+## initial setup
+
+R packages required in this pipeline:
+```{r load_libraries,eval=runcode}
+library("MASS")
+library("emdbook")
+library("moments")
+library("MAST")
+library("lme4")
+library("DESeq2")
+```
+
+##functions in our analysis
+
+R packages required in this pipeline:
+```{r load_functions,eval=runcode}
+function_dir="/fh/fast/sun_w/mengqi/1.Testing_scRNAseq/Command/"
+
+source(paste0(function_dir,"7.0_ZINB_fit_functions.R"))
+source(paste0(function_dir,"8.0_kl_divergence_functions.R"))
+source(paste0(function_dir,"9.0_Fstat_functions.R"))
+
+
+####this function returns the parameters for fold change of mean and variance of the ZINB distribution
+#require:  r_m/r_v <1+mu/theta
+calc_zinb_param=function(mu,theta,drop=0,r_m=1,r_v=1){
+  #mu=mean
+  #theta=overdispersion
+  mu2=r_m*mu
+  theta2=theta*mu*r_m/(mu*r_v*r_m+(r_v*r_m-1)*theta + (r_v-1)*r_m*mu*drop*theta)
+  if(theta2 < 0){ stop("negative theta2\n") }
+  return(c(mu2,theta2))
+}
+
+# This function calcuate the parameters of 3rd NB/ZINB distribution according to a mixtured 50%-50% 
+# Suppose Z have equaliy probability to falls into two NB distribution ZINB(mu1,size1,drop1), ZINB(mu2,size2,drop2). Calculate Z's ZINB(mu3,size3,drop3)
+
+#enlarge: using the input as the smaller distribution
+#input:
+# mu2,size2,drop2,change_proportion
+# or 
+# mean2,size2,drop2,change_proportion
+
+#Here we have to have some support
+#output: size #size==theta in the notation
+cal_nbzinb_param_multimodality_enlarge=function(mu=NA,size,drop,change_proportion=0.5, mean2=NA){
+  if(is.na(mu)){
+    mu=mean2/(1-drop)
+  }
+  if(is.na(mean2)){
+    mean2=(1-drop)*mu
+  }
+  mean3=mean2/(1-change_proportion)
+  mean1=(1+change_proportion)*mean3
+  mu3=mu/(1-change_proportion)
+  mu1=(1+change_proportion)*mu3
+  t=mean3-mean2
+  m=mean3
+  size3=m^2/(m^2/size + t^2/size + t^2)
+  return(size3)
+}
+
+```
+
+#Simulation
+In this simulation example, we will generate 3000 genes from a particular type of cell of 20 case subjects and 20 control subjects, with each subjects have 100 cells. We simulate the basic parameters, i.e., the mean, dispersion and dropout parameter from the distribution of the real reference scRNAseq database from paper [Single-cell genomics identifies cell type–specific molecular changes in autism](https://science.sciencemag.org/content/364/6441/685.abstract).
+
+Within this 3000 genes, we simulate 4 different type of DEs by adding on particular ratios to the basic parameters to get expected fold changes.
+
+(1). mean DE: 300 genes are DE in mean but not in var, the genes are differential expressed in mean between cases and controls. In practice, we simulate 150 genes up-regulated in cases, and another 150 genes up-regulated in control to keep the total library size same.We implement this setting by simply change the parameter /mu and /dispersion to suit the expected fold changes in mean with the function calc_zinb_param.
+
+(2).var DE: 300 genes are DE in var but not mean, the genes are differential expressed in mean between cases and controls. In practice, we simulate 150 genes changes in cases, and another 150 genes changes in control. We implement this setting by simply change the parameter /mu and /dispersion to suit the expected fold changes in mean with the function calc_zinb_param.
+
+(3).disp DE: 300 genes are DE in dispersion.As the one of the parameter to describe ZINB model, dispersion majorly describes the shape of ZINB distribution. According to bulk gene analysis [DESeq2](https://bioconductor.org/packages/release/bioc/vignettes/DESeq2/inst/doc/DESeq2.html), the dispersion is related to mean when the expression level is not very high. In practice, we simulate 150 genes up-regulated in cases, 150 genes up-regulated in control. We implement this setting by simply change the /mu, which is the mean parameter of ZINB.
+
+(4).multimodality DE: 300 genes are DE due to Multimodality. Suppose Z have equaliy probability to falls into two NB/ZINB distribution Z1~ZINB(mu1,size1,drop1), Z2~ZINB(mu2,size2,drop2). Suppose another variable Z3~ZINB(mu3,size3,drop3), who has the same mean and variance as Z1. Then it is not too difficult to calculate the mu3,size3,drop3 with known m1, size1, drop1 and m2, size2, drop2. In practice, we simulate 150 genes are mixtured with 2 ZINB distributions in cases, and another 150 genes are mixtured with 2 ZINB distributions in control.We implement this setting by supporting the m1=m3+t, m2=m3-t, while the t equals to given proportion of m3(eg: t=0.2*m3). To avoid generating negative parameters. We will set the basic parameters as the parameters as the distribution of Z2, and then generate Z1 and Z3 according to t.
+
+We use parameter HET to define the "mixture" situation of case conditions.f HET equals to 0, we simulate case cells from completely case condition. Otherwise, if HET equals to 1, we generate 1/2 case cells from completely case condition
+
+
+## Basic Settings
+```{r basic_settings,eval=runcode}
+
+#data directory
+dir="/fh/fast/sun_w/mengqi/1.Testing_scRNAseq/"
+
+r_mean=2 #fold-changes of DE mean genes
+r_var=1.2#fold-changes of DE var genes
+r_disp=2 #fold-changes of DE dispersion genes
+r_change_prop=0.5 #DE proportion of distance from the mean of multimodality DE genes
+
+
+nGeneMean=300
+nGeneVar=300
+nGeneDisp=300
+nGeneMult=300
+nGeneBlank=1800
+nGeneTotal=nGeneMean+nGeneVar+nGeneMult+nGeneDisp+nGeneBlank
+ncase=20   #cases number
+nctrl=20   #control number
+ncell=100  #cell number of cases and controls
+nall=ncase+nctrl
+
+HET=0 #0/1 label: if HET==0, generate case cells from completely case condition
+      #           if HET==1, generate 1/2 case cells from completely case condition
+
+i_mean=1:nGeneMean
+i_var=(nGeneMean+1):(nGeneMean+nGeneVar)
+i_disp=(nGeneMean+nGeneVar+1):(nGeneMean+nGeneVar+nGeneDisp)
+i_mult=(nGeneMean+nGeneVar+nGeneDisp+1):(nGeneMean+nGeneVar++nGeneDisp+nGeneMult)
+i_blank=(nGeneMean+nGeneVar+nGeneDisp+nGeneMult+1):nGeneTotal
+
+case_modify_flag=rbinom(nGeneTotal,1,0.5)
+i_case_modify=which(case_modify_flag==1) #randomlized settings, switching cases and control samples to make sure the library sizes the same
+
+
+#first control, then case
+i_ctrl=1:(nctrl*ncell)
+i_case=(nctrl*ncell+1):((ncase+nctrl)*ncell)
+
+
+
+```
+
+## Simulation References Data Preparation
+
+The reference data for simulation is from the paper [Single-cell genomics identifies cell type–specific molecular changes in autism](https://science.sciencemag.org/content/364/6441/685.abstract). Some details of their analysis is provided [here](https://science.sciencemag.org/content/suppl/2019/05/15/364.6441.685.DC1). Specifically, we do some basic data cleaning and processing. Then we take the first 3K genes who expressed in the most cells, and we randomly take 10 percentage of the single cells among all cells in the dataset. After this step, the data was denoised with [DCA](https://github.com/theislab/dca) package, a software to denoise the scRNAseq counts with autoencoder, an artificial neural network used to learn efficient data codings in an unsupervised manner.The input rawM3k10.csv includes a CSV/TSV-formatted raw count matrix with genes in rows and cells in columns.
+
+```{bash dca_comments,eval=FALSE}
+dca rawM3k10.csv res_dca_rawM3k10/
+```
+
+The output of DCA is an estimation of the expression of each gene and each cell in an ZINB distribution, which includes the estimation of the mean, dropout probabilities and dispersion for each cell and gene as an the ZINB distribution. In our simulation, we will borrow the parameters from the ouput of DCA.
+
+Note: DCA itself includes the size factor of each cells in its pipelines.Thus the input of DCA should be the raw count data without any normalization or log transformation.
+
+```{r load_expression_data,eval=runcode}
+dca_dir="/fh/fast/sun_w/mengqi/Data_PRJNA434002/res_dca_rawM3k10/"
+
+# files from DCA
+t_mean = read.table(paste0(dca_dir,"mean_signif4.tsv.gz"), 
+                    sep = "\t", header = TRUE)
+
+t_disp = read.table(paste0(dca_dir,"dispersion_signif4.tsv.gz"),
+                    sep = "\t", header = TRUE)
+
+t_drop = read.table(paste0(dca_dir,"dropout_signif4.tsv.gz"),
+                    sep = "\t", header = TRUE)
+
+dim(t_mean)
+t_mean[1:2,1:5]
+
+dim(t_disp)
+t_disp[1:2,1:5]
+
+dim(t_drop)
+t_drop[1:2,1:5]
+
+
+## Collect sample information
+
+col_info   = strsplit(names(t_mean), split="_")
+sample_ids = sapply(col_info, function(x){paste(x[-1], collapse="_")})
+table(sample_ids)
+
+tapply_mean <- function(x){tapply(x, sample_ids, mean)}
+tapply_sd <- function(x){tapply(x, sample_ids, sd)}
+
+sample_log_mean = t(apply(log(t_mean), 1, tapply_mean))
+sample_disp = t(apply(t_disp, 1, tapply_mean))
+sample_drop = t(apply(t_drop, 1, tapply_mean))
+
+sample_log_mean_sd = t(apply(log(t_mean), 1, tapply_sd))
+
+dim(sample_log_mean)
+dim(sample_disp)
+dim(sample_drop)
+dim(sample_log_mean_sd)
+
+sample_log_mean[1:2,1:5]
+sample_log_mean_sd[1:2,1:5]
+
+# the sd within an individual, across cells is large, 
+# probably becaue the cells are from different cell types
+# so we reduce them by a factor of 10 here. 
+summary(apply(sample_log_mean, 1, sd))
+summary(apply(sample_log_mean_sd,1,mean))
+
+sample_log_mean_sd = sample_log_mean_sd/10
+```
+
+##  calculate the basic parameters from the references data
+
+```{r sim_basic_parameter,eval=runcode}
+# sample gene index for genes differential expressed by mean or variance.
+special_index = sample.int(nGeneTotal, (nGeneMean + nGeneVar +nGeneDisp+nGeneMult))
+mean_index    = as.numeric(special_index[i_mean])
+var_index     = as.numeric(special_index[i_var])
+disp_index     = as.numeric(special_index[i_disp])
+mult_index     = as.numeric(special_index[i_mult])
+# label and save the DE index information.
+de.mean = rep(0, nGeneTotal)
+de.var  = rep(0, nGeneTotal)
+de.disp  = rep(0, nGeneTotal)
+de.mult  = rep(0, nGeneTotal)
+de.mean[mean_index] = 1
+de.var[var_index]   = 1
+de.disp[disp_index]   = 1
+de.mult[mult_index]   = 1
+# To make sure all parameters are non-negative, we do some transformation
+r_mean2 = r_mean
+r_var2  = r_var
+
+if (r_mean < 1) {
+  r_mean2 = 1 / r_mean
+}
+
+if (r_var < 1) {
+  r_var2 = 1 / r_var
+}
+
+# modify parameters for cases mean and var
+# now r_m (r_mean2) is smaller than 1. We need to modify gene expression in 
+# x proportion of genes by fold r_m and (1-x) proportion of genes by 
+# fold of 1/r_m, so that x(1 - r_m) = (1-x)(1/r_m - 1) 
+# x (1 - r_m + 1/r_m -1) = (1/r_m -1) => x = 1/(1 + r_m) 
+
+
+sample_mean = exp(sample_log_mean)
+
+sample_mean_ctrls = sample_mean[,1:nctrl]
+sample_disp_ctrls = sample_disp[,1:nctrl]
+sample_drop_ctrls = sample_drop[,1:nctrl]
+sample_mean_cases = sample_mean[,(nctrl+1):nall]
+sample_disp_cases = sample_disp[,(nctrl+1):nall]
+sample_drop_cases = sample_drop[,(nctrl+1):nall]
+
+```
+
+
+##  calculate the modified parameters from the DE situations
+
+```{r sim_case_parameter,eval=runcode}
+
+#(1). mean DE
+for(j in mean_index){
+  cur_param=c(NA,NA) #initializaiton
+  if(case_modify_flag[j]==1){
+    for(i in 1:ncol(sample_disp_cases)){
+      mu_ji    = sample_mean_cases[j,i]
+      theta_ji = sample_disp_cases[j,i]
+      drop_ji  = sample_drop_cases[j,i]
+      cur_param = calc_zinb_param(mu=mu_ji,theta=theta_ji,drop=drop_ji,r_m=r_mean2,r_v=1)
+      sample_mean_cases[j,i]=cur_param[1]
+      sample_disp_cases[j,i]=cur_param[2]
+    }
+  }
+  if(case_modify_flag[j]==0){
+    for(i in 1:ncol(sample_disp_ctrls)){
+      mu_ji    = sample_mean_ctrls[j,i]
+      theta_ji = sample_disp_ctrls[j,i]
+      drop_ji  = sample_drop_ctrls[j,i]
+      cur_param = calc_zinb_param(mu=mu_ji,theta=theta_ji,drop=drop_ji,r_m=r_mean2,r_v=1)
+      sample_mean_ctrls[j,i]=cur_param[1]
+      sample_disp_ctrls[j,i]=cur_param[2]
+    }
+  }
+}
+
+#(2). var DE
+for(j in var_index){
+  cur_param=c(NA,NA) #initializaiton
+  if(case_modify_flag[j]==1){
+    for(i in 1:ncol(sample_disp_cases)){
+      mu_ji    = sample_mean_cases[j,i]
+      theta_ji = sample_disp_cases[j,i]
+      drop_ji  = sample_drop_cases[j,i]
+      cur_param = calc_zinb_param(mu=mu_ji,theta=theta_ji,drop=drop_ji,r_m=1,r_v=r_var2)
+      sample_mean_cases[j,i]=cur_param[1]
+      sample_disp_cases[j,i]=cur_param[2]
+    }
+  }
+  if(case_modify_flag[j]==0){
+    for(i in 1:ncol(sample_disp_ctrls)){
+      mu_ji    = sample_mean_ctrls[j,i]
+      theta_ji = sample_disp_ctrls[j,i]
+      drop_ji  = sample_drop_ctrls[j,i]
+      cur_param = calc_zinb_param(mu=mu_ji,theta=theta_ji,drop=drop_ji,r_m=1, r_v=r_var2)
+      sample_mean_ctrls[j,i]=cur_param[1]
+      sample_disp_ctrls[j,i]=cur_param[2]
+    }
+  }
+}
+
+#(3). dispersion DE
+for(j in disp_index){
+  cur_param=c(NA,NA) #initializaiton
+  if(case_modify_flag[j]==1){
+    for(i in 1:ncol(sample_disp_cases)){
+      theta_ji = sample_disp_cases[j,i]
+      sample_disp_cases[j,i]=theta_ji*r_disp
+    }
+  }
+  if(case_modify_flag[j]==0){
+    for(i in 1:ncol(sample_disp_ctrls)){
+      theta_ji = sample_disp_ctrls[j,i]
+      sample_disp_ctrls[j,i]=theta_ji*r_disp
+    }
+  }
+}
+
+#(4). multimodality DE
+for(j in mult_index){
+  cur_param=c(NA,NA) #initializaiton
+  if(case_modify_flag[j]==1){
+    for(i in 1:ncol(sample_disp_cases)){
+      mu_ji    = sample_mean_cases[j,i]
+      theta_ji = sample_disp_cases[j,i]
+      drop_ji  = sample_drop_cases[j,i]
+      sample_disp_cases[j,i]=cal_nbzinb_param_multimodality_enlarge(mu=mu_ji,size=theta_ji,drop=drop_ji,
+                                                                   change_proportion=r_change_prop)
+    }
+  }
+  if(case_modify_flag[j]==0){
+    for(i in 1:ncol(sample_disp_ctrls)){
+      mu_ji    = sample_mean_ctrls[j,i]
+      theta_ji = sample_disp_ctrls[j,i]
+      drop_ji  = sample_drop_ctrls[j,i]
+      sample_disp_ctrls[j,i]=cal_nbzinb_param_multimodality_enlarge(mu=mu_ji,size=theta_ji,drop=drop_ji,
+                                                                   change_proportion=r_change_prop)
+    }
+  }
+}
+```
+
+
+##  check the parameters  
+
+We will check the scRNAseq dataset we simulated.
+
+```{r sim_check,eval=runcode, fig.dim = c(6,9)}
+# check the total read depth
+summary(colSums(sample_mean))
+summary(colSums(sample_mean_cases))
+
+# adjust the read depth with median 
+ratio.adjust = median(colSums(sample_mean_cases))/median(colSums(sample_mean))
+sample_mean_cases = sample_mean_cases/ratio.adjust
+
+# scatter plot 
+
+par(mfrow = c(3, 5), pty = "s")
+
+plot(log10(apply(sample_mean_ctrls[de.mean + de.var + de.disp + de.mult == 0,], 1, mean)),
+     log10(apply(sample_mean_cases[de.mean + de.var + de.disp + de.mult == 0,], 1, mean)),
+     cex = .2, xlab = "control cells", ylab = "case cells",
+     main = "log10 mean, non-DE genes")
+abline(0, 1, col = "red")
+
+plot(log10(apply(sample_mean_ctrls[de.mean== 1,], 1, mean)),
+     log10(apply(sample_mean_cases[de.mean== 1,], 1, mean)),
+     cex = .2, xlab = "control cells", ylab = "case cells",
+     main = "log10 mean, Mean-DE genes")
+abline(0, 1, col = "red")
+
+plot(log10(apply(sample_mean_ctrls[de.var== 1,], 1, mean)),
+     log10(apply(sample_mean_cases[de.var== 1,], 1, mean)),
+     cex = .2, xlab = "control cells", ylab = "case cells",
+     main = "log10 mean, Var-DE genes")
+abline(0, 1, col = "red")
+
+plot(log10(apply(sample_mean_ctrls[de.disp== 1,], 1, mean)),
+     log10(apply(sample_mean_cases[de.disp== 1,], 1, mean)),
+     cex = .2, xlab = "control cells", ylab = "case cells",
+     main = "log10 mean, DISP-DE genes")
+abline(0, 1, col = "red")
+
+plot(log10(apply(sample_mean_ctrls[de.mult== 1,], 1, mean)),
+     log10(apply(sample_mean_cases[de.mult== 1,], 1, mean)),
+     cex = .2, xlab = "control cells", ylab = "case cells",
+     main = "log10 mean, MULT-DE genes")
+abline(0, 1, col = "red")
+
+plot(log10(apply(sample_disp_ctrls[de.mean + de.var + de.disp + de.mult == 0,], 1, mean)),
+     log10(apply(sample_disp_cases[de.mean + de.var + de.disp + de.mult == 0,], 1, mean)),
+     cex = .2, xlab = "control cells", ylab = "case cells",
+     main = "log10 disp, non-DE genes")
+abline(0, 1, col = "red")
+
+plot(log10(apply(sample_disp_ctrls[de.mean== 1,], 1, mean)),
+     log10(apply(sample_disp_cases[de.mean== 1,], 1, mean)),
+     cex = .2, xlab = "control cells", ylab = "case cells",
+     main = "log10 mean, Mean-DE genes")
+abline(0, 1, col = "red")
+
+plot(log10(apply(sample_disp_ctrls[de.var== 1,], 1, mean)),
+     log10(apply(sample_disp_cases[de.var== 1,], 1, mean)),
+     cex = .2, xlab = "control cells", ylab = "case cells",
+     main = "log10 mean, Var-DE genes")
+abline(0, 1, col = "red")
+
+plot(log10(apply(sample_disp_ctrls[de.disp== 1,], 1, mean)),
+     log10(apply(sample_disp_cases[de.disp== 1,], 1, mean)),
+     cex = .2, xlab = "control cells", ylab = "case cells",
+     main = "log10 mean, DISP-DE genes")
+abline(0, 1, col = "red")
+
+plot(log10(apply(sample_disp_ctrls[de.mult== 1,], 1, mean)),
+     log10(apply(sample_disp_cases[de.mult== 1,], 1, mean)),
+     cex = .2, xlab = "control cells", ylab = "case cells",
+     main = "log10 mean, MULT-DE genes")
+abline(0, 1, col = "red")
+
+plot(log10(apply(sample_mean_ctrls[de.mean + de.var + de.disp + de.mult == 0,], 1, var)),
+     log10(apply(sample_mean_cases[de.mean + de.var + de.disp + de.mult == 0,], 1, var)),
+     cex = .2, xlab = "control cells", ylab = "case cells",
+     main = "log10 var, non-DE genes")
+abline(0, 1, col = "red")
+
+plot(log10(apply(sample_mean_ctrls[de.mean== 1,], 1, var)),
+     log10(apply(sample_mean_cases[de.mean== 1,], 1, var)),
+     cex = .2, xlab = "control cells", ylab = "case cells",
+     main = "log10 var, Mean-DE genes")
+abline(0, 1, col = "red")
+
+plot(log10(apply(sample_mean_ctrls[de.var== 1,], 1, var)),
+     log10(apply(sample_mean_cases[de.var== 1,], 1, var)),
+     cex = .2, xlab = "control cells", ylab = "case cells",
+     main = "log10 var, Var-DE genes")
+abline(0, 1, col = "red")
+
+plot(log10(apply(sample_mean_ctrls[de.disp== 1,], 1, var)),
+     log10(apply(sample_mean_cases[de.disp== 1,], 1, var)),
+     cex = .2, xlab = "control cells", ylab = "case cells",
+     main = "log10 var, DISP-DE genes")
+abline(0, 1, col = "red")
+
+plot(log10(apply(sample_mean_ctrls[de.mult== 1,], 1, var)),
+     log10(apply(sample_mean_cases[de.mult== 1,], 1, var)),
+     cex = .2, xlab = "control cells", ylab = "case cells",
+     main = "log10 var, MULT-DE genes")
+abline(0, 1, col = "red")
+
+```
+
+## simulate scRNAseq based on zinb parameters of cases and controls.
+
+```{r sim_data,eval=runcode}
+sim_matrix = matrix(nrow = nGeneTotal, ncol = nall * ncell)
+date()
+for(i in 1:nall){
+  idx_i = ((i-1)*ncell+1):(i*ncell)
+  for(k in 1:ncell){
+    if(HET){
+      if(i > nctrl && k > ncell/2 ){
+        mean_i = sample_mean_cases[,i-nctrl]
+        disp_i = sample_disp_cases[,i-nctrl]
+        drop_i = sample_drop_cases[,i-nctrl]
+        mean_i[de.mult & case_modify_flag]=mean_i[de.mult & case_modify_flag]+
+          mean_i[de.mult & case_modify_flag]*((r_change_prop)/(1-r_change_prop))*rbinom(sum(de.mult & case_modify_flag),1,0.5)
+      }else{
+        mean_i = sample_mean_ctrls[,i]
+        disp_i = sample_disp_ctrls[,i]
+        drop_i = sample_drop_ctrls[,i]
+        mean_i[de.mult & !case_modify_flag]=mean_i[de.mult & !case_modify_flag]+
+          mean_i[de.mult & !case_modify_flag]*((r_change_prop)/(1-r_change_prop))*rbinom(sum(de.mult & !case_modify_flag),1,0.5)
+      }
+    }
+    else{
+      if(i > nctrl){
+        mean_i = sample_mean_cases[,i-nctrl]
+        disp_i = sample_disp_cases[,i-nctrl]
+        drop_i = sample_drop_cases[,i-nctrl]
+        mean_i[de.mult & case_modify_flag]=mean_i[de.mult & case_modify_flag]+
+          mean_i[de.mult & case_modify_flag]*((r_change_prop)/(1-r_change_prop))*rbinom(sum(de.mult & case_modify_flag),1,0.5)
+      }else{
+        mean_i = sample_mean_ctrls[,i]
+        disp_i = sample_disp_ctrls[,i]
+        drop_i = sample_drop_ctrls[,i]
+        mean_i[de.mult & !case_modify_flag]=mean_i[de.mult & !case_modify_flag]+
+          mean_i[de.mult & !case_modify_flag]*((r_change_prop)/(1-r_change_prop))*rbinom(sum(de.mult & !case_modify_flag),1,0.5)
+      }
+    }
+    
+    sample_mean_k = exp(rnorm(nGeneTotal, log(mean_i), sample_log_mean_sd[,i]))
+    
+    for (ig in 1:nGeneTotal) {
+      sim_matrix[ig,idx_i[k]] = emdbook::rzinbinom(1, sample_mean_k[ig], 
+                                                   disp_i[ig], drop_i[ig])
+    }
+  }
+}
+date()
+
+dim(sim_matrix)
+sim_matrix[1:4,1:4]
+
+table(c(sim_matrix) == 0)
+table(c(sim_matrix) == 0)/(nrow(sim_matrix)*ncol(sim_matrix))
+```
+
+## post simulation: Meta information collection 
+
+```{r meta_data,eval=runcode}
+#the phenotype and individual information of simulated samples.
+phenotype = c(rep(0, nctrl * ncell), rep(1, ncase * ncell))
+individual = paste0("ind", c(rep(1:nall, each = ncell)))
+
+#Count info for matrix
+cell_id = paste0("cell", 1:ncol(sim_matrix))
+gene_id = paste0("gene", 1:nrow(sim_matrix))
+
+rownames(sim_matrix) = gene_id
+colnames(sim_matrix) = cell_id
+
+#Cell info for meta
+cellsum = apply(sim_matrix, 2, sum)
+genesum = apply(sim_matrix, 1, sum)
+CDR  = apply(sim_matrix > 0, 2, sum) / nrow(sim_matrix)
+meta = data.frame(cell_id, individual, phenotype, cellsum, CDR, 
+                  stringsAsFactors=FALSE)
+dim(meta)
+meta[1:2,]
+
+par(mfrow=c(1,2), mar=c(5,4,1,1), bty="n")
+boxplot(meta$cellsum ~ meta$phenotype, xlab="group", ylab="read-depth")
+boxplot(meta$CDR ~ meta$phenotype, xlab="group", ylab="CDR")
+
+
+```
+
+## post simulation: Some basic stat & Preparation for Bulk RNAseq analysis 
+
+```{r bulk_preparation,eval=runcode}
+# individual level info
+cur_individual = unique(meta$individual)
+cell_num = matrix(ncol = 1, nrow = length(cur_individual))
+rownames(cell_num) = cur_individual
+colnames(cell_num) = "cell_num"
+
+read_depth = matrix(ncol = 1, nrow = length(cur_individual))
+rownames(read_depth) = cur_individual
+colnames(read_depth) = "read_depth"
+
+phenotype_ind = matrix(ncol = 1, nrow = length(cur_individual))
+rownames(phenotype_ind) = cur_individual
+colnames(phenotype_ind) = "phenotype"
+
+zero_rate_ind = matrix(nrow = nrow(sim_matrix),
+                       ncol = length(cur_individual))
+rownames(zero_rate_ind) = rownames(sim_matrix)
+colnames(zero_rate_ind) = cur_individual
+
+sim_matrix_bulk = matrix(nrow = nrow(sim_matrix),
+                         ncol = length(cur_individual))
+rownames(sim_matrix_bulk) = rownames(sim_matrix)
+colnames(sim_matrix_bulk) = cur_individual
+
+for (i_ind in 1:length(cur_individual)) {
+  cur_ind = cur_individual[i_ind]
+  #fit org
+  cur_ind_m = sim_matrix[, meta$individual == cur_ind]
+  cell_num[i_ind]   = ncol(cur_ind_m)
+  read_depth[i_ind] = sum(cur_ind_m, na.rm = TRUE) / cell_num[i_ind] * 1000
+  phenotype_ind[i_ind] = meta$phenotype[meta$individual == cur_ind][1]
+  
+  zero_rate_ind[, i_ind] = rowSums(cur_ind_m == 0, na.rm = TRUE)/cell_num[i_ind]
+  sim_matrix_bulk[, i_ind] = rowSums(cur_ind_m, na.rm = TRUE)
+}
+
+tapply(read_depth, phenotype_ind, summary)
+
+
+```
+
+
+#Individual level DE analysis: Our Method
+
+##Overall of our method
+Our method includes 2 parts, the first is calculate the distance between individuals for each gene each cell type. In our method, we use Kullback-Leibler divergence (KL divergence) and the Jensen-Shannon divergence to evaluate the distance between each pair of individuals and use a distance matrix to store that information.
+
+The second parts is estimate the difference between cases and controls based on the distance matrix. We summarized those distance with a pesudo-F statistic and calculate case-control level comparison based on permuation method with two methods:
+(1). The [Manova](https://onlinelibrary.wiley.com/doi/abs/10.1111/j.1442-9993.2001.01070.pp.x) method developed by Anderson MJ, 2001
+(2). The [Permanova-S](https://academic.oup.com/bioinformatics/article/32/17/2618/2450751) method developed by Tang ZZ et al, 2016.
+
+
+## Part I: Calculate the distance matrix with KL divergence/Jensen-Shannon divergence 
+In our workflow, we provide two kind of method to estimate the distance between individuals of any given genes. The Kullback-Leibler divergence (KL divergence) and the Jensen-Shannon divergence:
+
+suppose we have distribution P and Q
+Define: M=(P+Q)/2 and D(P||Q)=-sum((P * (log(Q/P)))), then
+
+(1)the Symmetrised Kullback-Leibler divergence:
+        KLmean=1/2 * (D(P||Q)+D(Q||P))
+
+(2)the Jensen-Shannon divergence:
+        JSD=1/2 * (D(P||M)+D(Q||M))
+
+We use dist_array to store the distance between each individuals of each genes.
+
+##basic settings
+```{r dist_array,eval=runcode}
+
+fit_method="empirical" #fit_method = c("zinb","empirical")
+dist_method="JSD" #dist_method=c("JSD","mean")
+
+F_method="p" #c("p","ps") for Manova method or Permanova-S method
+ind_covariate_flag="ind"  #c(NA, "ind") the individual level covariate for regression, only works for permanova-S method
+perm_num=500              #the minimium permutation number.
+tol=0.2                   #a factor for threshold settings, p-values no bigger than the threshold(tol/perm_num) will put in a senario with 10 times of permutation size than current situation.
+
+covariate_flag=NA    #cell level covariate flag.
+```
+
+## Tuning the parameter for difference sample size (OPTIONAL)
+
+To evaluate our method in different sample size, here we provide the code of adjust it. Those parts are only for simulation purpose.
+```{r cal_dist_matrix,eval=FALSE}
+
+t_sim_matrix=sim_matrix
+t_meta=meta
+
+n=20      #c(20,15,10,5)
+ncell=100 #c(100,80,60,40,20)
+
+#set labels
+selected_index=sample.int(20,n)
+total_cell_index=matrix(ncol=1,nrow=0)
+for(i_s in c(selected_index,(20+selected_index))){
+  cell_index=(100*i_s-ncell+1):(100*i_s)
+  total_cell_index=c(total_cell_index,cell_index)
+}
+
+#calculation
+sim_matrix=t_sim_matrix[,total_cell_index]
+meta=t_meta[total_cell_index,]
+
+```
+
+## estimate the individual level single cell expression distribution.
+To estimate the distribution of individual level we have two methods, one is fitting those counts from each single cells for each gene, each cell type, with ZINB model. Another is getting the empirical density of counts from each single cells for each gene, each cell type. The former method needs an additional step 1. See below.
+
+### step 1: Fit ZINB for individual level expression (ZINB fitted method Only)
+If we fit the distribution of expression on individual level with ZINB we do 
+```{r fit_ind_zinb,eval=runcode, fig.dim = c(15,20)}
+cur_individual=unique(meta$individual)
+phenotype=meta$phenotype[match(cur_individual,meta$individual)]
+
+op=par(mfrow = c(2, 2), pty = "s") 
+if(fit_method!="empirical"){
+  sim_fit=array(dim=c(nrow(sim_matrix),length(cur_individual),3),
+                dimnames = list(rownames(sim_matrix),cur_individual,c("logmean","dispersion","dropout_rate")))
+  
+  for(i_g in 1:nrow(sim_matrix)){
+    for(i_ind in 1:length(cur_individual)){
+      cur_ind=cur_individual[i_ind]
+      #fit org
+      cur_org_ind=sim_matrix[i_g,meta$individual==cur_ind]
+      
+      if(!is.na(covariate_flag)){
+        cur_covariate=covariate[meta$individual==cur_ind,]
+        sim_fit[i_g,i_ind,]=fit_nbzinb(cur_org_ind,cur_covariate)
+      }
+      if(is.na(covariate_flag)){
+        sim_fit[i_g,i_ind,]=fit_nbzinb(cur_org_ind)
+      }
+      
+      if(i_g<=3 & i_ind<=4){
+        hist(cur_org_ind,main=paste0("Histogram of rawcount, ",rownames(sim_matrix)[i_g]," of ",cur_ind),xlab="Count", ylab = "Frequency")
+      }
+      
+    }
+    if(i_g%%1000==0){
+      print(c("ind fit",i_g))
+    }
+  }
+  
+  sim_fit[,,1]=exp(sim_fit[,,1]) #change the log mean to mean!!!
+}
+par(op)
+```
+
+### step 2: calculate KL/JSD distance 
+
+We calculate the KL/JSD between samples based on ZINB fitted individual level expression or empirical individual level distribution.
+If we fit the distribution of expression with empirical method, we calculate:
+```{r cal_dist_matrix_empirical,eval=runcode}
+
+if(fit_method=="empirical"){
+  dist_array=array(dim=c(nrow(sim_matrix),length(cur_individual),length(cur_individual)),
+                   dimnames = list(rownames(sim_matrix),cur_individual,cur_individual))
+  for(i_g in 1:nrow(sim_matrix)){
+    cur_sim=sim_matrix[i_g,]
+    for(i_ind_a in 1:length(cur_individual)){
+      for(i_ind_b in 1:length(cur_individual)){
+        cur_ind_a=cur_individual[i_ind_a]
+        cur_ind_b=cur_individual[i_ind_b]
+        #fit sim
+        cur_sim_ind_a=as.numeric(cur_sim[meta$individual==cur_ind_a])
+        cur_sim_ind_b=as.numeric(cur_sim[meta$individual==cur_ind_b])
+        
+        dist_array[i_g,i_ind_a,i_ind_b]=tryCatch(mean_KL_dens(cur_sim_ind_a,cur_sim_ind_b,alter=dist_method,fit_model=fit_method), error = function(e) {NA} )
+      }
+    }
+    if(i_g%%1000==0){
+      print(i_g)
+    }
+    
+  }
+}
+
+
+```
+
+If we fit the distribution of expression with ZINB model, we calculate:
+```{r cal_dist_matrix_zinb,eval=runcode}
+if(fit_method!="empirical"){
+  dist_array=array(dim=c(nrow(sim_fit),length(cur_individual),length(cur_individual)),
+                   dimnames = list(rownames(sim_fit),cur_individual,cur_individual))
+  for(i_g in 1:nrow(sim_fit)){
+    cur_fit=sim_fit[i_g,,]
+    for(i_ind_a in 1:length(cur_individual)){
+      for(i_ind_b in 1:length(cur_individual)){
+        cur_a=cur_fit[i_ind_a,]
+        cur_b=cur_fit[i_ind_b,]
+        #kl and jsd
+        dist_array[i_g,i_ind_a,i_ind_b]=tryCatch(mean_KL_dens(cur_a,cur_b,alter=dist_method,zinb.quantile=0.975,fit_model=fit_method), error = function(e) {NA} )
+      }
+    }
+    if(i_g%%1000==0){
+      print(i_g)
+    }
+  }
+}
+
+
+
+```
+
+## Part II: Calculate the distance matrix with KL divergence/Jensen-Shannon divergence 
+those distance with a pesudo-F statistic and calculate case-control level comparison based on permuation method with two methods:
+(1). The [Manova](https://onlinelibrary.wiley.com/doi/abs/10.1111/j.1442-9993.2001.01070.pp.x) method developed by Anderson MJ, 2001.
+
+The manova method calculate the pseudo F statistic: Fstat, which testing the null hypothesis of no differences in the positions of the group centroids according to the distance matrix.
+
+Fstat=((sst-ssw)*(n-a))/(ssw*(a-1))
+where sst is the total sums of squared distances: sst=sum(dist_matrix*dist_matrix*/(n)) which is the total sum‐of‐squares of distance matrix
+ssw=sum((dist_matrix*dist_matrix*epsilon)/(n))
+which is the sum of within‐group sum‐of‐squares of distance matrix.
+
+n is the total sample numbers, here is case numbers plus control numberrs
+a is the total group numbers, here if we only have cases and controls, a=2.
+epsilon is an indicator matrix that the element [i,j]=1 indicates that samples i and j are both in the same group.
+
+
+(2). The [Permanova-S](https://academic.oup.com/bioinformatics/article/32/17/2618/2450751) method developed by Tang ZZ et al, 2016.
+
+The permanovaS method includes the pseudo F statistic calculation and a high-efficient permutation method.
+
+(i)pseudo F statistic calculation 
+The pseudo F statistic is calculated with Fstat=calTrace(G,H)/calTrace(G,IH), 
+```{r expression_F_stat,eval=FALSE}
+Fstat=calTrace(G,H)/calTrace(G,IH)
+```
+
+where calTrace(H,G) is the function who calculate the trace of the product of matrix (H%*%G%*%H).
+```{r expression_trace,eval=FALSE}
+library("psych")
+calTrace=function(H,G){
+  tr(H%*%G%*%H)
+}
+```
+The G is the Gower's matrix G, which each element g_ij at ith-row, j-column equals to g_ij-row‐means(g_i.)-column‐means(g_.j)+overall mean(g_..)}.
+```{r expression_G,eval=FALSE}
+calG=function(m){#m is the distance matrix dim2=dim3=n_individual
+  m=m*m
+  n=nrow(m)
+  res=m+matrix(sum(m)/(n*n),n,n)-1/n *(matrix((rep(rowSums(m),times=n)+rep(colSums(m),each=n)),n,n))
+  -1/2*res
+}
+```
+
+The H is the hat matrix H = X[X'X]^(-1)X',where defined by the phenotype information X (with n rows representing each individuals and p columns representing features).
+```{r expression_H,eval=FALSE}
+calH=function(x){
+  x=as.matrix(x)
+  x%*% solve(crossprod(x))%*%t(x)
+}
+```
+The IH matrix is defined as 
+```{r expression_IH,eval=FALSE}
+IH=diag(nrow(H))-H
+```
+
+If there is covariates matrix, we will removing the confound effect with calculating the residual statistic R. Particularly, we will replace X in the above formula with R0 to calculate the observed pesudo F statistic and replace X in the above formula with R1 to calculate the permutated pseudo F statistic.
+suppose X is one of phenotype we are interested in, with rows n as individual number and cols p1 as features number. Suppose cur_x is one column of the features.
+suppose zm is the model matrix generated from phenotype we use as covariates, with rows n as individual number and columns p2 as features number.
+
+The R0 for the observed pseudo F statistic is the column combination of the p1 number of cur_R0, calculated as below:
+```{r expression_Rob,eval=FALSE}
+#for logic model
+m1=glm(cur_x~zm,family=binomial(link="logit"))  
+cur_R0=resid(m1)  
+
+#for linear model
+m1=lm(cur_x~zm)  
+cur_R0=resid(m1)  
+
+```
+
+For each permutation, we permute the cur_R0 as below and calculate the cur_R1
+
+The R1 for the observed pseudo F statistic is the column combination of the p1 number of cur_R1, calculated as below:
+```{r expression_Rperm,eval=FALSE}
+#for logit model
+# step1 fit
+m1=glm(cur_x~0+zm,family=binomial(link="logit"))  #logit model
+cur_res=resid(m1)  #cal residuals
+cur_fit=fitted(m1) #cal fit
+#step2: permutation
+perm_x=rbinom(length(cur_fit),1,prob=cur_fit)
+m2=glm(perm_x~zm,family=binomial(link="logit"))
+cur_R1=resid(m2)
+
+#for linear model
+#step1: fit
+m1=lm(cur_x~0+zm)  #linear model
+cur_res=resid(m1) #cal residuals
+cur_fit=fitted(m1) #cal fit
+#step2: permutation
+perm_x=cur_res[sample.int(length(cur_res),length(cur_res))]+cur_fit 
+m2=lm(perm_x~zm)  #logit model
+cur_R1=resid(m2)  #cal residuals
+
+```
+
+(ii)permutation method
+According to [Permanova-S](https://academic.oup.com/bioinformatics/article/32/17/2618/2450751), we will start from a small permutation number,say, perm_num.min=500, and set a threshold thres=tol/perm_num.min where the tol ranges from 0 to 1. Each turn, we re-do the calculation of p-values who is no bigger than the thres with increasing the permutation number 10 times. In this object, we stop when the perm_num.min increases 1000 times, say, perm_num.min=5e+5. Since in each iteration, we calculate the p-values who's less than the threshold independently, our p-value results will be more conservative than it actually been.
+
+### covariates of Permanova-S
+In practice, the permanova-S can be individual level covariates, and the input of covariates of our function is a model matrix,covariate_model_matrix, from the covariate dataframe, which have each row represents the individuals and each column represents the features.
+See below to find the methods
+If we don't specify covariate_model_matrix, the covariate will be settled as a vector who lengths as the individual number with all element equals to 1.
+
+```{r covariate,eval=runcode}
+#set covariate
+if(is.na(ind_covariate_flag)){
+  covariate_model_matrix=NA
+}
+if(ind_covariate_flag=="ind"){
+  CDR=1-apply(zero_rate_ind==0,2,sum)/nrow(zero_rate_ind)
+  cur_covariate=data.frame(cbind(read_depth,CDR))
+  rownames(cur_covariate)=cur_individual
+  colnames(cur_covariate)=c("read_depth","CDR")
+  covariate_model_matrix=model.matrix(~.,cur_covariate)
+}
+
+```
+
+We wrote the function cal_permanova_pval/cal_permanova_pval2 for implementation of single round of permutation. The input of cal_permanova_pval is a symmetric square matrix for distance(KL divergence/JSD) between each pair of individuals for one gene.The input of cal_permanova_pval is a 3-dementional array wich the 1st demension represents each gene, the 2nd and 3rd demension is the symmetric square matrix for distance(KL divergence/JSD) between each pair of individuals.
+
+Please see file 9.0_Fstat_functions.R for the code details.
+```{r permanova,eval=runcode}
+
+dist_pval=cal_permanova_pval2(dist_array,phenotype,perm_num.min = perm_num,Fstat_method=F_method,zm=covariate_model_matrix)
+thres=tol/perm_num
+second_index=which(dist_pval<thres)
+if(length(second_index)>0){
+  sub_dist_array=dist_array[second_index,,,drop=FALSE]
+  sub_dist_pval=cal_permanova_pval2(sub_dist_array,phenotype,perm_num.min = perm_num*10,Fstat_method=F_method,zm=covariate_model_matrix)
+  dist_pval[second_index]=sub_dist_pval
+  thres=tol/(perm_num*10)
+  second_index=which(dist_pval<thres)
+  if(length(second_index)>0){
+    sub_dist_array=dist_array[second_index,,,drop=FALSE]
+    sub_dist_pval=cal_permanova_pval2(sub_dist_array,phenotype,perm_num.min = perm_num*100,Fstat_method=F_method,zm=covariate_model_matrix)
+    dist_pval[second_index]=sub_dist_pval
+    thres=tol/(perm_num*100)
+    second_index=which(dist_pval<thres)
+    if(length(second_index)>0){
+      sub_dist_array=dist_array[second_index,,,drop=FALSE]
+      sub_dist_pval=cal_permanova_pval2(sub_dist_array,phenotype,perm_num.min = perm_num*1000,Fstat_method=F_method,zm=covariate_model_matrix)
+      dist_pval[second_index]=sub_dist_pval
+    }
+  }
+}
+
+head(dist_pval)
+
+```
+
+#Individual level DE analysis: Compare with other method
+
+##DESeq2
+```{r DESeq2,eval=runcode}
+cur_info = meta[, c("individual", "phenotype")]
+cur_info = unique(cur_info)
+rownames(cur_info) = cur_info$individual
+cur_info$phenotype = as.factor(cur_info$phenotype)
+
+# object construction
+dds = DESeqDataSetFromMatrix(countData = sim_matrix_bulk,
+                               colData = cur_info,
+                               design = ~ phenotype)
+  
+# observed pvalue calculation
+dds = DESeq(dds)
+deseq_pval = results(dds)$pvalue
+head(deseq_pval)
+
+```
+##MAST
+
+
+```{r MAST,eval=runcode}
+
+library("moments")
+sim_matrix_log = log2(1 + sim_matrix)
+
+
+dim(sim_matrix_log)
+sim_matrix_log[1:10,1:10]
+cell_id=meta$cell
+gene_id=dimnames(sim_data)[[1]]
+rownames(sim_matrix_log)=gene_id
+colnames(sim_matrix_log)=cell_id
+
+
+library("MAST")
+library("lme4")
+
+fData=data.frame(primerid=gene_id)
+cData=data.frame(wellKey=cell_id)
+colnames(meta)
+length(fData)
+length(cData)
+
+sca=FromMatrix(sim_matrix_log, cData, fData)
+colData(sca)$cngeneson = as.numeric(CDR) 
+colData(sca)$diagnosis =as.factor(meta$diagnosis)
+colData(sca)$ind = as.factor(meta$individual)
+
+colData(sca)
+
+
+date()
+```
+##MAST
+
+
+```{r zlm,eval=runcode,echo=FLASE}
+b0 = zlm(formula = ~ diagnosis, sca = sca, parallel = TRUE)
+b1 = zlm(formula = ~ diagnosis + ( 1 | ind ), sca = sca, method = 'glmer', 
+         ebayes = FALSE, parallel = TRUE)
+lrt0 = lrTest(b0, "diagnosis")
+lrt1 = lrTest(b1, "diagnosis")
+```
+
+```{r MAST_post,eval=runcode}
+date()
+dim(lrt1)
+lrt1[1,,]
+
+MAST_pval0 = apply(lrt0, 1, function(x){x[3,3]})
+length(MAST_pval0)
+MAST_pval0[1:4]
+
+MAST_pval1 = apply(lrt1, 1, function(x){x[3,3]})
+length(MAST_pval1)
+MAST_pval1[1:4]
+
+head(dist_pval)
+
+```
+
+Check and Save Results
+
+```{r perm_save_results,eval=runcode, fig.dim = c(8,8)}
+df2=NA
+
+op=par(mfrow = c(2, 2), pty = "s", bty="n")
+
+hist(dist_pval, main="Our Method", xlab="p-value")
+
+hist(deseq_pval, main="DESeq2", xlab="p-value")
+
+hist(MAST_pval0, main="MAST bayesglm", xlab="p-value")
+
+hist(MAST_pval1, main="MAST glmer, mean-DE", xlab="p-value")
+
+par(op)
+
+df2 = data.frame(dist_pval, deseq_pval, MAST_pval0, MAST_pval1)
+rownames(df2)=rownames(sub_mean)
+colnames(df2)=c("dist_pval", "deseq_pval", "MAST_pval_bayesglm", "MAST_pval_glmer")
+dim(df2)
+df2[1:10,]
+
+```
+
+
+
+#Further analysis and method evaluation
+Once we have the p-values, we can do further analysis on the method evaluation.We may calculate the proportion of p-values < 0.05. We can also draw similar plot for power, where power is calculated as the proportion of p-values < 0.05 in permuted data. 
+
+
+# Session information
+```{r ,eval=runcode}
+sessionInfo()
+```
+
+# Reference
+
+
+
+

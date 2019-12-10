@@ -10,8 +10,8 @@ calc_F_permanova=function(dist_matrix,label,covariate_x=NA){
   
   epsilon=matrix((rep(label,time=n)==rep(label,each=n)),ncol=n,nrow=n)+0
   d2=dist_matrix*dist_matrix
-  sst=sum(d2/(2*n),na.rm = TRUE)
-  ssw=sum((d2*epsilon)/(2*n),na.rm = TRUE)
+  sst=sum(d2/(n),na.rm = TRUE)
+  ssw=sum((d2*epsilon)/(n),na.rm = TRUE)
   
   Fstat=((sst-ssw)*(n-a))/(ssw*(a-1))
   return(Fstat)
@@ -23,7 +23,7 @@ calc_F_permanova2=function(dist_array,label,covariate_x=NA){
   n=length(label)
   
   epsilon=matrix((rep(label,time=n)==rep(label,each=n)),ncol=n,nrow=n)+0
-  d2=dist_array*dist_array/(2*n)
+  d2=dist_array*dist_array/(n)
   sst=apply(d2,1,function(x){sum(x,na.rm = TRUE)})
   ssw=apply(d2,1,function(x){sum(x*epsilon,na.rm = TRUE)})
   Fstat=((sst-ssw)*(n-a))/(ssw*(a-1))
