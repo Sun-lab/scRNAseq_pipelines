@@ -22,7 +22,10 @@ ind_covariate_flag=NA
 cal_power=function(x,threshold){
   return(sum(x<=threshold,na.rm = TRUE)/length(x))
 }
-
+#ks test: compared with uniform(0,1) distribution
+cal_ks=function(x,method="two.sided"){
+  return(ks.test(1:length(x)/length(x),x,alternative = method)$p.value)
+}
 ###############################################
 power_array=array(dim=c(
   length(file_tag_seq),
@@ -38,6 +41,8 @@ power_array=array(dim=c(
     cluster_tag_seq,
     c("Power","Type I error"),
     c("DESeq","MAST","jsd_empirical","klmean_empirical","jsd_zinb","klmean_zinb")))
+
+ks_array=power_array
 
 count=1
 zeros=matrix(ncol=6,nrow=length(file_tag_seq)*length(F_method_seq)*length(pre_tag_seq)*length(cluster_tag_seq)*length(perm_label_seq))
@@ -89,8 +94,8 @@ for(i_file in 1:length(file_tag_seq)){
           
           dev.off()
           
+          #record power
           power_matrix=matrix(nrow=6,ncol=1)
-          
           names(power_matrix)=c("DESeq","MAST","jsd_empirical","klmean_empirical","jsd_zinb","klmean_zinb")
           colnames(power_matrix)="pval"
           power_matrix[1]=tryCatch({cal_power(deseq2_pval,threshold = 0.05)}, error = function(e) {NA} )
@@ -99,25 +104,42 @@ for(i_file in 1:length(file_tag_seq)){
           power_matrix[4]=tryCatch({cal_power(klmean_empirical_pval,threshold = 0.05)}, error = function(e) {NA} )
           power_matrix[5]=tryCatch({cal_power(jsd_zinb_pval,threshold = 0.05)}, error = function(e) {NA} )
           power_matrix[6]=tryCatch({cal_power(klmean_zinb_pval,threshold = 0.05)}, error = function(e) {NA} )
-          
           power_array[i_file,i_F,i_pre,i_cluster,i_perm_label,]=power_matrix
+          
+          #record ks test result
+          ks_matrix=matrix(nrow=6,ncol=1)
+          names(ks_matrix)=c("DESeq","MAST","jsd_empirical","klmean_empirical","jsd_zinb","klmean_zinb")
+          colnames(ks_matrix)="pval"
+          ks_matrix[1]=tryCatch({cal_ks(deseq2_pval,method = "two.sided")}, error = function(e) {NA} )
+          ks_matrix[2]=tryCatch({cal_ks(MAST_pval,method = "two.sided")}, error = function(e) {NA} )
+          ks_matrix[3]=tryCatch({cal_ks(jsd_empirical_pval,method = "two.sided")}, error = function(e) {NA} )
+          ks_matrix[4]=tryCatch({cal_ks(klmean_empirical_pval,method = "two.sided")}, error = function(e) {NA} )
+          ks_matrix[5]=tryCatch({cal_ks(jsd_zinb_pval,method = "two.sided")}, error = function(e) {NA} )
+          ks_matrix[6]=tryCatch({cal_ks(klmean_zinb_pval,method = "two.sided")}, error = function(e) {NA} )
+          ks_array[i_file,i_F,i_pre,i_cluster,i_perm_label,]=ks_matrix
           
         }
         #barplot
         png(paste0("../Data_PRJNA434002/8.Result/barplot_p",perm_label,"_",F_method,"_",pre_tag,"_",cluster_tag,"_",file_tag,".png"),height = 1200,width = 800)
         op=par(mfrow = c(3, 2), pty = "s")
         barplot(power_array[i_file,i_F,i_pre,i_cluster,,1],ylab="power",main=names(power_matrix)[1],ylim=c(0,1))
+        abline(h = 0.05, col = "red") 
         barplot(power_array[i_file,i_F,i_pre,i_cluster,,2],ylab="power",main=names(power_matrix)[2],ylim=c(0,1))
+        abline(h = 0.05, col = "red") 
         barplot(power_array[i_file,i_F,i_pre,i_cluster,,3],ylab="power",main=names(power_matrix)[3],ylim=c(0,1))
+        abline(h = 0.05, col = "red") 
         barplot(power_array[i_file,i_F,i_pre,i_cluster,,4],ylab="power",main=names(power_matrix)[4],ylim=c(0,1))
+        abline(h = 0.05, col = "red") 
         barplot(power_array[i_file,i_F,i_pre,i_cluster,,5],ylab="power",main=names(power_matrix)[5],ylim=c(0,1))
+        abline(h = 0.05, col = "red") 
         barplot(power_array[i_file,i_F,i_pre,i_cluster,,6],ylab="power",main=names(power_matrix)[6],ylim=c(0,1))
+        abline(h = 0.05, col = "red") 
         par(op)
         dev.off()
         
         png(paste0("../Data_PRJNA434002/8.Result/power_point_",perm_label,"_",F_method,"_",pre_tag,"_",cluster_tag,"_",file_tag,".png"),height = 600,width = 600)
         plot(power_array[i_file,i_F,i_pre,i_cluster,2,1],power_array[i_file,i_F,i_pre,i_cluster,1,1],xlim=c(0,1),ylim=c(0,1),xlab="False positive rate (FPR)",ylab="True positive rate (TPR)",type="p",col="red",pch=3,cex=3)
-        
+        abline(v = 0.05, col = "red") 
         points(power_array[i_file,i_F,i_pre,i_cluster,2,2],power_array[i_file,i_F,i_pre,i_cluster,1,2],col="blue",pch=3,cex=3)
         points(power_array[i_file,i_F,i_pre,i_cluster,2,3],power_array[i_file,i_F,i_pre,i_cluster,1,3],col="pink",pch=3,cex=3)
         points(power_array[i_file,i_F,i_pre,i_cluster,2,4],power_array[i_file,i_F,i_pre,i_cluster,1,4],col="brown",pch=3,cex=3)
@@ -134,9 +156,187 @@ for(i_file in 1:length(file_tag_seq)){
   }
 }
 
-
 saveRDS(power_array,paste0("../Data_PRJNA434002/8.Result/final_power_array.rds"))
+saveRDS(ks_array,paste0("../Data_PRJNA434002/8.Result/final_ks_array.rds"))
 
 rownames(zeros)=rownames_zeros
 View(zeros)
 saveRDS(zeros,paste0("../Data_PRJNA434002/10.Result/power_array_NAs_p",perm_label,"_",F_method,"_",pre_tag,"_",cluster_tag,"_",file_tag,".rds"))
+
+
+###############Power array analysis###################
+
+power_array=readRDS(paste0("../Data_PRJNA434002/8.Result/final_power_array.rds"))
+#do boxplot##############
+for(i_file in 1:length(file_tag_seq)){
+  for(i_F in 1:length(F_method_seq)){
+    for(i_pre in 1:length(pre_tag_seq)){
+      file_tag=file_tag_seq[i_file]
+      F_method=F_method_seq[i_F]
+      pre_tag=pre_tag_seq[i_pre]
+      png(paste0("../Data_PRJNA434002/8.Result/boxplot_power_",F_method,"_",pre_tag,"_",file_tag,".png"),height = 800,width = 500)
+      op=par(mfrow=c(2,1))
+      a=power_array[i_file,i_F,i_pre,,1,]
+      b=power_array[i_file,i_F,i_pre,,2,]
+      boxplot(a,main="proportion of p-values less than 0.05 of all clusters, observed data",ylab="power")
+      abline(h = 0.05, col = "red") 
+      boxplot(b,main="proportion of p-values less than 0.05 of all clusters, permutated data",ylab="type I error")
+      abline(h = 0.05, col = "red") 
+      par(op)
+      dev.off()
+    }
+  }
+}
+
+
+#do scatter plot about cell number vs power##############
+for(i_file in 1:length(file_tag_seq)){
+  file_tag=file_tag_seq[i_file]
+  
+  ###calculate cell num
+  if(is.na(unlist(strsplit(file_tag,"k"))[2])){
+    tmeta=read.table("../Data_PRJNA434002/meta.tsv",header = TRUE, sep = "\t")
+  }
+  if(!is.na(unlist(strsplit(file_tag,"k"))[2])){
+    tmeta=readRDS(paste0("../Data_PRJNA434002/meta",unlist(strsplit(file_tag,"k"))[2],".rds"))
+  }
+  cur_cluster=as.character(unique(tmeta$cluster))
+  cell_num=table(tmeta$cluster)
+  cell_num=as.numeric(cell_num[match(cur_cluster,names(cell_num))])
+  names(cell_num)=cur_cluster
+  
+  for(i_F in 1:length(F_method_seq)){
+    for(i_pre in 1:length(pre_tag_seq)){
+      
+      F_method=F_method_seq[i_F]
+      pre_tag=pre_tag_seq[i_pre]
+      
+      png(paste0("../Data_PRJNA434002/8.Result/scatter_power_",F_method,"_",pre_tag,"_",file_tag,".png"),height = 1200,width = 500)
+      op=par(mfrow=c(3,1))
+
+      a=power_array[i_file,i_F,i_pre,,1,]
+      b=power_array[i_file,i_F,i_pre,,2,]
+
+      plot(cell_num,a[,1],type="p",pch=3,cex=.8, col="red",xlab="cell number of each cell type",ylab="Power",main="proportion of pval<0.05,observed data",,ylim=c(0,1))
+      abline(h = 0.05, col = "red") 
+      points(cell_num,a[,2],pch=4,cex=.8, col="blue")
+      points(cell_num,a[,3],pch=5,cex=.8, col="pink")
+      points(cell_num,a[,4],pch=6,cex=.8, col="brown")
+      points(cell_num,a[,5],pch=7,cex=.8, col="orange")
+      points(cell_num,a[,6],pch=8,cex=.8, col="green")
+      legend("topright",c(colnames(a)),pch=3:8,cex=1,col=c("red","blue","pink","brown","orange","green"))
+      
+      plot(cell_num,b[,1],type="p",pch=3,cex=.8, col="red",xlab="cell number of each cell type",ylab="Type I error",main="proportion of pval<0.05,permutated data",ylim=c(0,1))
+      abline(h = 0.05, col = "red") 
+      points(cell_num,b[,2],pch=4,cex=.8, col="blue")
+      points(cell_num,b[,3],pch=5,cex=.8, col="pink")
+      points(cell_num,b[,4],pch=6,cex=.8, col="brown")
+      points(cell_num,b[,5],pch=7,cex=.8, col="orange")
+      points(cell_num,b[,6],pch=8,cex=.8, col="green")
+      legend("topright",c(colnames(b)),pch=3:8,cex=1,col=c("red","blue","pink","brown","orange","green"))
+      
+      plot(b[,1],a[,1],type="p",pch=3,cex=.8, col="red",ylab="observed (Power)",xlab="permutated (Type I error)",main="proportion of pval<0.05, observed vs permutated",ylim=c(0,1),xlim=c(0,1))
+      abline(v = 0.05, col = "red") 
+      points(b[,2],a[,2],pch=4,cex=.8, col="blue")
+      points(b[,3],a[,3],pch=5,cex=.8, col="pink")
+      points(b[,4],a[,4],pch=6,cex=.8, col="brown")
+      points(b[,5],a[,5],pch=7,cex=.8, col="orange")
+      points(b[,6],a[,6],pch=8,cex=.8, col="green")
+      legend("topright",c(colnames(b)),pch=3:8,cex=1,col=c("red","blue","pink","brown","orange","green"))
+
+      par(op)
+      dev.off()
+    }
+  }
+}
+
+###############KS test array analysis###################
+
+ks_array=readRDS(paste0("../Data_PRJNA434002/8.Result/final_ks_array.rds"))
+#do boxplot##############
+for(i_file in 1:length(file_tag_seq)){
+  for(i_F in 1:length(F_method_seq)){
+    for(i_pre in 1:length(pre_tag_seq)){
+      file_tag=file_tag_seq[i_file]
+      F_method=F_method_seq[i_F]
+      pre_tag=pre_tag_seq[i_pre]
+      png(paste0("../Data_PRJNA434002/8.Result/boxplot_ks_",F_method,"_",pre_tag,"_",file_tag,".png"),height = 800,width = 500)
+      op=par(mfrow=c(2,1))
+      a=ks_array[i_file,i_F,i_pre,,1,]
+      b=ks_array[i_file,i_F,i_pre,,2,]
+      boxplot(a,main="ks test for distribution of pvalues, observed data",ylab="ks pval")
+      abline(h = 0.05, col = "red") 
+      boxplot(b,main="ks test for distribution of pvalues, permutated data",ylab="ks pval")
+      abline(h = 0.05, col = "red") 
+      par(op)
+      dev.off()
+    }
+  }
+}
+
+
+#do scatter plot about cell number vs ks##############
+for(i_file in 1:length(file_tag_seq)){
+  file_tag=file_tag_seq[i_file]
+  
+  ###calculate cell num
+  if(is.na(unlist(strsplit(file_tag,"k"))[2])){
+    tmeta=read.table("../Data_PRJNA434002/meta.tsv",header = TRUE, sep = "\t")
+  }
+  if(!is.na(unlist(strsplit(file_tag,"k"))[2])){
+    tmeta=readRDS(paste0("../Data_PRJNA434002/meta",unlist(strsplit(file_tag,"k"))[2],".rds"))
+  }
+  cur_cluster=as.character(unique(tmeta$cluster))
+  cell_num=table(tmeta$cluster)
+  cell_num=as.numeric(cell_num[match(cur_cluster,names(cell_num))])
+  names(cell_num)=cur_cluster
+  
+  for(i_F in 1:length(F_method_seq)){
+    for(i_pre in 1:length(pre_tag_seq)){
+      
+      F_method=F_method_seq[i_F]
+      pre_tag=pre_tag_seq[i_pre]
+      
+      png(paste0("../Data_PRJNA434002/8.Result/scatter_ks_",F_method,"_",pre_tag,"_",file_tag,".png"),height = 1200,width = 500)
+      op=par(mfrow=c(3,1))
+      
+      a=ks_array[i_file,i_F,i_pre,,1,]
+      b=ks_array[i_file,i_F,i_pre,,2,]
+      
+      plot(cell_num,a[,1],type="p",pch=3,cex=.8, col="red",xlab="cell number of each cell type",ylab="ks pval",main="pvalues from KS test, observed data",,ylim=c(0,1))
+      abline(h = 0.05, col = "red") 
+      points(cell_num,a[,2],pch=4,cex=.8, col="blue")
+      points(cell_num,a[,3],pch=5,cex=.8, col="pink")
+      points(cell_num,a[,4],pch=6,cex=.8, col="brown")
+      points(cell_num,a[,5],pch=7,cex=.8, col="orange")
+      points(cell_num,a[,6],pch=8,cex=.8, col="green")
+      legend("topright",c(colnames(a)),pch=3:8,cex=1,col=c("red","blue","pink","brown","orange","green"))
+      
+      plot(cell_num,b[,1],type="p",pch=3,cex=.8, col="red",xlab="cell number of each cell type",ylab="ks pval",main="pvalues from KS test,permutated data",ylim=c(0,1))
+      abline(h = 0.05, col = "red") 
+      points(cell_num,b[,2],pch=4,cex=.8, col="blue")
+      points(cell_num,b[,3],pch=5,cex=.8, col="pink")
+      points(cell_num,b[,4],pch=6,cex=.8, col="brown")
+      points(cell_num,b[,5],pch=7,cex=.8, col="orange")
+      points(cell_num,b[,6],pch=8,cex=.8, col="green")
+      legend("topright",c(colnames(b)),pch=3:8,cex=1,col=c("red","blue","pink","brown","orange","green"))
+      
+      plot(b[,1],a[,1],type="p",pch=3,cex=.8, col="red",ylab="observed",xlab="permutated",main="pvalues from KS test, observed vs permutated",ylim=c(0,1),xlim=c(0,1))
+      abline(v = 0.05, col = "red") 
+      points(b[,2],a[,2],pch=4,cex=.8, col="blue")
+      points(b[,3],a[,3],pch=5,cex=.8, col="pink")
+      points(b[,4],a[,4],pch=6,cex=.8, col="brown")
+      points(b[,5],a[,5],pch=7,cex=.8, col="orange")
+      points(b[,6],a[,6],pch=8,cex=.8, col="green")
+      legend("topright",c(colnames(b)),pch=3:8,cex=1,col=c("red","blue","pink","brown","orange","green"))
+      
+      par(op)
+      dev.off()
+    }
+  }
+}
+
+
+
+
+

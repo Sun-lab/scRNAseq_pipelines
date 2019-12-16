@@ -323,9 +323,9 @@ if(is.na(ind_covariate_flag)){
   covariate_model_matrix=NA
 }
 if(ind_covariate_flag=="ind"){
-  cur_covariate=meta[match(cur_individual,meta$individual),c("region","age","sex","Capbatch","Seqbatch")]
+  cur_covariate=meta[match(cur_individual,meta$individual),c("age","sex","Capbatch","Seqbatch")]
   rownames(cur_covariate)=cur_individual
-  covariate_model_matrix=model.matrix(~region+age+sex+Capbatch+Seqbatch,cur_covariate)
+  covariate_model_matrix=model.matrix(~age+sex+Capbatch+Seqbatch,cur_covariate)
 }
 
 dist_pval=cal_permanova_pval2(dist_array,phenotype,Fstat_method=F_method,perm_num.min = perm_num,zm=covariate_model_matrix)

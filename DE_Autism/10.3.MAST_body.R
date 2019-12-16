@@ -87,20 +87,30 @@ for(ncell in ncell_seq){
     MAST_pval0=NA
     MAST_pval1=NA
     
-    date()
+    print(paste0("print system details, ncell= ",ncell,", n= ",n, ", before b0"))
+    print(date())
+    print(gc())
     b0 = tryCatch(MAST::zlm(formula = ~ diagnosis, sca = sca, parallel = TRUE), error = function(e) {NA} )
-    date()
+    print(paste0("print system details, ncell= ",ncell,", n= ",n, ", after b0"))
+    print(date())
+    print(gc())
     b1 = tryCatch(MAST::zlm(formula = ~ diagnosis + ( 1 | ind ), sca = sca, method = 'glmer', ebayes = FALSE, parallel = TRUE), error = function(e) {NA} )
-    date()
-    
+    print(paste0("print system details, ncell= ",ncell,", n= ",n, ", after b1"))
+    print(date())
+    print(gc())
     lrt0 = tryCatch(MAST::lrTest(b0, "diagnosis"), error = function(e) {NA} )
+    print(paste0("print system details, ncell= ",ncell,", n= ",n, ", after lrTest b0"))
+    print(date())
+    print(gc())
     lrt1 = tryCatch(MAST::lrTest(b1, "diagnosis"), error = function(e) {NA} )
-    date()
-    
+    print(paste0("print system details, ncell= ",ncell,", n= ",n, ", after lrTest b1"))
+    print(date())
+    print(gc())
     MAST_pval0 = tryCatch(apply(lrt0, 1, function(x){x[3,3]}), error = function(e) {NA} )
-    
     MAST_pval1 = tryCatch(apply(lrt1, 1, function(x){x[3,3]}), error = function(e) {NA} )
-    
+    print(paste0("print system details, ncell= ",ncell,", n= ",n, ", after all"))
+    print(date())
+    print(gc())
     tryCatch(saveRDS(MAST_pval0,paste0("../Data_PRJNA434002/10.Result/MAST_pval0_",r_mean,"_",r_var,"_",r_disp,"_",r_change_prop,"_",file_tag,"_",(2*n),"_",ncell,".rds")), error = function(e) {NA} )
     tryCatch(saveRDS(MAST_pval1,paste0("../Data_PRJNA434002/10.Result/MAST_pval1_",r_mean,"_",r_var,"_",r_disp,"_",r_change_prop,"_",file_tag,"_",(2*n),"_",ncell,".rds")), error = function(e) {NA} )
     print(c(n,ncell))

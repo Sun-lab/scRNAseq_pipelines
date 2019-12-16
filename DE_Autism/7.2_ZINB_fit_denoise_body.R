@@ -34,7 +34,7 @@ if(pre_tag=="scvi"){
   t_dropout=exp(t_dropout)/(1+exp(t_dropout))
 }
 if(is.na(unlist(strsplit(file_tag,"k"))[2])){
-  tmeta=meta=read.table("../Data_PRJNA434002/meta.tsv",header = TRUE, sep = "\t")
+  tmeta=read.table("../Data_PRJNA434002/meta.tsv",header = TRUE, sep = "\t")
 }
 if(!is.na(unlist(strsplit(file_tag,"k"))[2])){
   tmeta=readRDS(paste0("../Data_PRJNA434002/meta",unlist(strsplit(file_tag,"k"))[2],".rds"))

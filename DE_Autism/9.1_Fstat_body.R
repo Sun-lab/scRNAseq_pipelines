@@ -51,9 +51,14 @@ if(is.na(ind_covariate_flag)){
   covariate_model_matrix=NA
 }
 if(ind_covariate_flag=="ind"){
-  cur_covariate=meta[match(cur_individual,meta$individual),c("region","age","sex","Capbatch","Seqbatch")]
+  #read depth
+  read_depth=readRDS(paste0("../Data_PRJNA434002/rawM",file_tag,"_read_depth_per_1Kcell_ind.rds"))
+  read_depth=read_depth[match(cur_individual,rownames(read_depth)),]
+  #
+  cur_covariate=meta[match(cur_individual,meta$individual),c("age","sex","Capbatch","Seqbatch")]
+  cur_covariate=cbind(cur_covariate, read_depth)
   rownames(cur_covariate)=cur_individual
-  covariate_model_matrix=model.matrix(~region+age+sex+Capbatch+Seqbatch,cur_covariate)
+  covariate_model_matrix=model.matrix(~.,cur_covariate)
 }
 
 dist_pval=cal_permanova_pval2(dist_array,phenotype,Fstat_method=F_method,perm_num.min = perm_num,zm=covariate_model_matrix)

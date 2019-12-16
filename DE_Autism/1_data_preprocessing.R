@@ -130,6 +130,37 @@ dim(rawM1k)
 saveRDS(rawM1k,"../Data_PRJNA434002/rawM1k.rds")
 write.table(rawM1k,"../Data_PRJNA434002/rawM1k.csv",sep=",")
 
+####################generate the library adjusted(individual level read-depth adjusted) tables#############
+
+#this part using 
+
+rawM3k10=readRDS("../Data_PRJNA434002/rawM3k10.rds")
+read_depth_3k10=readRDS("../Data_PRJNA434002/rawM3k10_read_depth_per_1Kcell_ind.rds")
+read_depth_ratio_3k10=median(read_depth_3k10)/read_depth_3k10
+meta10=readRDS("../Data_PRJNA434002/meta10.rds")
+read_depth_ratio_3k10=read_depth_ratio_3k10[match(meta10$individual,rownames(read_depth_3k10))]
+
+rawMrdpadj3k10=t(apply(rawM3k10,1,function(x){round(x*read_depth_ratio_3k10)}))
+rawMrdpadj3k10[1:10,1:10]
+dim(rawMrdpadj3k10)
+saveRDS(rawMrdpadj3k10,"../Data_PRJNA434002/rawMrdpadj3k10.rds")
+write.table(rawMrdpadj3k10,"../Data_PRJNA434002/rawMrdpadj3k10.csv",sep=",")
+
+
+
+rawM5k=readRDS("../Data_PRJNA434002/rawM5k.rds")
+meta=read.table("../Data_PRJNA434002/meta.tsv",header = TRUE, sep = "\t")
+read_depth_5k=readRDS("../Data_PRJNA434002/rawM5k_read_depth_per_1Kcell_ind.rds")
+read_depth_ratio_5k=median(read_depth_5k)/read_depth_5k
+
+read_depth_ratio_5k=read_depth_ratio_5k[match(meta$individual,rownames(read_depth_5k))]
+
+rawMrdpadj5k=t(apply(rawM5k,1,function(x){round(x*read_depth_ratio_5k)}))
+rawMrdpadj5k[1:10,1:10]
+dim(rawMrdpadj5k)
+saveRDS(rawMrdpadj5k,"../Data_PRJNA434002/rawMrdpadj5k.rds")
+write.table(rawMrdpadj5k,"../Data_PRJNA434002/rawMrdpadj5k.csv",sep=",")
+
 
 ####################generate the normalization tables#############
 zero_rate=apply(counts(sce)==0,1,function(x){return(sum(x)/length(x))})

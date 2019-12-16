@@ -376,7 +376,7 @@ for(j in mult_index){
 
 We will check the scRNAseq dataset we simulated.
 
-```{r sim_check,eval=runcode, fig.dim = c(6,9)}
+```{r sim_check,eval=runcode, fig.dim = c(9,6)}
 # check the total read depth
 summary(colSums(sample_mean))
 summary(colSums(sample_mean_cases))
@@ -539,7 +539,7 @@ table(c(sim_matrix) == 0)/(nrow(sim_matrix)*ncol(sim_matrix))
 
 ## post simulation: Meta information collection 
 
-```{r meta_data,eval=runcode}
+```{r meta_data,eval=runcode,fig.dim = c(5,5)}
 #the phenotype and individual information of simulated samples.
 phenotype = c(rep(0, nctrl * ncell), rep(1, ncase * ncell))
 individual = paste0("ind", c(rep(1:nall, each = ncell)))
@@ -958,11 +958,9 @@ sim_matrix_log = log2(1 + sim_matrix)
 
 dim(sim_matrix_log)
 sim_matrix_log[1:10,1:10]
-cell_id=meta$cell
-gene_id=dimnames(sim_data)[[1]]
-rownames(sim_matrix_log)=gene_id
-colnames(sim_matrix_log)=cell_id
 
+cell_id = colnames(sim_matrix_log)   #get the cell id from the data
+gene_id = rownames(sim_matrix_log)   #get the gene id from the data
 
 library("MAST")
 library("lme4")
@@ -1013,7 +1011,7 @@ head(dist_pval)
 
 Check and Save Results
 
-```{r perm_save_results,eval=runcode, fig.dim = c(8,8)}
+```{r perm_save_results,eval=runcode, fig.dim = c(6,6)}
 df2=NA
 
 op=par(mfrow = c(2, 2), pty = "s", bty="n")

@@ -143,19 +143,33 @@ if(perm_label>0){
 colData(sca)
 
 
+
+print(paste0("print system details, before b0"))
 date()
+gc()
 b0 = zlm(formula = ~ diagnosis, sca = sca, parallel = TRUE)
+print(paste0("print system details, before b1"))
 date()
+gc()
 b1 = zlm(formula = ~ diagnosis + ( 1 | ind ), sca = sca, method = 'glmer', 
          ebayes = FALSE, parallel = TRUE)
+print(paste0("print system details, after b1"))
 date()
+gc()
 
 b0
 b1
-
+print(paste0("print system details, before lrt0"))
+date()
+gc()
 lrt0 = lrTest(b0, "diagnosis")
+print(paste0("print system details, before lrt1"))
+date()
+gc()
 lrt1 = lrTest(b1, "diagnosis")
-
+print(paste0("print system details, after lrt1"))
+date()
+gc()
 dim(lrt1)
 lrt1[1,,]
 
