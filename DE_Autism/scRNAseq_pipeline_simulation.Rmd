@@ -225,6 +225,7 @@ summary(apply(sample_log_mean, 1, sd))
 summary(apply(sample_log_mean_sd,1,mean))
 
 sample_log_mean_sd = sample_log_mean_sd/10
+
 ```
 
 ##  calculate the basic parameters from the references data
@@ -376,7 +377,7 @@ for(j in mult_index){
 
 We will check the scRNAseq dataset we simulated.
 
-```{r sim_check,eval=runcode, fig.dim = c(9,6)}
+```{r sim_check,eval=runcode, fig.dim = c(9,15)}
 # check the total read depth
 summary(colSums(sample_mean))
 summary(colSums(sample_mean_cases))
@@ -387,7 +388,7 @@ sample_mean_cases = sample_mean_cases/ratio.adjust
 
 # scatter plot 
 
-par(mfrow = c(3, 5), pty = "s")
+op=par(mfrow = c(3, 5), pty = "s")
 
 plot(log10(apply(sample_mean_ctrls[de.mean + de.var + de.disp + de.mult == 0,], 1, mean)),
      log10(apply(sample_mean_cases[de.mean + de.var + de.disp + de.mult == 0,], 1, mean)),
@@ -478,6 +479,7 @@ plot(log10(apply(sample_mean_ctrls[de.mult== 1,], 1, var)),
      cex = .2, xlab = "control cells", ylab = "case cells",
      main = "log10 var, MULT-DE genes")
 abline(0, 1, col = "red")
+par(op)
 
 ```
 
@@ -560,10 +562,10 @@ meta = data.frame(cell_id, individual, phenotype, cellsum, CDR,
 dim(meta)
 meta[1:2,]
 
-par(mfrow=c(1,2), mar=c(5,4,1,1), bty="n")
+op=par(mfrow=c(1,2), mar=c(5,4,1,1), bty="n")
 boxplot(meta$cellsum ~ meta$phenotype, xlab="group", ylab="read-depth")
 boxplot(meta$CDR ~ meta$phenotype, xlab="group", ylab="CDR")
-
+par(op)
 
 ```
 
@@ -684,7 +686,7 @@ If we fit the distribution of expression on individual level with ZINB we do
 cur_individual=unique(meta$individual)
 phenotype=meta$phenotype[match(cur_individual,meta$individual)]
 
-op=par(mfrow = c(2, 2), pty = "s") 
+op=par(mfrow = c(3, 4), pty = "s") 
 if(fit_method!="empirical"){
   sim_fit=array(dim=c(nrow(sim_matrix),length(cur_individual),3),
                 dimnames = list(rownames(sim_matrix),cur_individual,c("logmean","dispersion","dropout_rate")))
