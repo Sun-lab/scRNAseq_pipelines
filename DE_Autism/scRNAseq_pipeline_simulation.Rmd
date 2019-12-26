@@ -645,7 +645,7 @@ fit_method="empirical" #fit_method = c("zinb","empirical")
 dist_method="JSD" #dist_method=c("JSD","mean")
 
 F_method="p" #c("p","ps") for Manova method or Permanova-S method
-ind_covariate_flag="ind"  #c(NA, "ind") the individual level covariate for regression, only works for permanova-S method
+ind_covariate_flag=NA  #c(NA, "ind") the individual level covariate for regression, only works for permanova-S method
 perm_num=500              #the minimium permutation number.
 tol=0.2                   #a factor for threshold settings, p-values no bigger than the threshold(tol/perm_num) will put in a senario with 10 times of permutation size than current situation.
 
@@ -925,7 +925,7 @@ if(length(second_index)>0){
   }
 }
 
-head(dist_pval)
+dist_pval[1:10]
 
 ```
 
@@ -988,8 +988,7 @@ date()
 
 ```{r zlm,eval=runcode,echo=FLASE}
 b0 = zlm(formula = ~ diagnosis, sca = sca, parallel = TRUE)
-b1 = zlm(formula = ~ diagnosis + ( 1 | ind ), sca = sca, method = 'glmer', 
-         ebayes = FALSE, parallel = TRUE)
+b1 = zlm(formula = ~ diagnosis + ( 1 | ind ), sca = sca, method = 'glmer', ebayes = FALSE, parallel = TRUE)
 lrt0 = lrTest(b0, "diagnosis")
 lrt1 = lrTest(b1, "diagnosis")
 ```
@@ -1007,7 +1006,7 @@ MAST_pval1 = apply(lrt1, 1, function(x){x[3,3]})
 length(MAST_pval1)
 MAST_pval1[1:4]
 
-head(dist_pval)
+dist_pval[1:10]
 
 ```
 
