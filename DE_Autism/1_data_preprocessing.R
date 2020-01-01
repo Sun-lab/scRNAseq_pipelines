@@ -124,11 +124,44 @@ dim(rawM5k)
 saveRDS(rawM5k,"../Data_PRJNA434002/rawM5k.rds")
 write.table(rawM5k,"../Data_PRJNA434002/rawM5k.csv",sep=",")
 
+rawM3k=as.matrix(rawMatrix[o_zero_rate[1:3000],])
+rawM3k[1:10,1:10]
+dim(rawM3k)
+saveRDS(rawM3k,"../Data_PRJNA434002/rawM3k.rds")
+write.table(rawM3k,"../Data_PRJNA434002/rawM3k.csv",sep=",")
+
+rawM2k=as.matrix(rawMatrix[o_zero_rate[1:2000],])
+rawM2k[1:10,1:10]
+dim(rawM2k)
+saveRDS(rawM2k,"../Data_PRJNA434002/rawM2k.rds")
+write.table(rawM2k,"../Data_PRJNA434002/rawM2k.csv",sep=",")
+
 rawM1k=as.matrix(rawMatrix[o_zero_rate[1:1000],])
 rawM1k[1:10,1:10]
 dim(rawM1k)
 saveRDS(rawM1k,"../Data_PRJNA434002/rawM1k.rds")
 write.table(rawM1k,"../Data_PRJNA434002/rawM1k.csv",sep=",")
+
+# %50 version
+set.seed(502)
+random50=sample.int(104559,52280)
+meta2=meta[random50,]
+saveRDS(meta2,"../Data_PRJNA434002/meta2.rds")
+
+rawM3k50=as.matrix(rawMatrix[o_zero_rate[1:3000],random50])
+dim(rawM3k50)
+saveRDS(rawM3k50,"../Data_PRJNA434002/rawM3k50.rds")
+write.table(rawM3k50,"../Data_PRJNA434002/rawM3k50.csv",sep=",")
+
+rawM2k50=as.matrix(rawMatrix[o_zero_rate[1:3000],random50])
+dim(rawM2k50)
+saveRDS(rawM2k50,"../Data_PRJNA434002/rawM2k50.rds")
+write.table(rawM2k50,"../Data_PRJNA434002/rawM2k50.csv",sep=",")
+
+rawM1k50=as.matrix(rawMatrix[o_zero_rate[1:3000],random50])
+dim(rawM1k50)
+saveRDS(rawM1k50,"../Data_PRJNA434002/rawM1k50.rds")
+write.table(rawM1k50,"../Data_PRJNA434002/rawM1k50.csv",sep=",")
 
 ####################generate the library adjusted(individual level read-depth adjusted) tables#############
 
@@ -162,6 +195,83 @@ saveRDS(rawMrdpadj5k,"../Data_PRJNA434002/rawMrdpadj5k.rds")
 write.table(rawMrdpadj5k,"../Data_PRJNA434002/rawMrdpadj5k.csv",sep=",")
 
 
+rawM3k=readRDS("../Data_PRJNA434002/rawM3k.rds")
+meta=read.table("../Data_PRJNA434002/meta.tsv",header = TRUE, sep = "\t")
+read_depth_3k=readRDS("../Data_PRJNA434002/rawM3k_read_depth_per_1Kcell_ind.rds")
+read_depth_ratio_3k=median(read_depth_3k)/read_depth_3k
+
+read_depth_ratio_3k=read_depth_ratio_3k[match(meta$individual,rownames(read_depth_3k))]
+
+rawMrdpadj3k=t(apply(rawM3k,1,function(x){round(x*read_depth_ratio_3k)}))
+rawMrdpadj3k[1:10,1:10]
+dim(rawMrdpadj3k)
+saveRDS(rawMrdpadj3k,"../Data_PRJNA434002/rawMrdpadj3k.rds")
+write.table(rawMrdpadj3k,"../Data_PRJNA434002/rawMrdpadj3k.csv",sep=",")
+
+
+rawM2k=readRDS("../Data_PRJNA434002/rawM2k.rds")
+meta=read.table("../Data_PRJNA434002/meta.tsv",header = TRUE, sep = "\t")
+read_depth_2k=readRDS("../Data_PRJNA434002/rawM2k_read_depth_per_1Kcell_ind.rds")
+read_depth_ratio_2k=median(read_depth_2k)/read_depth_2k
+
+read_depth_ratio_2k=read_depth_ratio_2k[match(meta$individual,rownames(read_depth_2k))]
+
+rawMrdpadj2k=t(apply(rawM2k,1,function(x){round(x*read_depth_ratio_2k)}))
+rawMrdpadj2k[1:10,1:10]
+dim(rawMrdpadj2k)
+saveRDS(rawMrdpadj2k,"../Data_PRJNA434002/rawMrdpadj2k.rds")
+write.table(rawMrdpadj2k,"../Data_PRJNA434002/rawMrdpadj2k.csv",sep=",")
+rawM1k=readRDS("../Data_PRJNA434002/rawM1k.rds")
+meta=read.table("../Data_PRJNA434002/meta.tsv",header = TRUE, sep = "\t")
+read_depth_1k=readRDS("../Data_PRJNA434002/rawM1k_read_depth_per_1Kcell_ind.rds")
+read_depth_ratio_1k=median(read_depth_1k)/read_depth_1k
+
+read_depth_ratio_1k=read_depth_ratio_1k[match(meta$individual,rownames(read_depth_1k))]
+rawMrdpadj1k=t(apply(rawM1k,1,function(x){round(x*read_depth_ratio_1k)}))
+rawMrdpadj1k[1:10,1:10]
+dim(rawMrdpadj1k)
+saveRDS(rawMrdpadj1k,"../Data_PRJNA434002/rawMrdpadj1k.rds")
+write.table(rawMrdpadj1k,"../Data_PRJNA434002/rawMrdpadj1k.csv",sep=",")
+
+#%50 version
+rawM3k50=readRDS("../Data_PRJNA434002/rawM3k50.rds")
+meta2=readRDS("../Data_PRJNA434002/meta2.rds")
+read_depth_3k50=readRDS("../Data_PRJNA434002/rawM3k50_read_depth_per_1Kcell_ind.rds")
+read_depth_ratio_3k50=median(read_depth_3k50)/read_depth_3k50
+
+read_depth_ratio_3k50=read_depth_ratio_3k50[match(meta2$individual,rownames(read_depth_3k50))]
+
+rawMrdpadj3k50=t(apply(rawM3k50,1,function(x){round(x*read_depth_ratio_3k50)}))
+rawMrdpadj3k50[1:10,1:10]
+dim(rawMrdpadj3k50)
+saveRDS(rawMrdpadj3k50,"../Data_PRJNA434002/rawMrdpadj3k50.rds")
+write.table(rawMrdpadj3k50,"../Data_PRJNA434002/rawMrdpadj3k50.csv",sep=",")
+
+
+rawM2k50=readRDS("../Data_PRJNA434002/rawM2k50.rds")
+meta2=readRDS("../Data_PRJNA434002/meta2.rds")
+read_depth_2k50=readRDS("../Data_PRJNA434002/rawM2k50_read_depth_per_1Kcell_ind.rds")
+read_depth_ratio_2k50=median(read_depth_2k50)/read_depth_2k50
+
+read_depth_ratio_2k50=read_depth_ratio_2k50[match(meta2$individual,rownames(read_depth_2k50))]
+
+rawMrdpadj2k50=t(apply(rawM2k50,1,function(x){round(x*read_depth_ratio_2k50)}))
+rawMrdpadj2k50[1:10,1:10]
+dim(rawMrdpadj2k50)
+saveRDS(rawMrdpadj2k50,"../Data_PRJNA434002/rawMrdpadj2k50.rds")
+write.table(rawMrdpadj2k50,"../Data_PRJNA434002/rawMrdpadj2k50.csv",sep=",")
+
+rawM1k50=readRDS("../Data_PRJNA434002/rawM1k50.rds")
+meta2=readRDS("../Data_PRJNA434002/meta2.rds")
+read_depth_1k50=readRDS("../Data_PRJNA434002/rawM1k50_read_depth_per_1Kcell_ind.rds")
+read_depth_ratio_1k50=median(read_depth_1k50)/read_depth_1k50
+
+read_depth_ratio_1k50=read_depth_ratio_1k50[match(meta2$individual,rownames(read_depth_1k50))]
+rawMrdpadj1k50=t(apply(rawM1k50,1,function(x){round(x*read_depth_ratio_1k50)}))
+rawMrdpadj1k50[1:10,1:10]
+dim(rawMrdpadj1k50)
+saveRDS(rawMrdpadj1k50,"../Data_PRJNA434002/rawMrdpadj1k50.rds")
+write.table(rawMrdpadj1k50,"../Data_PRJNA434002/rawMrdpadj1k50.csv",sep=",")
 ####################generate the normalization tables#############
 zero_rate=apply(counts(sce)==0,1,function(x){return(sum(x)/length(x))})
 o_zero_rate=order(zero_rate)

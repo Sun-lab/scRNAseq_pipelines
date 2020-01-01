@@ -54,6 +54,7 @@ sim_matrix_bulk=matrix(nrow=dim(sim_data)[1],ncol=length(cur_individual))
 rownames(sim_matrix_bulk)=dimnames(sim_data)[[1]]
 colnames(sim_matrix_bulk)=cur_individual
 
+
 for(i_ind in 1:length(cur_individual)){
   cur_ind=cur_individual[i_ind]
   #fit org
@@ -61,13 +62,19 @@ for(i_ind in 1:length(cur_individual)){
   cell_num[i_ind]=dim(cur_ind_m)[2]
   read_depth[i_ind]=sum(as.numeric(cur_ind_m),na.rm = TRUE)/cell_num[i_ind]*1000
   
-  zero_rate_ind[,i_ind]=apply(cur_ind_m==0,1,function(x){return(sum(as.numeric(x),na.rm = TRUE))})/cell_num[i_ind]
+  zero_rate_ind[,i_ind]=apply(cur_ind_m==0,1,function(x){return(sum(as.numeric(x),na.rm = TRUE))})/(cell_num[i_ind]*10)
   sim_matrix_bulk[,i_ind]=apply(cur_ind_m,1,function(x){return(sum(as.numeric(x),na.rm = TRUE))})
 }
 
+saveRDS(cell_num,paste0("../Data_PRJNA434002/7.Result/sim_ind_cellnum_",pre_tag,"_sim_",cluster_tag,"_",file_tag,".rds"))
 saveRDS(read_depth,paste0("../Data_PRJNA434002/7.Result/sim_ind_readdepth_",pre_tag,"_sim_",cluster_tag,"_",file_tag,".rds"))
 saveRDS(zero_rate_ind,paste0("../Data_PRJNA434002/7.Result/sim_ind_zero_rate_",pre_tag,"_sim_",cluster_tag,"_",file_tag,".rds"))
 saveRDS(sim_matrix_bulk,paste0("../Data_PRJNA434002/7.Result/sim_matrix_bulk_",pre_tag,"_sim_",cluster_tag,"_",file_tag,".rds"))
+
+zero_rate=apply(sim_data==0,1,function(x){return(sum(as.numeric(x),na.rm = TRUE))})/(length(sim_data[1,,]))
+read_count_total=apply(sim_matrix_bulk,1,function(x){return(sum(as.numeric(x),na.rm = TRUE))})
+saveRDS(zero_rate,paste0("../Data_PRJNA434002/7.Result/sim_gene_zero_rate_",pre_tag,"_sim_",cluster_tag,"_",file_tag,".rds"))
+saveRDS(read_count_total,paste0("../Data_PRJNA434002/7.Result/sim_gene_read_count_total_",pre_tag,"_sim_",cluster_tag,"_",file_tag,".rds"))
 
 cur_info=meta[,c("individual","diagnosis")]
 cur_info=unique(cur_info)

@@ -43,6 +43,10 @@ power_array=array(dim=c(
     c("DESeq","MAST","jsd_empirical","klmean_empirical","jsd_zinb","klmean_zinb")))
 
 ks_array=power_array
+cor_nonexpres_ind_array=power_array
+cor_zerorate_ind_mean_array=power_array
+cor_expression_array=power_array
+cor_zerorate_array=power_array
 
 count=1
 zeros=matrix(ncol=6,nrow=length(file_tag_seq)*length(F_method_seq)*length(pre_tag_seq)*length(cluster_tag_seq)*length(perm_label_seq))
@@ -118,6 +122,59 @@ for(i_file in 1:length(file_tag_seq)){
           ks_matrix[6]=tryCatch({cal_ks(klmean_zinb_pval,method = "two.sided")}, error = function(e) {NA} )
           ks_array[i_file,i_F,i_pre,i_cluster,i_perm_label,]=ks_matrix
           
+          
+          #record gene-based cor test result: zero rate ind and expression
+          
+          zero_rate_ind=readRDS(paste0("../Data_PRJNA434002/7.Result/sim_ind_zero_rate_",pre_tag,"_sim_",cluster_tag,"_",file_tag,".rds"))
+          zerorate_ind_mean=apply(zero_rate_ind,1,mean)
+          nonexpres_ind=apply(zero_rate_ind==10,1,sum)
+          
+          zero_rate=readRDS(paste0("../Data_PRJNA434002/7.Result/sim_zero_rate_",pre_tag,"_sim_",cluster_tag,"_",file_tag,".rds"))
+          expression_level=readRDS(paste0("../Data_PRJNA434002/7.Result/sim_gene_read_count_total_",pre_tag,"_sim_",cluster_tag,"_",file_tag,".rds"))
+          
+          cor_matrix=matrix(nrow=6,ncol=1)
+          names(cor_matrix)=c("DESeq","MAST","jsd_empirical","klmean_empirical","jsd_zinb","klmean_zinb")
+          colnames(cor_matrix)="cor"
+          cor_matrix[1]=tryCatch({cor(zerorate_ind_mean,deseq2_pval)}, error = function(e) {NA} )
+          cor_matrix[2]=tryCatch({cor(zerorate_ind_mean,MAST_pval)}, error = function(e) {NA} )
+          cor_matrix[3]=tryCatch({cor(zerorate_ind_mean,jsd_empirical_pval)}, error = function(e) {NA} )
+          cor_matrix[4]=tryCatch({cor(zerorate_ind_mean,klmean_empirical_pval)}, error = function(e) {NA} )
+          cor_matrix[5]=tryCatch({cor(zerorate_ind_mean,jsd_zinb_pval)}, error = function(e) {NA} )
+          cor_matrix[6]=tryCatch({cor(zerorate_ind_mean,klmean_zinb_pval)}, error = function(e) {NA} )
+          cor_zerorate_ind_mean_array[i_file,i_F,i_pre,i_cluster,i_perm_label,]=cor_matrix
+          
+          cor_matrix=matrix(nrow=6,ncol=1)
+          names(cor_matrix)=c("DESeq","MAST","jsd_empirical","klmean_empirical","jsd_zinb","klmean_zinb")
+          colnames(cor_matrix)="cor"
+          cor_matrix[1]=tryCatch({cor(nonexpres_ind,deseq2_pval)}, error = function(e) {NA} )
+          cor_matrix[2]=tryCatch({cor(nonexpres_ind,MAST_pval)}, error = function(e) {NA} )
+          cor_matrix[3]=tryCatch({cor(nonexpres_ind,jsd_empirical_pval)}, error = function(e) {NA} )
+          cor_matrix[4]=tryCatch({cor(nonexpres_ind,klmean_empirical_pval)}, error = function(e) {NA} )
+          cor_matrix[5]=tryCatch({cor(nonexpres_ind,jsd_zinb_pval)}, error = function(e) {NA} )
+          cor_matrix[6]=tryCatch({cor(nonexpres_ind,klmean_zinb_pval)}, error = function(e) {NA} )
+          cor_nonexpres_ind_array[i_file,i_F,i_pre,i_cluster,i_perm_label,]=cor_matrix
+          
+          cor_matrix=matrix(nrow=6,ncol=1)
+          names(cor_matrix)=c("DESeq","MAST","jsd_empirical","klmean_empirical","jsd_zinb","klmean_zinb")
+          colnames(cor_matrix)="cor"
+          cor_matrix[1]=tryCatch({cor(zero_rate,deseq2_pval)}, error = function(e) {NA} )
+          cor_matrix[2]=tryCatch({cor(zero_rate,MAST_pval)}, error = function(e) {NA} )
+          cor_matrix[3]=tryCatch({cor(zero_rate,jsd_empirical_pval)}, error = function(e) {NA} )
+          cor_matrix[4]=tryCatch({cor(zero_rate,klmean_empirical_pval)}, error = function(e) {NA} )
+          cor_matrix[5]=tryCatch({cor(zero_rate,jsd_zinb_pval)}, error = function(e) {NA} )
+          cor_matrix[6]=tryCatch({cor(zero_rate,klmean_zinb_pval)}, error = function(e) {NA} )
+          cor_zerorate_array[i_file,i_F,i_pre,i_cluster,i_perm_label,]=cor_matrix
+          
+          cor_matrix=matrix(nrow=6,ncol=1)
+          names(cor_matrix)=c("DESeq","MAST","jsd_empirical","klmean_empirical","jsd_zinb","klmean_zinb")
+          colnames(cor_matrix)="cor"
+          cor_matrix[1]=tryCatch({cor(expression_level,deseq2_pval)}, error = function(e) {NA} )
+          cor_matrix[2]=tryCatch({cor(expression_level,MAST_pval)}, error = function(e) {NA} )
+          cor_matrix[3]=tryCatch({cor(expression_level,jsd_empirical_pval)}, error = function(e) {NA} )
+          cor_matrix[4]=tryCatch({cor(expression_level,klmean_empirical_pval)}, error = function(e) {NA} )
+          cor_matrix[5]=tryCatch({cor(expression_level,jsd_zinb_pval)}, error = function(e) {NA} )
+          cor_matrix[6]=tryCatch({cor(expression_level,klmean_zinb_pval)}, error = function(e) {NA} )
+          cor_expression_array[i_file,i_F,i_pre,i_cluster,i_perm_label,]=cor_matrix
         }
         #barplot
         png(paste0("../Data_PRJNA434002/8.Result/barplot_p",perm_label,"_",F_method,"_",pre_tag,"_",cluster_tag,"_",file_tag,".png"),height = 1200,width = 800)
@@ -146,7 +203,7 @@ for(i_file in 1:length(file_tag_seq)){
         points(power_array[i_file,i_F,i_pre,i_cluster,2,5],power_array[i_file,i_F,i_pre,i_cluster,1,5],col="orange",pch=3,cex=3)
         points(power_array[i_file,i_F,i_pre,i_cluster,2,6],power_array[i_file,i_F,i_pre,i_cluster,1,6],col="green",pch=3,cex=3)
         
-        legend("topright",c(names(power_matrix)),pch=rep(3,6),cex=1,col=c("red","blue","pink","brown","orange","green"))
+        legend("topright",c(names(power_matrix)),pch=rep(3,6),cex=1.5,col=c("red","blue","pink","brown","orange","green"))
           
         dev.off()
           
@@ -158,7 +215,10 @@ for(i_file in 1:length(file_tag_seq)){
 
 saveRDS(power_array,paste0("../Data_PRJNA434002/8.Result/final_power_array.rds"))
 saveRDS(ks_array,paste0("../Data_PRJNA434002/8.Result/final_ks_array.rds"))
-
+saveRDS(cor_zerorate_ind_mean_array,paste0("../Data_PRJNA434002/8.Result/final_cor_zerorate_ind_mean_array.rds"))
+saveRDS(cor_nonexpres_ind_array,paste0("../Data_PRJNA434002/8.Result/final_cor_nonexpres_ind_array.rds"))
+saveRDS(cor_zerorate_array,paste0("../Data_PRJNA434002/8.Result/final_cor_zerorate_array.rds"))
+saveRDS(cor_expression_array,paste0("../Data_PRJNA434002/8.Result/final_cor_expression_array.rds"))
 rownames(zeros)=rownames_zeros
 View(zeros)
 saveRDS(zeros,paste0("../Data_PRJNA434002/10.Result/power_array_NAs_p",perm_label,"_",F_method,"_",pre_tag,"_",cluster_tag,"_",file_tag,".rds"))
@@ -178,9 +238,9 @@ for(i_file in 1:length(file_tag_seq)){
       op=par(mfrow=c(2,1))
       a=power_array[i_file,i_F,i_pre,,1,]
       b=power_array[i_file,i_F,i_pre,,2,]
-      boxplot(a,main="proportion of p-values less than 0.05 of all clusters, observed data",ylab="power")
+      boxplot(a,cex.lab=1.5, cex.axis=1.5, cex.main=1.5, cex.sub=1.5,main="proportion of p-values less than 0.05 of all clusters, observed data",ylab="power")
       abline(h = 0.05, col = "red") 
-      boxplot(b,main="proportion of p-values less than 0.05 of all clusters, permutated data",ylab="type I error")
+      boxplot(b,cex.lab=1.5, cex.axis=1.5, cex.main=1.5, cex.sub=1.5,main="proportion of p-values less than 0.05 of all clusters, permutated data",ylab="type I error")
       abline(h = 0.05, col = "red") 
       par(op)
       dev.off()
@@ -217,32 +277,32 @@ for(i_file in 1:length(file_tag_seq)){
       a=power_array[i_file,i_F,i_pre,,1,]
       b=power_array[i_file,i_F,i_pre,,2,]
 
-      plot(cell_num,a[,1],type="p",pch=3,cex=.8, col="red",xlab="cell number of each cell type",ylab="Power",main="proportion of pval<0.05,observed data",,ylim=c(0,1))
+      plot(cell_num,a[,1],type="p",pch=3,cex=1.1, col="red",xlab="cell number of each cell type",ylab="Power",cex.lab=1.5, cex.axis=1.5, cex.main=1.5, cex.sub=1.5,main="proportion of pval<0.05,observed data",,ylim=c(0,1))
       abline(h = 0.05, col = "red") 
-      points(cell_num,a[,2],pch=4,cex=.8, col="blue")
-      points(cell_num,a[,3],pch=5,cex=.8, col="pink")
-      points(cell_num,a[,4],pch=6,cex=.8, col="brown")
-      points(cell_num,a[,5],pch=7,cex=.8, col="orange")
-      points(cell_num,a[,6],pch=8,cex=.8, col="green")
-      legend("topright",c(colnames(a)),pch=3:8,cex=1,col=c("red","blue","pink","brown","orange","green"))
+      points(cell_num,a[,2],pch=4,cex=1.1, col="blue")
+      points(cell_num,a[,3],pch=5,cex=1.1, col="pink")
+      points(cell_num,a[,4],pch=6,cex=1.1, col="brown")
+      points(cell_num,a[,5],pch=7,cex=1.1, col="orange")
+      points(cell_num,a[,6],pch=8,cex=1.1, col="green")
+      legend("topright",c(colnames(a)),pch=3:8,cex=1.5,col=c("red","blue","pink","brown","orange","green"))
       
-      plot(cell_num,b[,1],type="p",pch=3,cex=.8, col="red",xlab="cell number of each cell type",ylab="Type I error",main="proportion of pval<0.05,permutated data",ylim=c(0,1))
+      plot(cell_num,b[,1],type="p",pch=3,cex=1.1, col="red",xlab="cell number of each cell type",ylab="Type I error",cex.lab=1.5, cex.axis=1.5, cex.main=1.5, cex.sub=1.5,main="proportion of pval<0.05,permutated data",ylim=c(0,1))
       abline(h = 0.05, col = "red") 
-      points(cell_num,b[,2],pch=4,cex=.8, col="blue")
-      points(cell_num,b[,3],pch=5,cex=.8, col="pink")
-      points(cell_num,b[,4],pch=6,cex=.8, col="brown")
-      points(cell_num,b[,5],pch=7,cex=.8, col="orange")
-      points(cell_num,b[,6],pch=8,cex=.8, col="green")
-      legend("topright",c(colnames(b)),pch=3:8,cex=1,col=c("red","blue","pink","brown","orange","green"))
+      points(cell_num,b[,2],pch=4,cex=1.1, col="blue")
+      points(cell_num,b[,3],pch=5,cex=1.1, col="pink")
+      points(cell_num,b[,4],pch=6,cex=1.1, col="brown")
+      points(cell_num,b[,5],pch=7,cex=1.1, col="orange")
+      points(cell_num,b[,6],pch=8,cex=1.1, col="green")
+      legend("topright",c(colnames(b)),pch=3:8,cex=1.5,col=c("red","blue","pink","brown","orange","green"))
       
-      plot(b[,1],a[,1],type="p",pch=3,cex=.8, col="red",ylab="observed (Power)",xlab="permutated (Type I error)",main="proportion of pval<0.05, observed vs permutated",ylim=c(0,1),xlim=c(0,1))
+      plot(b[,1],a[,1],type="p",pch=3,cex=1.1, col="red",ylab="observed (Power)",xlab="permutated (Type I error)",cex.lab=1.5, cex.axis=1.5, cex.main=1.5, cex.sub=1.5,main="proportion of pval<0.05, observed vs permutated",ylim=c(0,1),xlim=c(0,1))
       abline(v = 0.05, col = "red") 
-      points(b[,2],a[,2],pch=4,cex=.8, col="blue")
-      points(b[,3],a[,3],pch=5,cex=.8, col="pink")
-      points(b[,4],a[,4],pch=6,cex=.8, col="brown")
-      points(b[,5],a[,5],pch=7,cex=.8, col="orange")
-      points(b[,6],a[,6],pch=8,cex=.8, col="green")
-      legend("topright",c(colnames(b)),pch=3:8,cex=1,col=c("red","blue","pink","brown","orange","green"))
+      points(b[,2],a[,2],pch=4,cex=1.1, col="blue")
+      points(b[,3],a[,3],pch=5,cex=1.1, col="pink")
+      points(b[,4],a[,4],pch=6,cex=1.1, col="brown")
+      points(b[,5],a[,5],pch=7,cex=1.1, col="orange")
+      points(b[,6],a[,6],pch=8,cex=1.1, col="green")
+      legend("topright",c(colnames(b)),pch=3:8,cex=1.5,col=c("red","blue","pink","brown","orange","green"))
 
       par(op)
       dev.off()
@@ -264,9 +324,9 @@ for(i_file in 1:length(file_tag_seq)){
       op=par(mfrow=c(2,1))
       a=ks_array[i_file,i_F,i_pre,,1,]
       b=ks_array[i_file,i_F,i_pre,,2,]
-      boxplot(a,main="ks test for distribution of pvalues, observed data",ylab="ks pval")
+      boxplot(a,cex.lab=1.5, cex.axis=1.5, cex.main=1.5, cex.sub=1.5,main="ks test for distribution of pvalues, observed data",ylab="ks pval")
       abline(h = 0.05, col = "red") 
-      boxplot(b,main="ks test for distribution of pvalues, permutated data",ylab="ks pval")
+      boxplot(b,cex.lab=1.5, cex.axis=1.5, cex.main=1.5, cex.sub=1.5,main="ks test for distribution of pvalues, permutated data",ylab="ks pval")
       abline(h = 0.05, col = "red") 
       par(op)
       dev.off()
@@ -299,36 +359,163 @@ for(i_file in 1:length(file_tag_seq)){
       
       png(paste0("../Data_PRJNA434002/8.Result/scatter_ks_",F_method,"_",pre_tag,"_",file_tag,".png"),height = 1200,width = 500)
       op=par(mfrow=c(3,1))
+
+      a=-log10(ks_array[i_file,i_F,i_pre,,1,]+min(ks_array[ks_array>0],na.rm = TRUE))
+      b=-log10(ks_array[i_file,i_F,i_pre,,2,]+min(ks_array[ks_array>0],na.rm = TRUE))
+      max_ab=max(a,b,na.rm = TRUE)
+      plot(cell_num,a[,1],type="p",pch=3,cex=1.1, col="red",xlab="cell number of each cell type",ylab="-log10 ks pval",cex.lab=1.5, cex.axis=1.5, cex.main=1.5, cex.sub=1.5,main="-log10 pvalues from KS test, observed data",,ylim=c(0,max_ab))
+      abline(h = -log10(0.05), col = "red") 
+      points(cell_num,a[,2],pch=4,cex=1.1, col="blue")
+      points(cell_num,a[,3],pch=5,cex=1.1, col="pink")
+      points(cell_num,a[,4],pch=6,cex=1.1, col="brown")
+      points(cell_num,a[,5],pch=7,cex=1.1, col="orange")
+      points(cell_num,a[,6],pch=8,cex=1.1, col="green")
+      legend("topright",c(colnames(a)),pch=3:8,cex=1.5,col=c("red","blue","pink","brown","orange","green"))
       
-      a=ks_array[i_file,i_F,i_pre,,1,]
-      b=ks_array[i_file,i_F,i_pre,,2,]
+      plot(cell_num,b[,1],type="p",pch=3,cex=1.1, col="red",xlab="cell number of each cell type",ylab="-log10 ks pval",cex.lab=1.5, cex.axis=1.5, cex.main=1.5, cex.sub=1.5,main="-log10 pvalues from KS test,permutated data",ylim=c(0,max_ab))
+      abline(h = -log10(0.05), col = "red") 
+      points(cell_num,b[,2],pch=4,cex=1.1, col="blue")
+      points(cell_num,b[,3],pch=5,cex=1.1, col="pink")
+      points(cell_num,b[,4],pch=6,cex=1.1, col="brown")
+      points(cell_num,b[,5],pch=7,cex=1.1, col="orange")
+      points(cell_num,b[,6],pch=8,cex=1.1, col="green")
+      legend("topright",c(colnames(b)),pch=3:8,cex=1.5,col=c("red","blue","pink","brown","orange","green"))
       
-      plot(cell_num,a[,1],type="p",pch=3,cex=.8, col="red",xlab="cell number of each cell type",ylab="ks pval",main="pvalues from KS test, observed data",,ylim=c(0,1))
-      abline(h = 0.05, col = "red") 
-      points(cell_num,a[,2],pch=4,cex=.8, col="blue")
-      points(cell_num,a[,3],pch=5,cex=.8, col="pink")
-      points(cell_num,a[,4],pch=6,cex=.8, col="brown")
-      points(cell_num,a[,5],pch=7,cex=.8, col="orange")
-      points(cell_num,a[,6],pch=8,cex=.8, col="green")
-      legend("topright",c(colnames(a)),pch=3:8,cex=1,col=c("red","blue","pink","brown","orange","green"))
+      plot(b[,1],a[,1],type="p",pch=3,cex=1.1, col="red",ylab="observed",xlab="permutated",cex.lab=1.5, cex.axis=1.5, cex.main=1.5, cex.sub=1.5,main="-log10 pvalues from KS test, observed vs permutated",ylim=c(0,max_ab),xlim=c(0,max_ab))
+      abline(v = -log10(0.05), col = "red") 
+      points(b[,2],a[,2],pch=4,cex=1.1, col="blue")
+      points(b[,3],a[,3],pch=5,cex=1.1, col="pink")
+      points(b[,4],a[,4],pch=6,cex=1.1, col="brown")
+      points(b[,5],a[,5],pch=7,cex=1.1, col="orange")
+      points(b[,6],a[,6],pch=8,cex=1.1, col="green")
+      legend("topright",c(colnames(b)),pch=3:8,cex=1.5,col=c("red","blue","pink","brown","orange","green"))
       
-      plot(cell_num,b[,1],type="p",pch=3,cex=.8, col="red",xlab="cell number of each cell type",ylab="ks pval",main="pvalues from KS test,permutated data",ylim=c(0,1))
-      abline(h = 0.05, col = "red") 
-      points(cell_num,b[,2],pch=4,cex=.8, col="blue")
-      points(cell_num,b[,3],pch=5,cex=.8, col="pink")
-      points(cell_num,b[,4],pch=6,cex=.8, col="brown")
-      points(cell_num,b[,5],pch=7,cex=.8, col="orange")
-      points(cell_num,b[,6],pch=8,cex=.8, col="green")
-      legend("topright",c(colnames(b)),pch=3:8,cex=1,col=c("red","blue","pink","brown","orange","green"))
+      par(op)
+      dev.off()
+    }
+  }
+}
+
+
+#do scatter plot about cell number vs cor ##############
+
+#zeros_mean
+for(i_file in 1:length(file_tag_seq)){
+  file_tag=file_tag_seq[i_file]
+  
+  ###calculate cell num
+  if(is.na(unlist(strsplit(file_tag,"k"))[2])){
+    tmeta=read.table("../Data_PRJNA434002/meta.tsv",header = TRUE, sep = "\t")
+  }
+  if(!is.na(unlist(strsplit(file_tag,"k"))[2])){
+    tmeta=readRDS(paste0("../Data_PRJNA434002/meta",unlist(strsplit(file_tag,"k"))[2],".rds"))
+  }
+  cur_cluster=as.character(unique(tmeta$cluster))
+  cell_num=table(tmeta$cluster)
+  cell_num=as.numeric(cell_num[match(cur_cluster,names(cell_num))])
+  names(cell_num)=cur_cluster
+  
+  for(i_F in 1:length(F_method_seq)){
+    for(i_pre in 1:length(pre_tag_seq)){
       
-      plot(b[,1],a[,1],type="p",pch=3,cex=.8, col="red",ylab="observed",xlab="permutated",main="pvalues from KS test, observed vs permutated",ylim=c(0,1),xlim=c(0,1))
-      abline(v = 0.05, col = "red") 
-      points(b[,2],a[,2],pch=4,cex=.8, col="blue")
-      points(b[,3],a[,3],pch=5,cex=.8, col="pink")
-      points(b[,4],a[,4],pch=6,cex=.8, col="brown")
-      points(b[,5],a[,5],pch=7,cex=.8, col="orange")
-      points(b[,6],a[,6],pch=8,cex=.8, col="green")
-      legend("topright",c(colnames(b)),pch=3:8,cex=1,col=c("red","blue","pink","brown","orange","green"))
+      F_method=F_method_seq[i_F]
+      pre_tag=pre_tag_seq[i_pre]
+      
+      png(paste0("../Data_PRJNA434002/8.Result/scatter_zerorate_ind_mean_",F_method,"_",pre_tag,"_",file_tag,".png"),height = 1200,width = 500)
+      op=par(mfrow=c(3,1))
+      
+      a=cor_zerorate_ind_mean_array[i_file,i_F,i_pre,,1,]
+      b=cor_zerorate_ind_mean_array[i_file,i_F,i_pre,,2,]
+      
+      plot(cell_num,a[,1],type="p",pch=3,cex=1.1, col="red",xlab="cell number of each cell type",ylab="correlation",cex.lab=1.5, cex.axis=1.5, cex.main=1.5, cex.sub=1.5,main="correlation between pval and zerorate_ind_mean, observed data",,ylim=c(-1,1))
+      abline(h = 0.0, col = "red") 
+      points(cell_num,a[,2],pch=4,cex=1.1, col="blue")
+      points(cell_num,a[,3],pch=5,cex=1.1, col="pink")
+      points(cell_num,a[,4],pch=6,cex=1.1, col="brown")
+      points(cell_num,a[,5],pch=7,cex=1.1, col="orange")
+      points(cell_num,a[,6],pch=8,cex=1.1, col="green")
+      legend("topright",c(colnames(a)),pch=3:8,cex=1.5,col=c("red","blue","pink","brown","orange","green"))
+      
+      plot(cell_num,b[,1],type="p",pch=3,cex=1.1, col="red",xlab="cell number of each cell type",ylab="correlation",cex.lab=1.5, cex.axis=1.5, cex.main=1.5, cex.sub=1.5,main="correlation between pval and zerorate_ind_mean,permutated data",ylim=c(-1,1))
+      abline(h = 0.0, col = "red") 
+      points(cell_num,b[,2],pch=4,cex=1.1, col="blue")
+      points(cell_num,b[,3],pch=5,cex=1.1, col="pink")
+      points(cell_num,b[,4],pch=6,cex=1.1, col="brown")
+      points(cell_num,b[,5],pch=7,cex=1.1, col="orange")
+      points(cell_num,b[,6],pch=8,cex=1.1, col="green")
+      legend("topright",c(colnames(b)),pch=3:8,cex=1.5,col=c("red","blue","pink","brown","orange","green"))
+      
+      plot(b[,1],a[,1],type="p",pch=3,cex=1.1, col="red",ylab="observed",xlab="permutated",cex.lab=1.5, cex.axis=1.5, cex.main=1.5, cex.sub=1.5,main="correlation between pval and zerorate_ind_mean, observed vs permutated",ylim=c(-1,1),xlim=c(-1,1))
+      abline(v = 0, col = "red") 
+      abline(h = 0, col = "red") 
+      points(b[,2],a[,2],pch=4,cex=1.1, col="blue")
+      points(b[,3],a[,3],pch=5,cex=1.1, col="pink")
+      points(b[,4],a[,4],pch=6,cex=1.1, col="brown")
+      points(b[,5],a[,5],pch=7,cex=1.1, col="orange")
+      points(b[,6],a[,6],pch=8,cex=1.1, col="green")
+      legend("topright",c(colnames(b)),pch=3:8,cex=1.5,col=c("red","blue","pink","brown","orange","green"))
+      
+      par(op)
+      dev.off()
+    }
+  }
+}
+
+#nonexpres_ind
+for(i_file in 1:length(file_tag_seq)){
+  file_tag=file_tag_seq[i_file]
+  
+  ###calculate cell num
+  if(is.na(unlist(strsplit(file_tag,"k"))[2])){
+    tmeta=read.table("../Data_PRJNA434002/meta.tsv",header = TRUE, sep = "\t")
+  }
+  if(!is.na(unlist(strsplit(file_tag,"k"))[2])){
+    tmeta=readRDS(paste0("../Data_PRJNA434002/meta",unlist(strsplit(file_tag,"k"))[2],".rds"))
+  }
+  cur_cluster=as.character(unique(tmeta$cluster))
+  cell_num=table(tmeta$cluster)
+  cell_num=as.numeric(cell_num[match(cur_cluster,names(cell_num))])
+  names(cell_num)=cur_cluster
+  
+  for(i_F in 1:length(F_method_seq)){
+    for(i_pre in 1:length(pre_tag_seq)){
+      
+      F_method=F_method_seq[i_F]
+      pre_tag=pre_tag_seq[i_pre]
+      
+      png(paste0("../Data_PRJNA434002/8.Result/scatter_nonexpres_ind_",F_method,"_",pre_tag,"_",file_tag,".png"),height = 1200,width = 500)
+      op=par(mfrow=c(3,1))
+      
+      a=cor_nonexpres_ind_array[i_file,i_F,i_pre,,1,]
+      b=cor_nonexpres_ind_array[i_file,i_F,i_pre,,2,]
+      
+      plot(cell_num,a[,1],type="p",pch=3,cex=1.1, col="red",xlab="cell number of each cell type",ylab="correlation",cex.lab=1.5, cex.axis=1.5, cex.main=1.5, cex.sub=1.5,main="correlation between pval and nonexpres_ind, observed data",,ylim=c(-1,1))
+      abline(h = 0.0, col = "red") 
+      points(cell_num,a[,2],pch=4,cex=1.1, col="blue")
+      points(cell_num,a[,3],pch=5,cex=1.1, col="pink")
+      points(cell_num,a[,4],pch=6,cex=1.1, col="brown")
+      points(cell_num,a[,5],pch=7,cex=1.1, col="orange")
+      points(cell_num,a[,6],pch=8,cex=1.1, col="green")
+      legend("topright",c(colnames(a)),pch=3:8,cex=1.5,col=c("red","blue","pink","brown","orange","green"))
+      
+      plot(cell_num,b[,1],type="p",pch=3,cex=1.1, col="red",xlab="cell number of each cell type",ylab="correlation",cex.lab=1.5, cex.axis=1.5, cex.main=1.5, cex.sub=1.5,main="correlation between pval and nonexpres_ind,permutated data",ylim=c(-1,1))
+      abline(h = 0.0, col = "red") 
+      points(cell_num,b[,2],pch=4,cex=1.1, col="blue")
+      points(cell_num,b[,3],pch=5,cex=1.1, col="pink")
+      points(cell_num,b[,4],pch=6,cex=1.1, col="brown")
+      points(cell_num,b[,5],pch=7,cex=1.1, col="orange")
+      points(cell_num,b[,6],pch=8,cex=1.1, col="green")
+      legend("topright",c(colnames(b)),pch=3:8,cex=1.5,col=c("red","blue","pink","brown","orange","green"))
+      
+      plot(b[,1],a[,1],type="p",pch=3,cex=1.1, col="red",ylab="observed",xlab="permutated",cex.lab=1.5, cex.axis=1.5, cex.main=1.5, cex.sub=1.5,main="correlation between pval and nonexpres_ind, observed vs permutated",ylim=c(-1,1),xlim=c(-1,1))
+      abline(v = 0, col = "red") 
+      abline(h = 0, col = "red") 
+      points(b[,2],a[,2],pch=4,cex=1.1, col="blue")
+      points(b[,3],a[,3],pch=5,cex=1.1, col="pink")
+      points(b[,4],a[,4],pch=6,cex=1.1, col="brown")
+      points(b[,5],a[,5],pch=7,cex=1.1, col="orange")
+      points(b[,6],a[,6],pch=8,cex=1.1, col="green")
+      legend("topright",c(colnames(b)),pch=3:8,cex=1.5,col=c("red","blue","pink","brown","orange","green"))
       
       par(op)
       dev.off()
@@ -338,5 +525,128 @@ for(i_file in 1:length(file_tag_seq)){
 
 
 
+#zero_rate
+for(i_file in 1:length(file_tag_seq)){
+  file_tag=file_tag_seq[i_file]
+  
+  ###calculate cell num
+  if(is.na(unlist(strsplit(file_tag,"k"))[2])){
+    tmeta=read.table("../Data_PRJNA434002/meta.tsv",header = TRUE, sep = "\t")
+  }
+  if(!is.na(unlist(strsplit(file_tag,"k"))[2])){
+    tmeta=readRDS(paste0("../Data_PRJNA434002/meta",unlist(strsplit(file_tag,"k"))[2],".rds"))
+  }
+  cur_cluster=as.character(unique(tmeta$cluster))
+  cell_num=table(tmeta$cluster)
+  cell_num=as.numeric(cell_num[match(cur_cluster,names(cell_num))])
+  names(cell_num)=cur_cluster
+  
+  for(i_F in 1:length(F_method_seq)){
+    for(i_pre in 1:length(pre_tag_seq)){
+      
+      F_method=F_method_seq[i_F]
+      pre_tag=pre_tag_seq[i_pre]
+      
+      png(paste0("../Data_PRJNA434002/8.Result/scatter_zerorate_",F_method,"_",pre_tag,"_",file_tag,".png"),height = 1200,width = 500)
+      op=par(mfrow=c(3,1))
+      
+      a=cor_zerorate_array[i_file,i_F,i_pre,,1,]
+      b=cor_zerorate_array[i_file,i_F,i_pre,,2,]
+      
+      plot(cell_num,a[,1],type="p",pch=3,cex=1.1, col="red",xlab="cell number of each cell type",ylab="correlation",cex.lab=1.5, cex.axis=1.5, cex.main=1.5, cex.sub=1.5,main="correlation between pval and zerorate, observed data",,ylim=c(-1,1))
+      abline(h = 0.0, col = "red") 
+      points(cell_num,a[,2],pch=4,cex=1.1, col="blue")
+      points(cell_num,a[,3],pch=5,cex=1.1, col="pink")
+      points(cell_num,a[,4],pch=6,cex=1.1, col="brown")
+      points(cell_num,a[,5],pch=7,cex=1.1, col="orange")
+      points(cell_num,a[,6],pch=8,cex=1.1, col="green")
+      legend("topright",c(colnames(a)),pch=3:8,cex=1.5,col=c("red","blue","pink","brown","orange","green"))
+      
+      plot(cell_num,b[,1],type="p",pch=3,cex=1.1, col="red",xlab="cell number of each cell type",ylab="correlation",cex.lab=1.5, cex.axis=1.5, cex.main=1.5, cex.sub=1.5,main="correlation between pval and zerorate,permutated data",ylim=c(-1,1))
+      abline(h = 0.0, col = "red") 
+      points(cell_num,b[,2],pch=4,cex=1.1, col="blue")
+      points(cell_num,b[,3],pch=5,cex=1.1, col="pink")
+      points(cell_num,b[,4],pch=6,cex=1.1, col="brown")
+      points(cell_num,b[,5],pch=7,cex=1.1, col="orange")
+      points(cell_num,b[,6],pch=8,cex=1.1, col="green")
+      legend("topright",c(colnames(b)),pch=3:8,cex=1.5,col=c("red","blue","pink","brown","orange","green"))
+      
+      plot(b[,1],a[,1],type="p",pch=3,cex=1.1, col="red",ylab="observed",xlab="permutated",cex.lab=1.5, cex.axis=1.5, cex.main=1.5, cex.sub=1.5,main="correlation between pval and zerorate, observed vs permutated",ylim=c(-1,1),xlim=c(-1,1))
+      abline(v = 0, col = "red") 
+      abline(h = 0, col = "red") 
+      points(b[,2],a[,2],pch=4,cex=1.1, col="blue")
+      points(b[,3],a[,3],pch=5,cex=1.1, col="pink")
+      points(b[,4],a[,4],pch=6,cex=1.1, col="brown")
+      points(b[,5],a[,5],pch=7,cex=1.1, col="orange")
+      points(b[,6],a[,6],pch=8,cex=1.1, col="green")
+      legend("topright",c(colnames(b)),pch=3:8,cex=1.5,col=c("red","blue","pink","brown","orange","green"))
+      
+      par(op)
+      dev.off()
+    }
+  }
+}
+
+#expression level
+for(i_file in 1:length(file_tag_seq)){
+  file_tag=file_tag_seq[i_file]
+  
+  ###calculate cell num
+  if(is.na(unlist(strsplit(file_tag,"k"))[2])){
+    tmeta=read.table("../Data_PRJNA434002/meta.tsv",header = TRUE, sep = "\t")
+  }
+  if(!is.na(unlist(strsplit(file_tag,"k"))[2])){
+    tmeta=readRDS(paste0("../Data_PRJNA434002/meta",unlist(strsplit(file_tag,"k"))[2],".rds"))
+  }
+  cur_cluster=as.character(unique(tmeta$cluster))
+  cell_num=table(tmeta$cluster)
+  cell_num=as.numeric(cell_num[match(cur_cluster,names(cell_num))])
+  names(cell_num)=cur_cluster
+  
+  for(i_F in 1:length(F_method_seq)){
+    for(i_pre in 1:length(pre_tag_seq)){
+      
+      F_method=F_method_seq[i_F]
+      pre_tag=pre_tag_seq[i_pre]
+      
+      png(paste0("../Data_PRJNA434002/8.Result/scatter_expression_",F_method,"_",pre_tag,"_",file_tag,".png"),height = 1200,width = 500)
+      op=par(mfrow=c(3,1))
+      
+      a=cor_expression_array[i_file,i_F,i_pre,,1,]
+      b=cor_expression_array[i_file,i_F,i_pre,,2,]
+      
+      plot(cell_num,a[,1],type="p",pch=3,cex=1.1, col="red",xlab="cell number of each cell type",ylab="correlation",cex.lab=1.5, cex.axis=1.5, cex.main=1.5, cex.sub=1.5,main="correlation between pval and expression, observed data",,ylim=c(-1,1))
+      abline(h = 0.0, col = "red") 
+      points(cell_num,a[,2],pch=4,cex=1.1, col="blue")
+      points(cell_num,a[,3],pch=5,cex=1.1, col="pink")
+      points(cell_num,a[,4],pch=6,cex=1.1, col="brown")
+      points(cell_num,a[,5],pch=7,cex=1.1, col="orange")
+      points(cell_num,a[,6],pch=8,cex=1.1, col="green")
+      legend("topright",c(colnames(a)),pch=3:8,cex=1.5,col=c("red","blue","pink","brown","orange","green"))
+      
+      plot(cell_num,b[,1],type="p",pch=3,cex=1.1, col="red",xlab="cell number of each cell type",ylab="correlation",cex.lab=1.5, cex.axis=1.5, cex.main=1.5, cex.sub=1.5,main="correlation between pval and expression,permutated data",ylim=c(-1,1))
+      abline(h = 0.0, col = "red") 
+      points(cell_num,b[,2],pch=4,cex=1.1, col="blue")
+      points(cell_num,b[,3],pch=5,cex=1.1, col="pink")
+      points(cell_num,b[,4],pch=6,cex=1.1, col="brown")
+      points(cell_num,b[,5],pch=7,cex=1.1, col="orange")
+      points(cell_num,b[,6],pch=8,cex=1.1, col="green")
+      legend("topright",c(colnames(b)),pch=3:8,cex=1.5,col=c("red","blue","pink","brown","orange","green"))
+      
+      plot(b[,1],a[,1],type="p",pch=3,cex=1.1, col="red",ylab="observed",xlab="permutated",cex.lab=1.5, cex.axis=1.5, cex.main=1.5, cex.sub=1.5,main="correlation between pval and expression, observed vs permutated",ylim=c(-1,1),xlim=c(-1,1))
+      abline(v = 0, col = "red") 
+      abline(h = 0, col = "red") 
+      points(b[,2],a[,2],pch=4,cex=1.1, col="blue")
+      points(b[,3],a[,3],pch=5,cex=1.1, col="pink")
+      points(b[,4],a[,4],pch=6,cex=1.1, col="brown")
+      points(b[,5],a[,5],pch=7,cex=1.1, col="orange")
+      points(b[,6],a[,6],pch=8,cex=1.1, col="green")
+      legend("topright",c(colnames(b)),pch=3:8,cex=1.5,col=c("red","blue","pink","brown","orange","green"))
+      
+      par(op)
+      dev.off()
+    }
+  }
+}
 
 
