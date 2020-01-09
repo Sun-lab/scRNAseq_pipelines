@@ -121,7 +121,9 @@ if(perm_label>0){
   diag_kind=t(apply(as.matrix(diag_kind),1,function(x){return(unlist(strsplit(x,":")))}))
   
   #permute
-  diag_kind[,2]=diag_kind[sample.int(nrow(diag_kind),nrow(diag_kind),replace=F),2]
+  perm_order=readRDS(paste0("../Data_PRJNA434002/7.Result/ind_perm_order.rds"))
+  perm_order=as.numeric(perm_order[,perm_label])
+  diag_kind[,2]=diag_kind[perm_order,2]
   
   #match back to each individuals
   ind_index=match(colData(sca)$ind,diag_kind[,1])

@@ -7,8 +7,8 @@
 # dist_method="jsd"
 # fit_method="nbzinb"
 # F_method="p"
+#perm_label=1
 
-perm_label=0
 ind_covariate_flag="ind" 
 perm_num=500
 tol=0.2
@@ -43,7 +43,9 @@ dist_array=readRDS(paste0("../Data_PRJNA434002/8.Result/",dist_method,"_",fit_me
 
 #set perm
 if(perm_label>0){
-  phenotype=phenotype[sample.int(length(phenotype),length(phenotype)),drop=FALSE]
+  perm_order=readRDS(paste0("../Data_PRJNA434002/7.Result/ind_perm_order.rds"))
+  perm_order=as.numeric(perm_order[,perm_label])
+  phenotype=phenotype[perm_order,drop=FALSE]
 }
 
 #set covariate

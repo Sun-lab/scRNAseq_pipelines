@@ -3,11 +3,12 @@
 #cluster_tag=1
 #file_tag="3k10"
 #pre_tag="dca" #c("dca","scvi")
+#perm_label=1 #perm_label =0 means calculate the observed data other wise, permutated data
+
 
 perm_num=500
 sim_n=10
 covariate_flag=NA #c(NA, "quantile99")
-perm_label=1 #perm_label =0 means calculate the observed data other wise, permutated data
 
 #setwd("~/Desktop/fh/1.Testing_scRNAseq/")
 #setwd("/Users/mzhang24/Desktop/fh/1.Testing_scRNAseq/")
@@ -133,7 +134,9 @@ if(perm_label>0){
   diag_kind=t(apply(as.matrix(diag_kind),1,function(x){return(unlist(strsplit(x,":")))}))
   
   #permute
-  diag_kind[,2]=diag_kind[sample.int(nrow(diag_kind),nrow(diag_kind),replace=F),2]
+  perm_order=readRDS(paste0("../Data_PRJNA434002/7.Result/ind_perm_order.rds"))
+  perm_order=as.numeric(perm_order[,perm_label])
+  diag_kind[,2]=diag_kind[perm_order,2]
   
   #match back to each individuals
   ind_index=match(colData(sca)$ind,diag_kind[,1])

@@ -3,11 +3,12 @@
 #cluster_tag=1
 #file_tag="3k10"
 #pre_tag="dca" #c("dca","scvi")
+#perm_label=1 #perm_label =0 means calculate the observed data other wise, permutated data
 
 library("DESeq2")
 #perm_num=500
 covariate_flag=NA #c(NA, "quantile99")
-perm_label=1 #perm_label =0 means calculate the observed data other wise, permutated data
+
 
 #setwd("~/Desktop/fh/1.Testing_scRNAseq/")
 #setwd("/Users/mzhang24/Desktop/fh/1.Testing_scRNAseq/")
@@ -84,7 +85,9 @@ rownames(cur_info)=cur_info$individual
 print("start DESeq2 calculation")
 
 if(perm_label>0){
-  cur_info[,"diagnosis"]=cur_info[sample.int(nrow(cur_info),nrow(cur_info)),"diagnosis"]
+  perm_order=readRDS(paste0("../Data_PRJNA434002/7.Result/ind_perm_order.rds"))
+  perm_order=as.numeric(perm_order[,perm_label])
+  cur_info[,"diagnosis"]=cur_info[perm_order,"diagnosis"]
 }
 
 dds=DESeqDataSetFromMatrix(countData = sim_matrix_bulk,

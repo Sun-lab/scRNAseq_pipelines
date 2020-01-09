@@ -78,7 +78,9 @@ rownames(cur_info)=cur_info$individual
 print("start DESeq2 calculation")
 
 if(perm_label>0){
-  cur_info[,"diagnosis"]=cur_info[sample.int(nrow(cur_info),nrow(cur_info)),"diagnosis"]
+  perm_order=readRDS(paste0("../Data_PRJNA434002/7.Result/ind_perm_order.rds"))
+  perm_order=as.numeric(perm_order[,perm_label])
+  cur_info[,"diagnosis"]=cur_info[perm_order,"diagnosis"]
 }
 
 dds=DESeqDataSetFromMatrix(countData = rawcount_matrix_bulk,
