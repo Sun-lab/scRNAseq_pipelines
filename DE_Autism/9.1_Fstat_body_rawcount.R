@@ -100,11 +100,11 @@ if(length(second_index)>0){
 
 
 if(!is.na(ind_covariate_flag)){
-  saveRDS(dist_pval,paste0("../Data_PRJNA434002/8.Result/p",perm_label,"_",dist_method,"_",fit_method,"_",F_method,"_pval_",ind_covariate_flag,"_rawcount_",cluster_tag,"_",file_tag,".rds"))
+  saveRDS(dist_pval,paste0("../Data_PRJNA434002/8.Result/kl_pval/p",perm_label,"_",dist_method,"_",fit_method,"_",F_method,"_pval_",ind_covariate_flag,"_rawcount_",cluster_tag,"_",file_tag,".rds"))
   
 }
 if(is.na(ind_covariate_flag)){
-  saveRDS(dist_pval,paste0("../Data_PRJNA434002/8.Result/p",perm_label,"_",dist_method,"_",fit_method,"_",F_method,"_pval_rawcount_",cluster_tag,"_",file_tag,".rds"))
+  saveRDS(dist_pval,paste0("../Data_PRJNA434002/8.Result/kl_pval/p",perm_label,"_",dist_method,"_",fit_method,"_",F_method,"_pval_rawcount_",cluster_tag,"_",file_tag,".rds"))
 }
 
 
@@ -166,10 +166,10 @@ for(i2 in second_index){
 
 
 if(!is.na(ind_covariate_flag)){
-  saveRDS(dist_pval,paste0("../Data_PRJNA434002/8.Result/p",perm_label,"_",dist_method,"_",fit_method,"_",F_method,"_pval_",ind_covariate_flag,"_rawcount_",cluster_tag,"_",file_tag,".rds"))
+  saveRDS(dist_pval,paste0("../Data_PRJNA434002/8.Result/kl_pval/p",perm_label,"_",dist_method,"_",fit_method,"_",F_method,"_pval_",ind_covariate_flag,"_rawcount_",cluster_tag,"_",file_tag,".rds"))
 }
 if(is.na(ind_covariate_flag)){
-  saveRDS(dist_pval,paste0("../Data_PRJNA434002/8.Result/p",perm_label,"_",dist_method,"_",fit_method,"_",F_method,"_pval_rawcount_",cluster_tag,"_",file_tag,".rds"))
+  saveRDS(dist_pval,paste0("../Data_PRJNA434002/8.Result/kl_pval/p",perm_label,"_",dist_method,"_",fit_method,"_",F_method,"_pval_rawcount_",cluster_tag,"_",file_tag,".rds"))
 }
 
   

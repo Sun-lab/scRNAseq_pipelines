@@ -11,6 +11,7 @@
 # setwd("~/Desktop/fh/1.Testing_scRNAseq/")
 #setwd("/Users/mzhang24/Desktop/fh/1.Testing_scRNAseq/")
 setwd("/fh/fast/sun_w/mengqi/1.Testing_scRNAseq/")
+perm_label=1
 
 n_seq=c(20,15,10,5)
 ncell_seq=c(100,80,60,40,20)
@@ -70,6 +71,11 @@ for(ncell in ncell_seq){
     
     
     diagnosis = as.character(meta$phenotype) #
+    
+    if(perm_label>0){
+      diagnosis=diagnosis[sample.int(length(diagnosis))]
+    }
+    
     diagnosis[diagnosis == 1] = "Case"
     diagnosis[diagnosis == 0] = "Control"
     
@@ -111,8 +117,8 @@ for(ncell in ncell_seq){
     print(paste0("print system details, ncell= ",ncell,", n= ",n, ", after all"))
     print(date())
     print(gc())
-    tryCatch(saveRDS(MAST_pval0,paste0("../Data_PRJNA434002/10.Result/MAST_pval0_",r_mean,"_",r_var,"_",r_disp,"_",r_change_prop,"_",file_tag,"_",(2*n),"_",ncell,".rds")), error = function(e) {NA} )
-    tryCatch(saveRDS(MAST_pval1,paste0("../Data_PRJNA434002/10.Result/MAST_pval1_",r_mean,"_",r_var,"_",r_disp,"_",r_change_prop,"_",file_tag,"_",(2*n),"_",ncell,".rds")), error = function(e) {NA} )
+    tryCatch(saveRDS(MAST_pval0,paste0("../Data_PRJNA434002/10.Result/p",perm_label,"_MAST_pval0_",r_mean,"_",r_var,"_",r_disp,"_",r_change_prop,"_",file_tag,"_",(2*n),"_",ncell,".rds")), error = function(e) {NA} )
+    tryCatch(saveRDS(MAST_pval1,paste0("../Data_PRJNA434002/10.Result/p",perm_label,"_MAST_pval1_",r_mean,"_",r_var,"_",r_disp,"_",r_change_prop,"_",file_tag,"_",(2*n),"_",ncell,".rds")), error = function(e) {NA} )
     print(c(n,ncell))
   }
 }

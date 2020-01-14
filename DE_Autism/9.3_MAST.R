@@ -18,7 +18,7 @@ setwd("/fh/fast/sun_w/mengqi/1.Testing_scRNAseq/")
 ###########input###############
 #input diagnosis
 if(is.na(unlist(strsplit(file_tag,"k"))[2])){
-  tmeta=meta=read.table("../Data_PRJNA434002/meta.tsv",header = TRUE, sep = "\t")
+  tmeta=read.table("../Data_PRJNA434002/meta.tsv",header = TRUE, sep = "\t")
 }
 if(!is.na(unlist(strsplit(file_tag,"k"))[2])){
   tmeta=readRDS(paste0("../Data_PRJNA434002/meta",unlist(strsplit(file_tag,"k"))[2],".rds"))
@@ -184,8 +184,8 @@ MAST_pval1 = apply(lrt1, 1, function(x){x[3,3]})
 length(MAST_pval1)
 MAST_pval1[1:4]
 
-saveRDS(MAST_pval0,paste0("../Data_PRJNA434002/8.Result/p",perm_label,"_MAST_pval0_",pre_tag,"_sim_",cluster_tag,"_",file_tag,".rds"))
-saveRDS(MAST_pval1,paste0("../Data_PRJNA434002/8.Result/p",perm_label,"_MAST_pval1_",pre_tag,"_sim_",cluster_tag,"_",file_tag,".rds"))
+saveRDS(MAST_pval0,paste0("../Data_PRJNA434002/8.Result/MAST_pval/p",perm_label,"_MAST_pval0_",pre_tag,"_sim_",cluster_tag,"_",file_tag,".rds"))
+saveRDS(MAST_pval1,paste0("../Data_PRJNA434002/8.Result/MAST_pval/p",perm_label,"_MAST_pval1_",pre_tag,"_sim_",cluster_tag,"_",file_tag,".rds"))
 
 sessionInfo()
 q(save="no")

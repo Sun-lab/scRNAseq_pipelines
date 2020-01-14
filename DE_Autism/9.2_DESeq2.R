@@ -17,7 +17,7 @@ setwd("/fh/fast/sun_w/mengqi/1.Testing_scRNAseq/")
 ###########input###############
 #input diagnosis
 if(is.na(unlist(strsplit(file_tag,"k"))[2])){
-  tmeta=meta=read.table("../Data_PRJNA434002/meta.tsv",header = TRUE, sep = "\t")
+  tmeta=read.table("../Data_PRJNA434002/meta.tsv",header = TRUE, sep = "\t")
 }
 if(!is.na(unlist(strsplit(file_tag,"k"))[2])){
   tmeta=readRDS(paste0("../Data_PRJNA434002/meta",unlist(strsplit(file_tag,"k"))[2],".rds"))
@@ -97,7 +97,7 @@ dds=DESeqDataSetFromMatrix(countData = sim_matrix_bulk,
 dds=DESeq(dds)
 de_ob_pval=results(dds)$pvalue
 
-saveRDS(de_ob_pval,paste0("../Data_PRJNA434002/8.Result/p",perm_label,"_DESeq2_ob_pval_",pre_tag,"_sim_",cluster_tag,"_",file_tag,".rds"))
+saveRDS(de_ob_pval,paste0("../Data_PRJNA434002/8.Result/DESeq2_pval/p",perm_label,"_DESeq2_ob_pval_",pre_tag,"_sim_",cluster_tag,"_",file_tag,".rds"))
 
 
 sessionInfo()

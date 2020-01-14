@@ -4,6 +4,8 @@
 setwd("/Volumes/SpecialPass/fh_data/Data_PRJNA434002/")
 #setwd("/fh/fast/sun_w/mengqi/1.Testing_scRNAseq/")
 
+perm_label=1
+
 param_tag=4 #c(1,2,3,4)
 
 file_tag_seq=1:4
@@ -104,16 +106,27 @@ for(i_file in 1:length(file_tag_seq)){
               deseq2_pval=NA
               MAST_pval=NA
               
-              tryCatch({jsd_zinb_pval=readRDS(paste0("../Data_PRJNA434002/10.Result/JSD_zinb_raw_pval_",r_mean,"_",r_var,"_",r_disp,"_",r_mult,"_",file_tag,"_",n_ind,"_",n_cell,".rds"))}, error = function(e) {NA} )
-              tryCatch({jsd_empirical_pval=readRDS(paste0("../Data_PRJNA434002/10.Result/JSD_empirical_raw_pval_",r_mean,"_",r_var,"_",r_disp,"_",r_mult,"_",file_tag,"_",n_ind,"_",n_cell,".rds"))}, error = function(e) {NA} )
-              tryCatch({klmean_zinb_pval=readRDS(paste0("../Data_PRJNA434002/10.Result/mean_zinb_raw_pval_",r_mean,"_",r_var,"_",r_disp,"_",r_mult,"_",file_tag,"_",n_ind,"_",n_cell,".rds"))}, error = function(e) {NA} )
-              tryCatch({klmean_empirical_pval=readRDS(paste0("../Data_PRJNA434002/10.Result/mean_empirical_raw_pval_",r_mean,"_",r_var,"_",r_disp,"_",r_mult,"_",file_tag,"_",n_ind,"_",n_cell,".rds"))}, error = function(e) {NA} )
-              tryCatch({deseq2_pval=readRDS(paste0("../Data_PRJNA434002/10.Result/DESeq2_pval_",r_mean,"_",r_var,"_",r_disp,"_",r_mult,"_",file_tag,"_",n_ind,".rds"))}, error = function(e) {NA} )
+              if(perm_label>0){
+                tryCatch({jsd_zinb_pval=readRDS(paste0("../Data_PRJNA434002/10.Result/p",perm_label,"_JSD_zinb_raw_pval_",r_mean,"_",r_var,"_",r_disp,"_",r_mult,"_",file_tag,"_",n_ind,"_",n_cell,".rds"))}, error = function(e) {NA} )
+                tryCatch({jsd_empirical_pval=readRDS(paste0("../Data_PRJNA434002/10.Result/p",perm_label,"_JSD_empirical_raw_pval_",r_mean,"_",r_var,"_",r_disp,"_",r_mult,"_",file_tag,"_",n_ind,"_",n_cell,".rds"))}, error = function(e) {NA} )
+                tryCatch({klmean_zinb_pval=readRDS(paste0("../Data_PRJNA434002/10.Result/p",perm_label,"_mean_zinb_raw_pval_",r_mean,"_",r_var,"_",r_disp,"_",r_mult,"_",file_tag,"_",n_ind,"_",n_cell,".rds"))}, error = function(e) {NA} )
+                tryCatch({klmean_empirical_pval=readRDS(paste0("../Data_PRJNA434002/10.Result/p",perm_label,"_mean_empirical_raw_pval_",r_mean,"_",r_var,"_",r_disp,"_",r_mult,"_",file_tag,"_",n_ind,"_",n_cell,".rds"))}, error = function(e) {NA} )
+                tryCatch({deseq2_pval=readRDS(paste0("../Data_PRJNA434002/10.Result/p",perm_label,"_DESeq2_pval_",r_mean,"_",r_var,"_",r_disp,"_",r_mult,"_",file_tag,"_",n_ind,".rds"))}, error = function(e) {NA} )
+                
+                #note! please be sure to use 10.3.MAST_postArrangment.R when all permutation results are ready.
+                tryCatch({MAST_pval=readRDS(paste0("../Data_PRJNA434002/10.Result/p",perm_label,"_MAST_pval1_",r_mean,"_",r_var,"_",r_disp,"_",r_mult,"_",file_tag,"_",n_ind,"_",n_cell,".rds"))}, error = function(e) {NA} )
+              }
+              if(perm_label==0){
+                tryCatch({jsd_zinb_pval=readRDS(paste0("../Data_PRJNA434002/10.Result/JSD_zinb_raw_pval_",r_mean,"_",r_var,"_",r_disp,"_",r_mult,"_",file_tag,"_",n_ind,"_",n_cell,".rds"))}, error = function(e) {NA} )
+                tryCatch({jsd_empirical_pval=readRDS(paste0("../Data_PRJNA434002/10.Result/JSD_empirical_raw_pval_",r_mean,"_",r_var,"_",r_disp,"_",r_mult,"_",file_tag,"_",n_ind,"_",n_cell,".rds"))}, error = function(e) {NA} )
+                tryCatch({klmean_zinb_pval=readRDS(paste0("../Data_PRJNA434002/10.Result/mean_zinb_raw_pval_",r_mean,"_",r_var,"_",r_disp,"_",r_mult,"_",file_tag,"_",n_ind,"_",n_cell,".rds"))}, error = function(e) {NA} )
+                tryCatch({klmean_empirical_pval=readRDS(paste0("../Data_PRJNA434002/10.Result/mean_empirical_raw_pval_",r_mean,"_",r_var,"_",r_disp,"_",r_mult,"_",file_tag,"_",n_ind,"_",n_cell,".rds"))}, error = function(e) {NA} )
+                tryCatch({deseq2_pval=readRDS(paste0("../Data_PRJNA434002/10.Result/DESeq2_pval_",r_mean,"_",r_var,"_",r_disp,"_",r_mult,"_",file_tag,"_",n_ind,".rds"))}, error = function(e) {NA} )
+                
+                #note! please be sure to use 10.3.MAST_postArrangment.R when all permutation results are ready.
+                tryCatch({MAST_pval=readRDS(paste0("../Data_PRJNA434002/10.Result/MAST_pval1_",r_mean,"_",r_var,"_",r_disp,"_",r_mult,"_",file_tag,"_",n_ind,"_",n_cell,".rds"))}, error = function(e) {NA} )
+              }
               
-              
-              
-              #note! please be sure to use 10.3.MAST_postArrangment.R when all permutation results are ready.
-              tryCatch({MAST_pval=readRDS(paste0("../Data_PRJNA434002/10.Result/MAST_pval1_",r_mean,"_",r_var,"_",r_disp,"_",r_mult,"_",file_tag,"_",n_ind,"_",n_cell,".rds"))}, error = function(e) {NA} )
               
               
               zeros[count,]=c(sum(is.na(jsd_zinb_pval)),sum(is.na(jsd_empirical_pval)),sum(is.na(klmean_zinb_pval)),sum(is.na(klmean_empirical_pval)),sum(is.na(MAST_pval)),sum(is.na(deseq2_pval)))
@@ -121,7 +134,7 @@ for(i_file in 1:length(file_tag_seq)){
               count=count+1  
               
               #histogram
-              png(paste0("../Data_PRJNA434002/10.Result/pval_hist_",param_tag,"_",r_mean,"_",r_var,"_",r_disp,"_",r_mult,"_",file_tag,"_",n_ind,"_",n_cell,".png"),height = 3600,width = 3000)
+              png(paste0("../Data_PRJNA434002/10.Result/p",perm_label,"_pval_hist_",param_tag,"_",r_mean,"_",r_var,"_",r_disp,"_",r_mult,"_",file_tag,"_",n_ind,"_",n_cell,".png"),height = 3600,width = 3000)
               op=par(mfrow = c(6, 5), pty = "s")
               
               tryCatch({hist(klmean_zinb_pval[mean_index==1],main="pval of mean-DE genes,klmean_zinb method",xlab="p-values",breaks = 20)}, error = function(e) {NA} )
@@ -202,7 +215,7 @@ for(i_file in 1:length(file_tag_seq)){
               power_matrix
               
               #barplot
-              png(paste0("../Data_PRJNA434002/10.Result/barplot_",param_tag,"_",r_mean,"_",r_var,"_",r_disp,"_",r_mult,"_",file_tag,"_",n_ind,"_",n_cell,".png"),height = 1800,width = 1200)
+              png(paste0("../Data_PRJNA434002/10.Result/p",perm_label,"_barplot_",param_tag,"_",r_mean,"_",r_var,"_",r_disp,"_",r_mult,"_",file_tag,"_",n_ind,"_",n_cell,".png"),height = 1800,width = 1200)
               op=par(mfrow = c(3, 2), pty = "s")
               barplot(power_matrix[1,],ylab="power",main=rownames(power_matrix)[1],ylim=c(0,1))
               barplot(power_matrix[2,],ylab="power",main=rownames(power_matrix)[2],ylim=c(0,1))
@@ -213,7 +226,7 @@ for(i_file in 1:length(file_tag_seq)){
               par(op)
               dev.off()
               
-              png(paste0("../Data_PRJNA434002/10.Result/power_point_",param_tag,"_",r_mean,"_",r_var,"_",r_disp,"_",r_mult,"_",file_tag,"_",n_ind,"_",n_cell,".png"),height = 800,width = 800)
+              png(paste0("../Data_PRJNA434002/10.Result/p",perm_label,"_power_point_",param_tag,"_",r_mean,"_",r_var,"_",r_disp,"_",r_mult,"_",file_tag,"_",n_ind,"_",n_cell,".png"),height = 800,width = 800)
               plot(power_matrix[1,5],power_matrix[1,1],xlim=c(0,1),ylim=c(0,1),xlab="False positive rate (FPR)",ylab="True positive rate (TPR)",type="p",col="red",pch=3,cex=3)
               points(power_matrix[1,5],power_matrix[1,2],col="red",pch=4,cex=3)
               points(power_matrix[1,5],power_matrix[1,3],col="red",pch=5,cex=3)
@@ -259,11 +272,11 @@ for(i_file in 1:length(file_tag_seq)){
   }
 }
 
-saveRDS(power_array,paste0("../Data_PRJNA434002/10.Result/final_power_array_",param_tag,".rds"))
+saveRDS(power_array,paste0("../Data_PRJNA434002/10.Result/p",perm_label,"_final_power_array_",param_tag,".rds"))
 
 rownames(zeros)=rownames_zeros
 View(zeros)
-saveRDS(power_array,paste0("../Data_PRJNA434002/10.Result/pval_NAs_",param_tag,".rds"))
+saveRDS(power_array,paste0("../Data_PRJNA434002/10.Result/p",perm_label,"_pval_NAs_",param_tag,".rds"))
 
 #more plot
 
@@ -276,7 +289,7 @@ for(i_file in 1:length(file_tag_seq)){
       
       cur_power_array=power_array[i_file,,,,,i_ind,i_cell,,]
       
-      png(paste0("../Data_PRJNA434002/10.Result/final_power_",param_tag,"_",file_tag,"_",n_ind,"_",n_cell,".png"),height = 800,width = 800)
+      png(paste0("../Data_PRJNA434002/10.Result/p",perm_label,"_final_power_",param_tag,"_",file_tag,"_",n_ind,"_",n_cell,".png"),height = 800,width = 800)
       plot(cur_power_array[,1,5],cur_power_array[,1,1],xlim=c(0,1),ylim=c(0,1),xlab="False positive rate (FPR)",ylab="True positive rate (TPR)",type="p",col="red",pch=3,cex=3,main=paste0("power scatter: ",file_tag))
       points(cur_power_array[,1,5],cur_power_array[,1,2],col="red",pch=4,cex=3)
       points(cur_power_array[,1,5],cur_power_array[,1,3],col="red",pch=5,cex=3)
