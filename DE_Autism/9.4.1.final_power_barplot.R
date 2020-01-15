@@ -12,7 +12,7 @@ fit_method_seq=c("empirical","nbzinb")
 F_method_seq=c("p","ps")
 
 
-perm_label_seq=c(0,2)
+perm_label_seq=c(0,1:10)
 ind_covariate_flag=NA
 
 
@@ -619,8 +619,8 @@ cur_boxplot_param = function(xx,ind_info,i1,i2,i3,...){
   ind1=ind_info[i2]
   xxc=rbind(xx0,xx1)
   indc=c(ind0,ind1)
-  boxplot(xxc~indc,col=c(rep(rgb(1,0,0,0.3),length(unique(ind0))),rep(rgb(0,0,1,0.3),length(unique(ind1)))),...)
-  legend("topright",c("control","case"),pch=15,cex=1.1,col=c(rgb(1,0,0,0.3),rgb(0,0,1,0.3)))
+  boxplot(xxc~indc,col=c(rep(rgb(1,0,0,0.8),length(unique(ind0))),rep(rgb(0,0,1,0.8),length(unique(ind1)))),...)
+  legend("topright",c("control","case"),pch=15,cex=1.1,col=c(rgb(1,0,0,0.8),rgb(0,0,1,0.8)))
 }
 
 library(vioplot)
@@ -631,8 +631,8 @@ cur_vioplot_param = function(xx,ind_info,i1,i2,i3,...){
   ind1=ind_info[i2]
   xxc=rbind(xx0,xx1)
   indc=c(ind0,ind1)
-  vioplot(xxc~indc,col=c(rep(rgb(1,0,0,0.3),length(unique(ind0))),rep(rgb(0,0,1,0.3),length(unique(ind1)))),...)
-  legend("topright",c("control","case"),pch=15,cex=1.1,col=c(rgb(1,0,0,0.3),rgb(0,0,1,0.3)))
+  vioplot(xxc~indc,col=c(rep(rgb(1,0,0,0.8),length(unique(ind0))),rep(rgb(0,0,1,0.8),length(unique(ind1)))),...)
+  legend("topright",c("control","case"),pch=15,cex=1.1,col=c(rgb(1,0,0,0.8),rgb(0,0,1,0.8)))
 }
 
 cur_scatter_param = function(xx,ind_info,i1,i2,i3,...){
@@ -640,8 +640,8 @@ cur_scatter_param = function(xx,ind_info,i1,i2,i3,...){
   xx1=sort(as.numeric(xx[i1,i2,i3]),decreasing = TRUE)
   xxc=c(xx0,xx1)
 
-  plot(1:length(xxc),as.numeric(xxc),pch=16,col=c(rep(rgb(1,0,0,0.3),length(xx0)),rep(rgb(0,0,1,0.3),length(xx1))),...)
-  legend("topright",c("control","case"),pch=15,cex=1.1,col=c(rgb(1,0,0,0.3),rgb(0,0,1,0.3)))
+  plot(1:length(xxc),as.numeric(xxc),pch=16,col=c(rep(rgb(1,0,0,0.8),length(xx0)),rep(rgb(0,0,1,0.8),length(xx1))),...)
+  legend("topright",c("control","case"),pch=15,cex=1.1,col=c(rgb(1,0,0,0.8),rgb(0,0,1,0.8)))
 }
 #usage
 

@@ -22,7 +22,7 @@ if(is.na(unlist(strsplit(file_tag,"k"))[2])){
 if(!is.na(unlist(strsplit(file_tag,"k"))[2])){
   tmeta=readRDS(paste0("../Data_PRJNA434002/meta",unlist(strsplit(file_tag,"k"))[2],".rds"))
 }
-
+total_individual=unique(tmeta$individual)
 cur_cluster=as.character(unique(tmeta$cluster)[cluster_tag])
 meta=tmeta[tmeta$cluster==cur_cluster,]
 cur_individual=unique(meta$individual)
@@ -87,6 +87,9 @@ print("start DESeq2 calculation")
 if(perm_label>0){
   perm_order=readRDS(paste0("../Data_PRJNA434002/7.Result/ind_perm_order.rds"))
   perm_order=as.numeric(perm_order[,perm_label])
+  total_individual_ref=total_individual[perm_order]
+  perm_order=match(total_individual_ref,cur_info$individual)
+  perm_order=perm_order[!is.na(perm_order)]
   cur_info[,"diagnosis"]=cur_info[perm_order,"diagnosis"]
 }
 

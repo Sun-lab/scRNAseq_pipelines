@@ -289,7 +289,11 @@ cal_permanova_pval=function(dist_matrix,diagnose,zm=NA,Fstat_method="p",perm_num
   }
   
   pval=sum(F_perm-F_ob>=0,na.rm = TRUE)/sum(!is.na(F_perm))
-  return(pval)
+  res=list()
+  res[["pval"]]=pval
+  res[["F_ob"]]=F_ob
+  res[["F_perm"]]=F_perm
+  return(res)
 }
 
 cal_permanova_pval2=function(dist_array,diagnose,zm=NA,Fstat_method="p",perm_num.min=500){
@@ -309,11 +313,15 @@ cal_permanova_pval2=function(dist_array,diagnose,zm=NA,Fstat_method="p",perm_num
     F_perm=calc_F_permanovaS2(dist_array,label_array=R_array)
   }
   F_perm=as.matrix(F_perm)
-  F_perm=apply(F_perm,2,function(x){return(x-F_ob)})
+  F_perm0=apply(F_perm,2,function(x){return(x-F_ob)})
   if(length(F_ob)==1){
-    F_perm=t(F_perm)
+    F_perm0=t(F_perm0)
   }
-  pval=apply(F_perm>=0,1,function(x){return(sum(x,na.rm = TRUE)/sum(!is.na(x)))})
-  return(pval)
+  pval=apply(F_perm0>=0,1,function(x){return(sum(x,na.rm = TRUE)/sum(!is.na(x)))})
+  res=list()
+  res[["pval"]]=pval
+  res[["F_ob"]]=F_ob
+  res[["F_perm"]]=F_perm
+  return(res)
 }
 

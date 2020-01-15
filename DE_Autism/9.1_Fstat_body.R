@@ -28,7 +28,7 @@ if(is.na(unlist(strsplit(file_tag,"k"))[2])){
 if(!is.na(unlist(strsplit(file_tag,"k"))[2])){
   tmeta=readRDS(paste0("../Data_PRJNA434002/meta",unlist(strsplit(file_tag,"k"))[2],".rds"))
 }
-
+total_individual=unique(tmeta$individual)
 cur_cluster=as.character(unique(tmeta$cluster)[cluster_tag])
 meta=tmeta[tmeta$cluster==cur_cluster,]
 cur_individual=unique(meta$individual)
@@ -45,6 +45,9 @@ dist_array=readRDS(paste0("../Data_PRJNA434002/8.Result/",dist_method,"_",fit_me
 if(perm_label>0){
   perm_order=readRDS(paste0("../Data_PRJNA434002/7.Result/ind_perm_order.rds"))
   perm_order=as.numeric(perm_order[,perm_label])
+  total_individual_ref=total_individual[perm_order]
+  perm_order=match(total_individual_ref,cur_individual)
+  perm_order=perm_order[!is.na(perm_order)]
   phenotype=phenotype[perm_order,drop=FALSE]
 }
 
@@ -53,17 +56,34 @@ if(is.na(ind_covariate_flag)){
   covariate_model_matrix=NA
 }
 if(ind_covariate_flag=="ind"){
-  #read depth
-  read_depth=readRDS(paste0("../Data_PRJNA434002/rawM",file_tag,"_read_depth_per_1Kcell_ind.rds"))
-  read_depth=read_depth[match(cur_individual,rownames(read_depth)),]
   #
   cur_covariate=meta[match(cur_individual,meta$individual),c("age","sex","Capbatch","Seqbatch")]
-  cur_covariate=cbind(cur_covariate, read_depth)
+  #read depth
+  if(length(grep("rdpadj",file_tag))==0){ #if not justed before
+    read_depth=readRDS(paste0("../Data_PRJNA434002/rawM",file_tag,"_read_depth_per_1Kcell_ind.rds"))
+    read_depth=read_depth[match(cur_individual,rownames(read_depth)),]
+    cur_covariate=cbind(cur_covariate, read_depth)
+  }
   rownames(cur_covariate)=cur_individual
   covariate_model_matrix=model.matrix(~.,cur_covariate)
 }
 
-dist_pval=cal_permanova_pval2(dist_array,phenotype,Fstat_method=F_method,perm_num.min = perm_num,zm=covariate_model_matrix)
+dist_res=cal_permanova_pval2(dist_array,phenotype,Fstat_method=F_method,perm_num.min = perm_num,zm=covariate_model_matrix)
+dist_pval=dist_res$pval
+F_ob0=dist_res$F_ob
+F_perm0=dist_res$F_perm
+
+#plot 
+png(paste0("../Data_PRJNA434002/8.Result/fig_Fstat/p",perm_label,"_",dist_method,"_",fit_method,"_",F_method,"_pval_",pre_tag,"_sim_",cluster_tag,"_",file_tag,".png"),height = 600,width = 1200,type="cairo")
+op=par(mfrow = c(2, 4))
+pval_order=order(dist_pval)[c(1:4,100,200,300,400)]
+for(iplot in pval_order){
+  hist(F_perm0[iplot,],xlim=range(min(F_perm0[iplot,],F_ob0[iplot]),max(F_perm0[iplot,],F_ob0[iplot])),main=paste0("Fstat distr of gene ",dimnames(dist_array)[[1]][iplot],", pval ",round(dist_pval[iplot],", rank ",iplot)),breaks=50)
+  abline(v=F_ob0[iplot],col="red")
+}
+par(op)
+dev.off()
+
 print("0 level complete")
 print(Sys.time())
 print(gc())
@@ -74,7 +94,7 @@ if(length(second_index)>0){
   print(Sys.time())
   print(gc())
   sub_dist_array=dist_array[second_index,,,drop=FALSE]
-  sub_dist_pval=cal_permanova_pval2(sub_dist_array,phenotype,perm_num.min = perm_num*10,Fstat_method=F_method,zm=covariate_model_matrix)
+  sub_dist_pval=cal_permanova_pval2(sub_dist_array,phenotype,perm_num.min = perm_num*10,Fstat_method=F_method,zm=covariate_model_matrix)$pval
   dist_pval[second_index]=sub_dist_pval
   thres=tol/(perm_num*10)
   second_index=which(dist_pval<thres)
@@ -83,7 +103,7 @@ if(length(second_index)>0){
     print(Sys.time())
     print(gc())
     sub_dist_array=dist_array[second_index,,,drop=FALSE]
-    sub_dist_pval=cal_permanova_pval2(sub_dist_array,phenotype,perm_num.min = perm_num*100,Fstat_method=F_method,zm=covariate_model_matrix)
+    sub_dist_pval=cal_permanova_pval2(sub_dist_array,phenotype,perm_num.min = perm_num*100,Fstat_method=F_method,zm=covariate_model_matrix)$pval
     dist_pval[second_index]=sub_dist_pval
     thres=tol/(perm_num*100)
     second_index=which(dist_pval<thres)
@@ -92,7 +112,7 @@ if(length(second_index)>0){
       print(Sys.time())
       print(gc())
       sub_dist_array=dist_array[second_index,,,drop=FALSE]
-      sub_dist_pval=cal_permanova_pval2(sub_dist_array,phenotype,perm_num.min = perm_num*1000,Fstat_method=F_method,zm=covariate_model_matrix)
+      sub_dist_pval=cal_permanova_pval2(sub_dist_array,phenotype,perm_num.min = perm_num*1000,Fstat_method=F_method,zm=covariate_model_matrix)$pval
       dist_pval[second_index]=sub_dist_pval
     }
   }
@@ -147,16 +167,16 @@ for(i2 in second_index){
           }
         }
       }
-      dist_pval[i2]=tryCatch(cal_permanova_pval(x,cur_pheno,Fstat_method=F_method,perm_num.min = perm_num,zm=covariate_model_matrix), error = function(e) {NA} )
+      dist_pval[i2]=tryCatch(cal_permanova_pval(x,cur_pheno,Fstat_method=F_method,perm_num.min = perm_num,zm=covariate_model_matrix)$pval, error = function(e) {NA} )
       thres=tol/perm_num
       if(!is.na(dist_pval[i2]) && dist_pval[i2]<thres){
-        dist_pval[i2]=tryCatch(cal_permanova_pval(x,cur_pheno,Fstat_method=F_method,perm_num.min = (perm_num*10),zm=covariate_model_matrix), error = function(e) {NA} )
+        dist_pval[i2]=tryCatch(cal_permanova_pval(x,cur_pheno,Fstat_method=F_method,perm_num.min = (perm_num*10),zm=covariate_model_matrix)$pval, error = function(e) {NA} )
         thres=tol/(perm_num*10)
         if(!is.na(dist_pval[i2]) && dist_pval[i2]<thres){
-          dist_pval[i2]=tryCatch(cal_permanova_pval(x,cur_pheno,Fstat_method=F_method,perm_num.min = (perm_num*100),zm=covariate_model_matrix), error = function(e) {NA} )
+          dist_pval[i2]=tryCatch(cal_permanova_pval(x,cur_pheno,Fstat_method=F_method,perm_num.min = (perm_num*100),zm=covariate_model_matrix)$pval, error = function(e) {NA} )
           thres=tol/(perm_num*100)
           if(!is.na(dist_pval[i2]) && dist_pval[i2]<thres){
-            dist_pval[i2]=tryCatch(cal_permanova_pval(x,cur_pheno,Fstat_method=F_method,perm_num.min = (perm_num*1000),zm=covariate_model_matrix), error = function(e) {NA} )
+            dist_pval[i2]=tryCatch(cal_permanova_pval(x,cur_pheno,Fstat_method=F_method,perm_num.min = (perm_num*1000),zm=covariate_model_matrix)$pval, error = function(e) {NA} )
           }
         }
       }
