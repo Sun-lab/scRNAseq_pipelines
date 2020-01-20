@@ -12,6 +12,7 @@
 #setwd("/Users/mzhang24/Desktop/fh/1.Testing_scRNAseq/")
 setwd("/fh/fast/sun_w/mengqi/1.Testing_scRNAseq/")
 perm_label=1
+perm_method="b" #c("","b") 
 
 n_seq=c(20,15,10,5)
 ncell_seq=c(100,80,60,40,20)
@@ -72,8 +73,34 @@ for(ncell in ncell_seq){
     
     diagnosis = as.character(meta$phenotype) #
     
+    
     if(perm_label>0){
-      diagnosis=diagnosis[sample.int(length(diagnosis))]
+      #count cases and controls
+      diag_info=paste0(meta$individual,":",meta$phenotype)
+      diag_kind=unique(diag_info)
+      diag_kind=t(apply(as.matrix(diag_kind),1,function(x){return(unlist(strsplit(x,":")))}))
+      
+      #permute
+      if(perm_method=="b"){
+        
+        n_exchange=n/2
+        n_exchange=floor(n_exchange)+(n_exchange-floor(n_exchange))*2*rbinom(1,1,0.5) #the number changed to other side
+        
+        i_exchange=sample.int(n,n_exchange)
+        perm_order=1:(2*n)
+        temp=perm_order[i_exchange]
+        perm_order[i_exchange]=perm_order[(i_exchange+n)]
+        perm_order[(i_exchange+n)]=temp
+      }
+      if(perm_method!="b"){
+        perm_order=sample.int(2*n)
+        
+      }
+      
+      diag_kind[,2]=diag_kind[perm_order,2]
+      #match back to each individuals
+      ind_index=match(meta$individual,diag_kind[,1])
+      diagnosis=as.factor(diag_kind[ind_index,2])
     }
     
     diagnosis[diagnosis == 1] = "Case"
@@ -117,8 +144,8 @@ for(ncell in ncell_seq){
     print(paste0("print system details, ncell= ",ncell,", n= ",n, ", after all"))
     print(date())
     print(gc())
-    tryCatch(saveRDS(MAST_pval0,paste0("../Data_PRJNA434002/10.Result/p",perm_label,"_MAST_pval0_",r_mean,"_",r_var,"_",r_disp,"_",r_change_prop,"_",file_tag,"_",(2*n),"_",ncell,".rds")), error = function(e) {NA} )
-    tryCatch(saveRDS(MAST_pval1,paste0("../Data_PRJNA434002/10.Result/p",perm_label,"_MAST_pval1_",r_mean,"_",r_var,"_",r_disp,"_",r_change_prop,"_",file_tag,"_",(2*n),"_",ncell,".rds")), error = function(e) {NA} )
+    tryCatch(saveRDS(MAST_pval0,paste0("../Data_PRJNA434002/10.Result/p",perm_label,perm_method,"_MAST_pval0_",r_mean,"_",r_var,"_",r_disp,"_",r_change_prop,"_",file_tag,"_",(2*n),"_",ncell,".rds")), error = function(e) {NA} )
+    tryCatch(saveRDS(MAST_pval1,paste0("../Data_PRJNA434002/10.Result/p",perm_label,perm_method,"_MAST_pval1_",r_mean,"_",r_var,"_",r_disp,"_",r_change_prop,"_",file_tag,"_",(2*n),"_",ncell,".rds")), error = function(e) {NA} )
     print(c(n,ncell))
   }
 }

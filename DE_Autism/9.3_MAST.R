@@ -14,6 +14,14 @@ covariate_flag=NA #c(NA, "quantile99")
 #setwd("/Users/mzhang24/Desktop/fh/1.Testing_scRNAseq/")
 setwd("/fh/fast/sun_w/mengqi/1.Testing_scRNAseq/")
 
+library("pryr")
+
+########### Functions ###############
+check_cal=function(){
+  print(date())
+  print(gc())
+  print(mem_used())
+}
 
 ###########input###############
 #input diagnosis
@@ -151,31 +159,25 @@ colData(sca)
 
 
 print(paste0("print system details, before b0"))
-date()
-gc()
+check_cal()
 b0 = zlm(formula = ~ diagnosis, sca = sca, parallel = TRUE)
 print(paste0("print system details, before b1"))
-date()
-gc()
+check_cal()
 b1 = zlm(formula = ~ diagnosis + ( 1 | ind ), sca = sca, method = 'glmer', 
          ebayes = FALSE, parallel = TRUE)
 print(paste0("print system details, after b1"))
-date()
-gc()
+check_cal()
 
 b0
 b1
 print(paste0("print system details, before lrt0"))
-date()
-gc()
+check_cal()
 lrt0 = lrTest(b0, "diagnosis")
 print(paste0("print system details, before lrt1"))
-date()
-gc()
+check_cal()
 lrt1 = lrTest(b1, "diagnosis")
 print(paste0("print system details, after lrt1"))
-date()
-gc()
+check_cal()
 dim(lrt1)
 lrt1[1,,]
 

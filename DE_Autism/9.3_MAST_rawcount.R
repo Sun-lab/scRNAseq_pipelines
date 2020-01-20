@@ -11,6 +11,7 @@ perm_label=1 #perm_label =0 means calculate the observed data other wise, permut
 
 #setwd("~/Desktop/fh/1.Testing_scRNAseq/")
 #setwd("/Users/mzhang24/Desktop/fh/1.Testing_scRNAseq/")
+#setwd("/Volumes/SpecialPass/fh_data/Data_PRJNA434002/")
 setwd("/fh/fast/sun_w/mengqi/1.Testing_scRNAseq/")
 
 
@@ -72,7 +73,7 @@ colnames(rawcount_data_bulk)=cur_individual
 for(i_ind in 1:length(cur_individual)){
   cur_ind=cur_individual[i_ind]
   #fit org
-  cur_ind_m=rawcount_data[,meta$individual==cur_ind]
+  cur_ind_m=rawcount_data[,meta$individual==cur_ind,drop=FALSE]
   cell_num[i_ind]=ncol(cur_ind_m)
   read_depth[i_ind]=sum(cur_ind_m,na.rm = TRUE)/cell_num[i_ind]*1000
   

@@ -6,14 +6,16 @@
 # r_mean=1.5
 # r_var=1.5
 # r_disp=1.5
-# r_change_prop=0.75
+# r_change_prop=0.4
 # n=5      #c(20,15,10,5)
-# ncell=20 #c(100,80,60,40,20)
+# ncell=20 #c(100,80,60,40,20) +10,5,3
 
 # setwd("~/Desktop/fh/1.Testing_scRNAseq/")
 # setwd("/Users/mzhang24/Desktop/fh/1.Testing_scRNAseq/")
 setwd("/fh/fast/sun_w/mengqi/1.Testing_scRNAseq/")
 perm_label=1
+perm_method="b" #c("","b","bs","s") #b means balanced permutation #s means remove samples with limited cells.
+cell_thres=5 #
 
 perm_num=500
 covariate_flag=NA #c(NA, "quantile99")
@@ -21,6 +23,7 @@ tol=0.2
 
 
 t_sim_matrix=readRDS(paste0("../Data_PRJNA434002/10.Result/sim_matrix_",r_mean,"_",r_var,"_",r_disp,"_",r_change_prop,"_",file_tag,".rds"))
+t_sim_param=readRDS(paste0("../Data_PRJNA434002/10.Result/sim_param_",r_mean,"_",r_var,"_",r_disp,"_",r_change_prop,"_",file_tag,".rds"))
 t_meta=readRDS(paste0("../Data_PRJNA434002/10.Result/sim_meta_",r_mean,"_",r_var,"_",r_disp,"_",r_change_prop,"_",file_tag,".rds"))
 
 
@@ -43,6 +46,7 @@ for(i_s in c(selected_index,(20+selected_index))){
 
 #calculation
 sim_matrix=t_sim_matrix[,total_cell_index]
+sim_param=t_sim_param[,total_cell_index,]
 meta=t_meta[total_cell_index,]
 
 
@@ -59,7 +63,7 @@ if(file.exists(paste0("../Data_PRJNA434002/10.Result/",dist_method,"_",fit_metho
 }
 
 if(!file.exists(paste0("../Data_PRJNA434002/10.Result/",dist_method,"_",fit_method,"_dist_array_",r_mean,"_",r_var,"_",r_disp,"_",r_change_prop,"_",file_tag,"_",(2*n),"_",ncell,".rds"))){
-  if(fit_method!="empirical"){
+  if(fit_method=="zinb"){
     if(!is.na(covariate_flag)){
       #logsum_count=log(apply(sim_matrix,2,sum))
       quantile99=log(apply(sim_matrix,2,function(x)return(quantile(x,0.99)+1)))
@@ -132,7 +136,7 @@ if(!file.exists(paste0("../Data_PRJNA434002/10.Result/",dist_method,"_",fit_meth
       
     }
   }
-  if(fit_method!="empirical"){
+  if(fit_method=="zinb"){
     dist_array=array(dim=c(nrow(sim_fit),length(cur_individual),length(cur_individual)),
                      dimnames = list(rownames(sim_fit),cur_individual,cur_individual))
     for(i_g in 1:nrow(sim_fit)){
@@ -151,6 +155,18 @@ if(!file.exists(paste0("../Data_PRJNA434002/10.Result/",dist_method,"_",fit_meth
     }
   }
   
+  if(fit_method=="direct"){
+    dist_array=array(dim=c(nrow(sim_matrix),length(cur_individual),length(cur_individual)),
+                     dimnames = list(rownames(sim_matrix),cur_individual,cur_individual))
+    
+    for(i_g in 1:nrow(sim_matrix)){
+      cell_param=sim_param[i_g,,]
+      dist_array[i_g,,]=tryCatch(mean_KL_dens2(vector_triple=cell_param,cell_ind_label=meta$individual,alter=dist_method), error = function(e) {NA} )
+      if(i_g%%100==0){
+        print(i_g)
+      }
+    }
+  }
   
   saveRDS(dist_array,paste0("../Data_PRJNA434002/10.Result/",dist_method,"_",fit_method,"_dist_array_",r_mean,"_",r_var,"_",r_disp,"_",r_change_prop,"_",file_tag,"_",(2*n),"_",ncell,".rds"))
 }
@@ -158,38 +174,73 @@ if(!file.exists(paste0("../Data_PRJNA434002/10.Result/",dist_method,"_",fit_meth
 
 ###################Fstat calculation: Refer section 9 #######################
 if(perm_label>0){
-  phenotype=phenotype[sample.int(length(phenotype))]
+  if(length(grep("b",perm_method))==0){ #naive permutation
+    phenotype=phenotype[sample.int(length(phenotype))]
+  }
+  if(length(grep("b",perm_method))>0){ #balanced permutation
+    n_exchange=n/2
+    n_exchange=floor(n_exchange)+(n_exchange-floor(n_exchange))*2*rbinom(1,1,0.5) #the number changed to other side
+    
+    i_exchange=sample.int(n,n_exchange)
+    i_exchange=c(i_exchange,n+i_exchange)
+    phenotype[i_exchange]=1-phenotype[i_exchange]
+    
+  }
 }
+
 
 print("start manova calculation")
 
 #real data test
 #dist_array=round(dist_array,5)
-dist_pval=cal_permanova_pval2(dist_array,phenotype,perm_num.min = perm_num)
+dist_res=cal_permanova_pval2(dist_array,phenotype,perm_num.min = perm_num)
+dist_pval=dist_res$pval
+F_ob0=dist_res$F_ob
+F_perm0=dist_res$F_perm
+
+#plot 
+
+
+
+png(paste0("../Data_PRJNA434002/10.Result/fig_Fstat/p",perm_label,perm_method,"_",dist_method,"_",fit_method,"_",r_mean,"_",r_var,"_",r_disp,"_",r_change_prop,"_",file_tag,"_",(2*n),"_",ncell,"_Fperm.png"),height = 900,width = 1800,type="cairo")
+op=par(mfrow = c(2, 4))
+pval_order=order(dist_pval)[c(1:4,100,200,300,400)]
+for(iplot in pval_order){
+  hist(F_perm0[iplot,],xlim=range(min(F_perm0[iplot,],F_ob0[iplot]),max(F_perm0[iplot,],F_ob0[iplot])),main=paste0("Fstat distr of gene ",dimnames(dist_array)[[1]][iplot],", pval ",round(dist_pval[iplot],3),", rank ",iplot),breaks=50)
+  abline(v=F_ob0[iplot],col="red")
+}
+par(op)
+dev.off()
+
+png(paste0("../Data_PRJNA434002/10.Result/fig_Fstat/p",perm_label,perm_method,"_",dist_method,"_",fit_method,"_",r_mean,"_",r_var,"_",r_disp,"_",r_change_prop,"_",file_tag,"_",(2*n),"_",ncell,"_Fob.png"),height = 600,width = 1200,type="cairo")
+  hist(F_ob0,main=paste0("Fstat distr of gene, Fob"),breaks=50)
+dev.off()
+
+
 thres=tol/perm_num
 second_index=which(dist_pval<thres)
 if(length(second_index)>0){
   sub_dist_array=dist_array[second_index,,,drop=FALSE]
-  sub_dist_pval=cal_permanova_pval2(sub_dist_array,phenotype,perm_num.min = perm_num*10)
+  sub_dist_pval=cal_permanova_pval2(sub_dist_array,phenotype,perm_num.min = perm_num*10)$pval
   dist_pval[second_index]=sub_dist_pval
   thres=tol/(perm_num*10)
   second_index=which(dist_pval<thres)
   if(length(second_index)>0){
     sub_dist_array=dist_array[second_index,,,drop=FALSE]
-    sub_dist_pval=cal_permanova_pval2(sub_dist_array,phenotype,perm_num.min = perm_num*100)
+    sub_dist_pval=cal_permanova_pval2(sub_dist_array,phenotype,perm_num.min = perm_num*100)$pval
     dist_pval[second_index]=sub_dist_pval
     thres=tol/(perm_num*100)
     second_index=which(dist_pval<thres)
     if(length(second_index)>0){
       sub_dist_array=dist_array[second_index,,,drop=FALSE]
-      sub_dist_pval=cal_permanova_pval2(sub_dist_array,phenotype,perm_num.min = perm_num*1000)
+      sub_dist_pval=cal_permanova_pval2(sub_dist_array,phenotype,perm_num.min = perm_num*1000)$pval
       dist_pval[second_index]=sub_dist_pval
     }
   }
 }
 
 #dist_pval=apply(dist_array,1,function(x){tryCatch(return(cal_permanova_pval(x,phenotype)), error = function(e) {NA} )})
-saveRDS(dist_pval,paste0("../Data_PRJNA434002/10.Result/p",perm_label,"_",dist_method,"_",fit_method,"_raw_pval_",r_mean,"_",r_var,"_",r_disp,"_",r_change_prop,"_",file_tag,"_",(2*n),"_",ncell,".rds"))
+saveRDS(dist_pval,paste0("../Data_PRJNA434002/10.Result/p",perm_label,perm_method,"_",dist_method,"_",fit_method,"_raw_pval_",r_mean,"_",r_var,"_",r_disp,"_",r_change_prop,"_",file_tag,"_",(2*n),"_",ncell,".rds"))
 
 
 sessionInfo()

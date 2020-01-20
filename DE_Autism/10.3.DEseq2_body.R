@@ -6,6 +6,7 @@
 # r_disp=1.2
 # r_change_prop=0.6
 perm_label=1
+perm_method="b" #c("","b") 
 
 n_seq=c(20,15,10,5)
 ncell_seq=c(100,80,60,40,20)
@@ -32,14 +33,26 @@ rownames(cur_info) = cur_info$individual
 cur_info$phenotype = as.factor(cur_info$phenotype)
 
 
-
 for(n in n_seq){
   selected_index=sample.int(20,n)
   sub_sim_matrix_bulk=sim_matrix_bulk[,c(selected_index,(20+selected_index))]
   sub_cur_info=cur_info[c(selected_index,(20+selected_index)),]
   
   if(perm_label>0){
-    sub_cur_info$phenotype=sub_cur_info$phenotype[sample.int(2*n)]
+    if(perm_method=="b"){
+      
+      n_exchange=n/2
+      n_exchange=floor(n_exchange)+(n_exchange-floor(n_exchange))*2*rbinom(1,1,0.5) #the number changed to other side
+      
+      i_exchange=sample.int(n,n_exchange)
+
+      sub_cur_info$phenotype[(i_exchange)]=1
+      sub_cur_info$phenotype[(i_exchange+n)]=0
+      
+    }
+    if(perm_method!="b"){
+      sub_cur_info$phenotype=sub_cur_info$phenotype[sample.int(2*n)]
+    }
   }
   
   # object construction
@@ -50,7 +63,7 @@ for(n in n_seq){
   # observed pvalue calculation
   dds = DESeq(dds)
   deseq_pval = results(dds)$pvalue
-  saveRDS(deseq_pval,paste0("../Data_PRJNA434002/10.Result/p",perm_label,"_DESeq2_pval_",r_mean,"_",r_var,"_",r_disp,"_",r_change_prop,"_",file_tag,"_",(2*n),".rds"))
+  saveRDS(deseq_pval,paste0("../Data_PRJNA434002/10.Result/p",perm_label,perm_method,"_DESeq2_pval_",r_mean,"_",r_var,"_",r_disp,"_",r_change_prop,"_",file_tag,"_",(2*n),".rds"))
 }
 
 
