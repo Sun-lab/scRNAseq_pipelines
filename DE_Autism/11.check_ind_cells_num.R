@@ -16,14 +16,17 @@ if(!is.na(unlist(strsplit(file_tag,"k"))[2])){
 }
 total_individual=unique(tmeta$individual)
 
-res=matrix(0,ncol=length(total_individual),nrow=length(cluster_tag_seq))
-colnames(res)=total_individual
-rownames(res)=cluster_tag_seq
+phenotype=tmeta$diagnosis[match(total_individual,tmeta$individual)]
+
+res=matrix(0,nrow=length(total_individual),ncol=length(cluster_tag_seq))
+rownames(res)=paste0(phenotype,"_",total_individual)
+colnames(res)=paste0(cluster_tag_seq,"_",unique(tmeta$cluster))
 for(cluster_tag in cluster_tag_seq){
   cur_cell=readRDS(paste0("../Data_PRJNA434002/7.Result/rawcount_ind_cellnum_",cluster_tag,"_",file_tag,".rds"))
-  res[cluster_tag,match(rownames(cur_cell),total_individual)]=cur_cell
+  res[match(rownames(cur_cell),total_individual),cluster_tag]=cur_cell
 }
 
 saveRDS(res,paste0("11.check_clusters_individual_cellnum_",file_tag,".rds"))
+saveRDS(res,paste0("~/Desktop/github/scRNAseq_pipelines/DE_Autism/11.check/11.check_clusters_individual_cellnum_",file_tag,".rds"))
 write.table(res,file=paste0("~/Desktop/github/scRNAseq_pipelines/DE_Autism/11.check/11.check_clusters_individual_cellnum_",file_tag,".csv"),sep="\t")
 quantile(res)
