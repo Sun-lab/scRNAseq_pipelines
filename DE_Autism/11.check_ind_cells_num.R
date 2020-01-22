@@ -1,6 +1,6 @@
 
 cluster_tag_seq=1:17
-file_tag="3k10"
+file_tag="3k"
 
 
 ###########functions#############
