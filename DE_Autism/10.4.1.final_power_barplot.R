@@ -5,7 +5,7 @@ setwd("/Volumes/SpecialPass/fh_data/Data_PRJNA434002/")
 #setwd("/fh/fast/sun_w/mengqi/1.Testing_scRNAseq/")
 
 perm_label=1
-
+perm_method="b"
 param_tag=4 #c(1,2,3,4)
 
 file_tag_seq=1:4
@@ -59,7 +59,7 @@ power_array=array(dim=c(
                     length(r_mult_seq),
                     length(ind_seq),
                     length(cell_seq),
-                    6,5),
+                    8,5),
                   dimnames = list(
                     file_tag_seq,
                     r_mean_seq,
@@ -68,15 +68,14 @@ power_array=array(dim=c(
                     r_mult_seq,
                     ind_seq,
                     cell_seq,
-                    c("DESeq","MAST","jsd_empirical","klmean_empirical","jsd_zinb","klmean_zinb"),
-                    c("mean_diff","var_diff","disp_diff","mult_diff","control(FDR)")
-                  ))
+                    c("DESeq","MAST","jsd_empirical","klmean_empirical","jsd_zinb","klmean_zinb","jsd_direct","klmean_direct"),
+                    c("mean_diff","var_diff","disp_diff","mult_diff","control(FDR)")))
 
 count=1
 max_count=length(file_tag_seq)*length(r_mean_seq)*length(r_var_seq)*length(r_disp_seq)*length(r_mult_seq)*length(cell_seq)*length(ind_seq)
-zeros=matrix(ncol=6,nrow=max_count)
+zeros=matrix(ncol=8,nrow=max_count)
 rownames_zeros=matrix(ncol=1,nrow=max_count)
-colnames(zeros)=c("jsd_zinb_pval","jsd_empirical_pval","klmean_zinb_pval","klmean_empirical_pval","MAST_pval","deseq2_pval")
+colnames(zeros)=c("jsd_zinb_pval","jsd_empirical_pval","jsd_direct_pval","klmean_zinb_pval","klmean_empirical_pval","klmean_direct_pval","MAST_pval","deseq2_pval")
 for(i_file in 1:length(file_tag_seq)){
   for(i_mean in 1:length(r_mean_seq)){
     for(i_var in 1:length(r_var_seq)){
@@ -101,41 +100,45 @@ for(i_file in 1:length(file_tag_seq)){
               
               jsd_zinb_pval=NA
               jsd_empirical_pval=NA
+              jsd_direct_pval=NA
               klmean_zinb_pval=NA
               klmean_empirical_pval=NA
+              klmean_direct_pval=NA
               deseq2_pval=NA
               MAST_pval=NA
               
               if(perm_label>0){
-                tryCatch({jsd_zinb_pval=readRDS(paste0("../Data_PRJNA434002/10.Result/p",perm_label,"_JSD_zinb_raw_pval_",r_mean,"_",r_var,"_",r_disp,"_",r_mult,"_",file_tag,"_",n_ind,"_",n_cell,".rds"))}, error = function(e) {NA} )
-                tryCatch({jsd_empirical_pval=readRDS(paste0("../Data_PRJNA434002/10.Result/p",perm_label,"_JSD_empirical_raw_pval_",r_mean,"_",r_var,"_",r_disp,"_",r_mult,"_",file_tag,"_",n_ind,"_",n_cell,".rds"))}, error = function(e) {NA} )
-                tryCatch({klmean_zinb_pval=readRDS(paste0("../Data_PRJNA434002/10.Result/p",perm_label,"_mean_zinb_raw_pval_",r_mean,"_",r_var,"_",r_disp,"_",r_mult,"_",file_tag,"_",n_ind,"_",n_cell,".rds"))}, error = function(e) {NA} )
-                tryCatch({klmean_empirical_pval=readRDS(paste0("../Data_PRJNA434002/10.Result/p",perm_label,"_mean_empirical_raw_pval_",r_mean,"_",r_var,"_",r_disp,"_",r_mult,"_",file_tag,"_",n_ind,"_",n_cell,".rds"))}, error = function(e) {NA} )
-                tryCatch({deseq2_pval=readRDS(paste0("../Data_PRJNA434002/10.Result/p",perm_label,"_DESeq2_pval_",r_mean,"_",r_var,"_",r_disp,"_",r_mult,"_",file_tag,"_",n_ind,".rds"))}, error = function(e) {NA} )
+                tryCatch({jsd_zinb_pval=readRDS(paste0("../Data_PRJNA434002/10.Result/p",perm_label,perm_method,"_JSD_zinb_raw_pval_",r_mean,"_",r_var,"_",r_disp,"_",r_mult,"_",file_tag,"_",n_ind,"_",n_cell,".rds"))}, error = function(e) {NA} )
+                tryCatch({jsd_empirical_pval=readRDS(paste0("../Data_PRJNA434002/10.Result/p",perm_label,perm_method,"_JSD_empirical_raw_pval_",r_mean,"_",r_var,"_",r_disp,"_",r_mult,"_",file_tag,"_",n_ind,"_",n_cell,".rds"))}, error = function(e) {NA} )
+                tryCatch({jsd_direct_pval=readRDS(paste0("../Data_PRJNA434002/10.Result/p",perm_label,perm_method,"_JSD_direct_raw_pval_",r_mean,"_",r_var,"_",r_disp,"_",r_mult,"_",file_tag,"_",n_ind,"_",n_cell,".rds"))}, error = function(e) {NA} )
+                tryCatch({klmean_zinb_pval=readRDS(paste0("../Data_PRJNA434002/10.Result/p",perm_label,perm_method,"_mean_zinb_raw_pval_",r_mean,"_",r_var,"_",r_disp,"_",r_mult,"_",file_tag,"_",n_ind,"_",n_cell,".rds"))}, error = function(e) {NA} )
+                tryCatch({klmean_empirical_pval=readRDS(paste0("../Data_PRJNA434002/10.Result/p",perm_label,perm_method,"_mean_empirical_raw_pval_",r_mean,"_",r_var,"_",r_disp,"_",r_mult,"_",file_tag,"_",n_ind,"_",n_cell,".rds"))}, error = function(e) {NA} )
+                tryCatch({klmean_direct_pval=readRDS(paste0("../Data_PRJNA434002/10.Result/p",perm_label,perm_method,"_mean_direct_raw_pval_",r_mean,"_",r_var,"_",r_disp,"_",r_mult,"_",file_tag,"_",n_ind,"_",n_cell,".rds"))}, error = function(e) {NA} )
+                tryCatch({deseq2_pval=readRDS(paste0("../Data_PRJNA434002/10.Result/p",perm_label,perm_method,"_DESeq2_pval_",r_mean,"_",r_var,"_",r_disp,"_",r_mult,"_",file_tag,"_",n_ind,".rds"))}, error = function(e) {NA} )
                 
                 #note! please be sure to use 10.3.MAST_postArrangment.R when all permutation results are ready.
-                tryCatch({MAST_pval=readRDS(paste0("../Data_PRJNA434002/10.Result/p",perm_label,"_MAST_pval1_",r_mean,"_",r_var,"_",r_disp,"_",r_mult,"_",file_tag,"_",n_ind,"_",n_cell,".rds"))}, error = function(e) {NA} )
+                tryCatch({MAST_pval=readRDS(paste0("../Data_PRJNA434002/10.Result/p",perm_label,perm_method,"_MAST_pval1_",r_mean,"_",r_var,"_",r_disp,"_",r_mult,"_",file_tag,"_",n_ind,"_",n_cell,".rds"))}, error = function(e) {NA} )
               }
               if(perm_label==0){
                 tryCatch({jsd_zinb_pval=readRDS(paste0("../Data_PRJNA434002/10.Result/JSD_zinb_raw_pval_",r_mean,"_",r_var,"_",r_disp,"_",r_mult,"_",file_tag,"_",n_ind,"_",n_cell,".rds"))}, error = function(e) {NA} )
                 tryCatch({jsd_empirical_pval=readRDS(paste0("../Data_PRJNA434002/10.Result/JSD_empirical_raw_pval_",r_mean,"_",r_var,"_",r_disp,"_",r_mult,"_",file_tag,"_",n_ind,"_",n_cell,".rds"))}, error = function(e) {NA} )
+                tryCatch({jsd_direct_pval=readRDS(paste0("../Data_PRJNA434002/10.Result/JSD_direct_raw_pval_",r_mean,"_",r_var,"_",r_disp,"_",r_mult,"_",file_tag,"_",n_ind,"_",n_cell,".rds"))}, error = function(e) {NA} )
                 tryCatch({klmean_zinb_pval=readRDS(paste0("../Data_PRJNA434002/10.Result/mean_zinb_raw_pval_",r_mean,"_",r_var,"_",r_disp,"_",r_mult,"_",file_tag,"_",n_ind,"_",n_cell,".rds"))}, error = function(e) {NA} )
                 tryCatch({klmean_empirical_pval=readRDS(paste0("../Data_PRJNA434002/10.Result/mean_empirical_raw_pval_",r_mean,"_",r_var,"_",r_disp,"_",r_mult,"_",file_tag,"_",n_ind,"_",n_cell,".rds"))}, error = function(e) {NA} )
+                tryCatch({klmean_direct_pval=readRDS(paste0("../Data_PRJNA434002/10.Result/mean_direct_raw_pval_",r_mean,"_",r_var,"_",r_disp,"_",r_mult,"_",file_tag,"_",n_ind,"_",n_cell,".rds"))}, error = function(e) {NA} )
                 tryCatch({deseq2_pval=readRDS(paste0("../Data_PRJNA434002/10.Result/DESeq2_pval_",r_mean,"_",r_var,"_",r_disp,"_",r_mult,"_",file_tag,"_",n_ind,".rds"))}, error = function(e) {NA} )
                 
                 #note! please be sure to use 10.3.MAST_postArrangment.R when all permutation results are ready.
                 tryCatch({MAST_pval=readRDS(paste0("../Data_PRJNA434002/10.Result/MAST_pval1_",r_mean,"_",r_var,"_",r_disp,"_",r_mult,"_",file_tag,"_",n_ind,"_",n_cell,".rds"))}, error = function(e) {NA} )
               }
               
-              
-              
-              zeros[count,]=c(sum(is.na(jsd_zinb_pval)),sum(is.na(jsd_empirical_pval)),sum(is.na(klmean_zinb_pval)),sum(is.na(klmean_empirical_pval)),sum(is.na(MAST_pval)),sum(is.na(deseq2_pval)))
+              zeros[count,]=c(sum(is.na(jsd_zinb_pval)),sum(is.na(jsd_empirical_pval)),sum(is.na(jsd_direct_pval)),sum(is.na(klmean_zinb_pval)),sum(is.na(klmean_empirical_pval)),sum(is.na(klmean_direct_pval)),sum(is.na(MAST_pval)),sum(is.na(deseq2_pval)))
               rownames_zeros[count]=paste0(r_mean,"_",r_var,"_",r_disp,"_",r_mult,"_",file_tag,"_",n_ind,"_",n_cell)
               count=count+1  
               
               #histogram
-              png(paste0("../Data_PRJNA434002/10.Result/p",perm_label,"_pval_hist_",param_tag,"_",r_mean,"_",r_var,"_",r_disp,"_",r_mult,"_",file_tag,"_",n_ind,"_",n_cell,".png"),height = 3600,width = 3000)
-              op=par(mfrow = c(6, 5), pty = "s")
+              png(paste0("../Data_PRJNA434002/10.Result/fig_pval_hist/p",perm_label,perm_method,"_pval_hist_",param_tag,"_",r_mean,"_",r_var,"_",r_disp,"_",r_mult,"_",file_tag,"_",n_ind,"_",n_cell,".png"),height = 4800,width = 3000)
+              op=par(mfrow = c(8, 5), pty = "s")
               
               tryCatch({hist(klmean_zinb_pval[mean_index==1],main="pval of mean-DE genes,klmean_zinb method",xlab="p-values",breaks = 20)}, error = function(e) {NA} )
               tryCatch({hist(klmean_zinb_pval[var_index==1],main="pval of var-DE genes,klmean_zinb method",xlab="p-values",breaks = 20)}, error = function(e) {NA} )        
@@ -143,17 +146,17 @@ for(i_file in 1:length(file_tag_seq)){
               tryCatch({hist(klmean_zinb_pval[mult_index==1],main="pval of mult-DE genes,klmean_zinb method",xlab="p-values",breaks = 20)}, error = function(e) {NA} )
               tryCatch({hist(klmean_zinb_pval[mean_index==0 & var_index==0 & disp_index==0 & mult_index==0],main="pval of non-DE genes,klmean_zinb method",xlab="p-values",breaks = 20)}, error = function(e) {NA} )
               
-              tryCatch({hist(klmean_empirical_pval[mean_index==1],main="pval of mean-DE genes,klmean_empirical method",xlab="p-values",breaks = 20)}, error = function(e) {NA} )
-              tryCatch({hist(klmean_empirical_pval[var_index==1],main="pval of var-DE genes,klmean_empirical method",xlab="p-values",breaks = 20)}, error = function(e) {NA} )        
-              tryCatch({hist(klmean_empirical_pval[disp_index==1],main="pval of disp-DE genes,klmean_empirical method",xlab="p-values",breaks = 20)}, error = function(e) {NA} )
-              tryCatch({hist(klmean_empirical_pval[mult_index==1],main="pval of mult-DE genes,klmean_empirical method",xlab="p-values",breaks = 20)}, error = function(e) {NA} )
-              tryCatch({hist(klmean_empirical_pval[mean_index==0 & var_index==0 & disp_index==0 & mult_index==0],main="pval of non-DE genes,klmean_empirical method",xlab="p-values",breaks = 20)}, error = function(e) {NA} )
-
               tryCatch({hist(jsd_zinb_pval[mean_index==1],main="pval of mean-DE genes,jsd_zinb method",xlab="p-values",breaks = 20)}, error = function(e) {NA} )
               tryCatch({hist(jsd_zinb_pval[var_index==1],main="pval of var-DE genes,jsd_zinb method",xlab="p-values",breaks = 20)}, error = function(e) {NA} )        
               tryCatch({hist(jsd_zinb_pval[disp_index==1],main="pval of disp-DE genes,jsd_zinb method",xlab="p-values",breaks = 20)}, error = function(e) {NA} )
               tryCatch({hist(jsd_zinb_pval[mult_index==1],main="pval of mult-DE genes,jsd_zinb method",xlab="p-values",breaks = 20)}, error = function(e) {NA} )
               tryCatch({hist(jsd_zinb_pval[mean_index==0 & var_index==0 & disp_index==0 & mult_index==0],main="pval of non-DE genes,jsd_zinb method",xlab="p-values",breaks = 20)}, error = function(e) {NA} )
+              
+              tryCatch({hist(klmean_empirical_pval[mean_index==1],main="pval of mean-DE genes,klmean_empirical method",xlab="p-values",breaks = 20)}, error = function(e) {NA} )
+              tryCatch({hist(klmean_empirical_pval[var_index==1],main="pval of var-DE genes,klmean_empirical method",xlab="p-values",breaks = 20)}, error = function(e) {NA} )        
+              tryCatch({hist(klmean_empirical_pval[disp_index==1],main="pval of disp-DE genes,klmean_empirical method",xlab="p-values",breaks = 20)}, error = function(e) {NA} )
+              tryCatch({hist(klmean_empirical_pval[mult_index==1],main="pval of mult-DE genes,klmean_empirical method",xlab="p-values",breaks = 20)}, error = function(e) {NA} )
+              tryCatch({hist(klmean_empirical_pval[mean_index==0 & var_index==0 & disp_index==0 & mult_index==0],main="pval of non-DE genes,klmean_empirical method",xlab="p-values",breaks = 20)}, error = function(e) {NA} )
               
               tryCatch({hist(jsd_empirical_pval[mean_index==1],main="pval of mean-DE genes,jsd_empirical method",xlab="p-values",breaks = 20)}, error = function(e) {NA} )
               tryCatch({hist(jsd_empirical_pval[var_index==1],main="pval of var-DE genes,jsd_empirical method",xlab="p-values",breaks = 20)}, error = function(e) {NA} )        
@@ -161,8 +164,20 @@ for(i_file in 1:length(file_tag_seq)){
               tryCatch({hist(jsd_empirical_pval[mult_index==1],main="pval of mult-DE genes,jsd_empirical method",xlab="p-values",breaks = 20)}, error = function(e) {NA} )
               tryCatch({hist(jsd_empirical_pval[mean_index==0 & var_index==0 & disp_index==0 & mult_index==0],main="pval of non-DE genes,jsd_empirical method",xlab="p-values",breaks = 20)}, error = function(e) {NA} )
               
+              tryCatch({hist(jsd_direct_pval[mean_index==1],main="pval of mean-DE genes,jsd_direct method",xlab="p-values",breaks = 20)}, error = function(e) {NA} )
+              tryCatch({hist(jsd_direct_pval[var_index==1],main="pval of var-DE genes,jsd_direct method",xlab="p-values",breaks = 20)}, error = function(e) {NA} )        
+              tryCatch({hist(jsd_direct_pval[disp_index==1],main="pval of disp-DE genes,jsd_direct method",xlab="p-values",breaks = 20)}, error = function(e) {NA} )
+              tryCatch({hist(jsd_direct_pval[mult_index==1],main="pval of mult-DE genes,jsd_direct method",xlab="p-values",breaks = 20)}, error = function(e) {NA} )
+              tryCatch({hist(jsd_direct_pval[mean_index==0 & var_index==0 & disp_index==0 & mult_index==0],main="pval of non-DE genes,jsd_direct method",xlab="p-values",breaks = 20)}, error = function(e) {NA} )
+              
+              tryCatch({hist(klmean_direct_pval[mean_index==1],main="pval of mean-DE genes,klmean_direct method",xlab="p-values",breaks = 20)}, error = function(e) {NA} )
+              tryCatch({hist(klmean_direct_pval[var_index==1],main="pval of var-DE genes,klmean_direct method",xlab="p-values",breaks = 20)}, error = function(e) {NA} )        
+              tryCatch({hist(klmean_direct_pval[disp_index==1],main="pval of disp-DE genes,klmean_direct method",xlab="p-values",breaks = 20)}, error = function(e) {NA} )
+              tryCatch({hist(klmean_direct_pval[mult_index==1],main="pval of mult-DE genes,klmean_direct method",xlab="p-values",breaks = 20)}, error = function(e) {NA} )
+              tryCatch({hist(klmean_direct_pval[mean_index==0 & var_index==0 & disp_index==0 & mult_index==0],main="pval of non-DE genes,klmean_direct method",xlab="p-values",breaks = 20)}, error = function(e) {NA} )
+              
               tryCatch({hist(deseq2_pval[mean_index==1],main="pval of mean-DE genes,deseq2 method",xlab="p-values",breaks = 20)}, error = function(e) {NA} )
-              tryCatch({hist(deseq2_pval[var_index==1],main="pval of var-DE genes,deseq2 method",xlab="p-values",breaks = 20)}, error = function(e) {NA} )        
+              tryCatch({hist(deseq2_pval[var_index==1],main="pval of var-DE genes,deseq2 method",xlab="p-values",breaks = 20)}, error = function(e) {NA} )  
               tryCatch({hist(deseq2_pval[disp_index==1],main="pval of disp-DE genes,deseq2 method",xlab="p-values",breaks = 20)}, error = function(e) {NA} )
               tryCatch({hist(deseq2_pval[mult_index==1],main="pval of mult-DE genes,deseq2 method",xlab="p-values",breaks = 20)}, error = function(e) {NA} )
               tryCatch({hist(deseq2_pval[mean_index==0 & var_index==0 & disp_index==0 & mult_index==0],main="pval of non-DE genes,deseq2 method",xlab="p-values",breaks = 20)}, error = function(e) {NA} )
@@ -176,10 +191,9 @@ for(i_file in 1:length(file_tag_seq)){
               par(op)
               dev.off()
               
+              power_matrix=matrix(nrow=8,ncol=5)
               
-              power_matrix=matrix(nrow=6,ncol=5)
-              
-              rownames(power_matrix)=c("DESeq","MAST","jsd_empirical","klmean_empirical","jsd_zinb","klmean_zinb")
+              rownames(power_matrix)=c("DESeq","MAST","jsd_empirical","klmean_empirical","jsd_zinb","klmean_zinb","jsd_direct","klmean_direct")
               colnames(power_matrix)=c("mean_diff","var_diff","disp_diff","mult_diff","control(FDR)")
               
               tryCatch({power_matrix[1,]=c(cal_power(deseq2_pval[mean_index==1],threshold = 0.05),
@@ -212,21 +226,33 @@ for(i_file in 1:length(file_tag_seq)){
                                            cal_power(klmean_zinb_pval[disp_index==1],threshold = 0.05),
                                            cal_power(klmean_zinb_pval[mult_index==1],threshold = 0.05),
                                            cal_power(klmean_zinb_pval[mean_index==0 & var_index==0 & disp_index==0 & mult_index==0],threshold = 0.05))}, error = function(e) {NA} )
+              tryCatch({power_matrix[7,]=c(cal_power(jsd_direct_pval[mean_index==1],threshold = 0.05),
+                                           cal_power(jsd_direct_pval[var_index==1],threshold = 0.05),
+                                           cal_power(jsd_direct_pval[disp_index==1],threshold = 0.05),
+                                           cal_power(jsd_direct_pval[mult_index==1],threshold = 0.05),
+                                           cal_power(jsd_direct_pval[mean_index==0 & var_index==0 & disp_index==0 & mult_index==0],threshold = 0.05))}, error = function(e) {NA} )
+              tryCatch({power_matrix[8,]=c(cal_power(klmean_direct_pval[mean_index==1],threshold = 0.05),
+                                           cal_power(klmean_direct_pval[var_index==1],threshold = 0.05),
+                                           cal_power(klmean_direct_pval[disp_index==1],threshold = 0.05),
+                                           cal_power(klmean_direct_pval[mult_index==1],threshold = 0.05),
+                                           cal_power(klmean_direct_pval[mean_index==0 & var_index==0 & disp_index==0 & mult_index==0],threshold = 0.05))}, error = function(e) {NA} )
               power_matrix
               
               #barplot
-              png(paste0("../Data_PRJNA434002/10.Result/p",perm_label,"_barplot_",param_tag,"_",r_mean,"_",r_var,"_",r_disp,"_",r_mult,"_",file_tag,"_",n_ind,"_",n_cell,".png"),height = 1800,width = 1200)
-              op=par(mfrow = c(3, 2), pty = "s")
+              png(paste0("../Data_PRJNA434002/10.Result/fig_barplot/p",perm_label,perm_method,"_barplot_",param_tag,"_",r_mean,"_",r_var,"_",r_disp,"_",r_mult,"_",file_tag,"_",n_ind,"_",n_cell,".png"),height = 2400,width = 1200)
+              op=par(mfrow = c(4, 2), pty = "s")
               barplot(power_matrix[1,],ylab="power",main=rownames(power_matrix)[1],ylim=c(0,1))
               barplot(power_matrix[2,],ylab="power",main=rownames(power_matrix)[2],ylim=c(0,1))
               barplot(power_matrix[3,],ylab="power",main=rownames(power_matrix)[3],ylim=c(0,1))
               barplot(power_matrix[4,],ylab="power",main=rownames(power_matrix)[4],ylim=c(0,1))
               barplot(power_matrix[5,],ylab="power",main=rownames(power_matrix)[5],ylim=c(0,1))
               barplot(power_matrix[6,],ylab="power",main=rownames(power_matrix)[6],ylim=c(0,1))
+              barplot(power_matrix[7,],ylab="power",main=rownames(power_matrix)[7],ylim=c(0,1))
+              barplot(power_matrix[8,],ylab="power",main=rownames(power_matrix)[8],ylim=c(0,1))
               par(op)
               dev.off()
               
-              png(paste0("../Data_PRJNA434002/10.Result/p",perm_label,"_power_point_",param_tag,"_",r_mean,"_",r_var,"_",r_disp,"_",r_mult,"_",file_tag,"_",n_ind,"_",n_cell,".png"),height = 800,width = 800)
+              png(paste0("../Data_PRJNA434002/10.Result/fig_power_point/p",perm_label,perm_method,"_power_point_",param_tag,"_",r_mean,"_",r_var,"_",r_disp,"_",r_mult,"_",file_tag,"_",n_ind,"_",n_cell,".png"),height = 800,width = 800)
               plot(power_matrix[1,5],power_matrix[1,1],xlim=c(0,1),ylim=c(0,1),xlab="False positive rate (FPR)",ylab="True positive rate (TPR)",type="p",col="red",pch=3,cex=3)
               points(power_matrix[1,5],power_matrix[1,2],col="red",pch=4,cex=3)
               points(power_matrix[1,5],power_matrix[1,3],col="red",pch=5,cex=3)
@@ -257,7 +283,17 @@ for(i_file in 1:length(file_tag_seq)){
               points(power_matrix[6,5],power_matrix[6,3],col="green",pch=5,cex=3)
               points(power_matrix[6,5],power_matrix[6,4],col="green",pch=6,cex=3)
               
-              legend("topright",c(rownames(power_matrix),"mean diff","var diff","disp_diff","mult_diff"),pch=c(rep(15,6),3:6),cex=1,col=c("red","blue","pink","brown","orange","green","black","black","black","black"))
+              points(power_matrix[7,5],power_matrix[7,1],col="goldenrod",pch=3,cex=3)
+              points(power_matrix[7,5],power_matrix[7,2],col="goldenrod",pch=4,cex=3)
+              points(power_matrix[7,5],power_matrix[7,3],col="goldenrod",pch=5,cex=3)
+              points(power_matrix[7,5],power_matrix[7,4],col="goldenrod",pch=6,cex=3)
+              
+              points(power_matrix[8,5],power_matrix[8,1],col="deeppink",pch=3,cex=3)
+              points(power_matrix[8,5],power_matrix[8,2],col="deeppink",pch=4,cex=3)
+              points(power_matrix[8,5],power_matrix[8,3],col="deeppink",pch=5,cex=3)
+              points(power_matrix[8,5],power_matrix[8,4],col="deeppink",pch=6,cex=3)
+              
+              legend("topright",c(rownames(power_matrix),"mean diff","var diff","disp_diff","mult_diff"),pch=c(rep(15,8),3:8),cex=1,col=c("red","blue","pink","brown","orange","green","goldenrod","deeppink","black","black","black","black"))
               
               dev.off()
               
@@ -272,11 +308,11 @@ for(i_file in 1:length(file_tag_seq)){
   }
 }
 
-saveRDS(power_array,paste0("../Data_PRJNA434002/10.Result/p",perm_label,"_final_power_array_",param_tag,".rds"))
+saveRDS(power_array,paste0("../Data_PRJNA434002/10.Result/p",perm_label,perm_method,"_final_power_array_",param_tag,".rds"))
 
 rownames(zeros)=rownames_zeros
 View(zeros)
-saveRDS(power_array,paste0("../Data_PRJNA434002/10.Result/p",perm_label,"_pval_NAs_",param_tag,".rds"))
+saveRDS(power_array,paste0("../Data_PRJNA434002/10.Result/p",perm_label,perm_method,"_pval_NAs_",param_tag,".rds"))
 
 #more plot
 
@@ -289,7 +325,7 @@ for(i_file in 1:length(file_tag_seq)){
       
       cur_power_array=power_array[i_file,,,,,i_ind,i_cell,,]
       
-      png(paste0("../Data_PRJNA434002/10.Result/p",perm_label,"_final_power_",param_tag,"_",file_tag,"_",n_ind,"_",n_cell,".png"),height = 800,width = 800)
+      png(paste0("../Data_PRJNA434002/10.Result/fig_final_power/p",perm_label,perm_method,"_final_power_",param_tag,"_",file_tag,"_",n_ind,"_",n_cell,".png"),height = 800,width = 800)
       plot(cur_power_array[,1,5],cur_power_array[,1,1],xlim=c(0,1),ylim=c(0,1),xlab="False positive rate (FPR)",ylab="True positive rate (TPR)",type="p",col="red",pch=3,cex=3,main=paste0("power scatter: ",file_tag))
       points(cur_power_array[,1,5],cur_power_array[,1,2],col="red",pch=4,cex=3)
       points(cur_power_array[,1,5],cur_power_array[,1,3],col="red",pch=5,cex=3)
@@ -320,7 +356,17 @@ for(i_file in 1:length(file_tag_seq)){
       points(cur_power_array[,6,5],cur_power_array[,6,3],col="green",pch=5,cex=3)
       points(cur_power_array[,6,5],cur_power_array[,6,4],col="green",pch=6,cex=3)
       
-      legend("topright",c(dimnames(cur_power_array)[[2]],"mean diff","var diff","disp diff","mult diff"),pch=c(rep(15,6),3:6),cex=1,col=c("red","blue","pink","brown","orange","green","black","black","black","black"))
+      points(cur_power_array[,7,5],cur_power_array[,7,1],col="goldenrod",pch=3,cex=3)
+      points(cur_power_array[,7,5],cur_power_array[,7,2],col="goldenrod",pch=4,cex=3)
+      points(cur_power_array[,7,5],cur_power_array[,7,3],col="goldenrod",pch=5,cex=3)
+      points(cur_power_array[,7,5],cur_power_array[,7,4],col="goldenrod",pch=6,cex=3)
+      
+      points(cur_power_array[,8,5],cur_power_array[,8,1],col="deeppink",pch=3,cex=3)
+      points(cur_power_array[,8,5],cur_power_array[,8,2],col="deeppink",pch=4,cex=3)
+      points(cur_power_array[,8,5],cur_power_array[,8,3],col="deeppink",pch=5,cex=3)
+      points(cur_power_array[,8,5],cur_power_array[,8,4],col="deeppink",pch=6,cex=3)
+      
+      legend("topright",c(rownames(power_matrix),"mean diff","var diff","disp_diff","mult_diff"),pch=c(rep(15,8),3:8),cex=1,col=c("red","blue","pink","brown","orange","green","goldenrod","deeppink","black","black","black","black"))
       dev.off()
     }
   }

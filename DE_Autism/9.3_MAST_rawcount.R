@@ -62,23 +62,12 @@ read_depth=matrix(ncol=1,nrow=length(cur_individual))
 rownames(read_depth)=cur_individual
 colnames(read_depth)="read_depth"
 
-
-zero_rate_ind=matrix(nrow=nrow(rawcount_data),ncol=length(cur_individual))
-rownames(zero_rate_ind)=rownames(rawcount_data)
-colnames(zero_rate_ind)=cur_individual
-rawcount_data_bulk=matrix(nrow=nrow(rawcount_data),ncol=length(cur_individual))
-rownames(rawcount_data_bulk)=rownames(rawcount_data)
-colnames(rawcount_data_bulk)=cur_individual
-
 for(i_ind in 1:length(cur_individual)){
   cur_ind=cur_individual[i_ind]
   #fit org
   cur_ind_m=rawcount_data[,meta$individual==cur_ind,drop=FALSE]
   cell_num[i_ind]=ncol(cur_ind_m)
   read_depth[i_ind]=sum(cur_ind_m,na.rm = TRUE)/cell_num[i_ind]*1000
-  
-  zero_rate_ind[,i_ind]=apply(cur_ind_m==0,1,function(x){return(sum(x,na.rm = TRUE))})/cell_num[i_ind]
-  rawcount_data_bulk[,i_ind]=apply(cur_ind_m,1,function(x){return(sum(x,na.rm = TRUE))})
 }
 
 hist(read_depth)
@@ -90,8 +79,14 @@ cor(read_depth,CDR_ind)
 print("start MAST calculation: Part II: ZINB KLmean and JSD")
 
 library("moments")
-rawcount_data_log = log2(1 + rawcount_data)
 
+
+if(length(grep("norm",file_tag))==0){
+  rawcount_data_log = log2(1 + rawcount_data)
+}
+if(length(grep("norm",file_tag))>0){
+  rawcount_data_log = rawcount_data
+}
 
 dim(rawcount_data_log)
 rawcount_data_log[1:10,1:10]

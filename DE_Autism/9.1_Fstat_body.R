@@ -9,6 +9,8 @@
 # F_method="p"
 
 perm_label_seq=0:10
+perm_method="s" # "" or "s"(set cell threshold, any individuals with less cells would be removed)
+cell_threshold=4
 
 ind_covariate_flag="ind" 
 perm_num=500
@@ -21,6 +23,8 @@ setwd("/fh/fast/sun_w/mengqi/1.Testing_scRNAseq/")
 ###########functions#############
 source("./Command/9.0_Fstat_functions.R")
 ###########input###############
+#set input
+dist_array=readRDS(paste0("../Data_PRJNA434002/8.Result/",dist_method,"_",fit_method,"_array_",pre_tag,"_sim_",cluster_tag,"_",file_tag,".rds"))
 
 #input phenotype
 if(is.na(unlist(strsplit(file_tag,"k"))[2])){
@@ -33,6 +37,15 @@ total_individual=unique(tmeta$individual)
 cur_cluster=as.character(unique(tmeta$cluster)[cluster_tag])
 meta=tmeta[tmeta$cluster==cur_cluster,]
 cur_individual=unique(meta$individual)
+
+if(perm_method=="s"){
+  cell_num=table(meta$individual)
+  cell_index=which(cell_num>=cell_threshold)
+  cur_individual=cur_individual[cell_index]
+  dist_array=dist_array[,cell_index,cell_index,drop=FALSE]
+}
+
+
 phenotype=matrix(1,ncol=1,nrow=length(cur_individual))
 phenotype[which(meta$diagnosis[match(cur_individual,meta$individual)]=="Control")]=0
 
@@ -41,8 +54,6 @@ phenotype[which(meta$diagnosis[match(cur_individual,meta$individual)]=="Control"
 ###################calculation t#################################
 print("start calculation: Part I: Empirical KLmean and JSD")
 
-#set input
-dist_array=readRDS(paste0("../Data_PRJNA434002/8.Result/",dist_method,"_",fit_method,"_array_",pre_tag,"_sim_",cluster_tag,"_",file_tag,".rds"))
 
 for(perm_label in perm_label_seq){
   
@@ -82,7 +93,7 @@ for(perm_label in perm_label_seq){
   F_perm0=dist_res$F_perm
   
   #plot 
-  png(paste0("../Data_PRJNA434002/8.Result/fig_Fstat/p",perm_label,"_",dist_method,"_",fit_method,"_",F_method,"_pval_",pre_tag,"_sim_",cluster_tag,"_",file_tag,".png"),height = 900,width = 1800,type="cairo")
+  png(paste0("../Data_PRJNA434002/8.Result/fig_Fstat/p",perm_label,perm_method,"_",dist_method,"_",fit_method,"_",F_method,"_pval_",pre_tag,"_sim_",cluster_tag,"_",file_tag,".png"),height = 900,width = 1800,type="cairo")
   op=par(mfrow = c(2, 4))
   pval_order=order(dist_pval)[c(1:4,100,200,300,400)]
   for(iplot in pval_order){
@@ -92,7 +103,7 @@ for(perm_label in perm_label_seq){
   par(op)
   dev.off()
   
-  png(paste0("../Data_PRJNA434002/8.Result/fig_Fstat/p",perm_label,"_",dist_method,"_",fit_method,"_",F_method,"_pval_",pre_tag,"_sim_",cluster_tag,"_",file_tag,"_Fob.png"),height = 600,width = 1200,type="cairo")
+  png(paste0("../Data_PRJNA434002/8.Result/fig_Fstat/p",perm_label,perm_method,"_",dist_method,"_",fit_method,"_",F_method,"_pval_",pre_tag,"_sim_",cluster_tag,"_",file_tag,"_Fob.png"),height = 600,width = 1200,type="cairo")
   hist(F_ob0,main=paste0("Fstat distr of gene, Fob"),breaks=50)
   dev.off()
   
@@ -132,11 +143,11 @@ for(perm_label in perm_label_seq){
   
   
   if(!is.na(ind_covariate_flag)){
-    saveRDS(dist_pval,paste0("../Data_PRJNA434002/8.Result/kl_pval/p",perm_label,"_",dist_method,"_",fit_method,"_",F_method,"_pval_",ind_covariate_flag,"_",pre_tag,"_sim_",cluster_tag,"_",file_tag,".rds"))
+    saveRDS(dist_pval,paste0("../Data_PRJNA434002/8.Result/kl_pval/p",perm_label,perm_method,"_",dist_method,"_",fit_method,"_",F_method,"_pval_",ind_covariate_flag,"_",pre_tag,"_sim_",cluster_tag,"_",file_tag,".rds"))
     
   }
   if(is.na(ind_covariate_flag)){
-    saveRDS(dist_pval,paste0("../Data_PRJNA434002/8.Result/kl_pval/p",perm_label,"_",dist_method,"_",fit_method,"_",F_method,"_pval_",pre_tag,"_sim_",cluster_tag,"_",file_tag,".rds"))
+    saveRDS(dist_pval,paste0("../Data_PRJNA434002/8.Result/kl_pval/p",perm_label,perm_method,"_",dist_method,"_",fit_method,"_",F_method,"_pval_",pre_tag,"_sim_",cluster_tag,"_",file_tag,".rds"))
   }
   
   
@@ -198,10 +209,10 @@ for(perm_label in perm_label_seq){
   
   
   if(!is.na(ind_covariate_flag)){
-    saveRDS(dist_pval,paste0("../Data_PRJNA434002/8.Result/kl_pval/p",perm_label,"_",dist_method,"_",fit_method,"_",F_method,"_pval_",ind_covariate_flag,"_",pre_tag,"_sim_",cluster_tag,"_",file_tag,".rds"))
+    saveRDS(dist_pval,paste0("../Data_PRJNA434002/8.Result/kl_pval/p",perm_label,perm_method,"_",dist_method,"_",fit_method,"_",F_method,"_pval_",ind_covariate_flag,"_",pre_tag,"_sim_",cluster_tag,"_",file_tag,".rds"))
   }
   if(is.na(ind_covariate_flag)){
-    saveRDS(dist_pval,paste0("../Data_PRJNA434002/8.Result/kl_pval/p",perm_label,"_",dist_method,"_",fit_method,"_",F_method,"_pval_",pre_tag,"_sim_",cluster_tag,"_",file_tag,".rds"))
+    saveRDS(dist_pval,paste0("../Data_PRJNA434002/8.Result/kl_pval/p",perm_label,perm_method,"_",dist_method,"_",fit_method,"_",F_method,"_pval_",pre_tag,"_sim_",cluster_tag,"_",file_tag,".rds"))
   }
   
 }
