@@ -143,11 +143,11 @@ for(perm_label in perm_label_seq){
   
   
   if(!is.na(ind_covariate_flag)){
-    saveRDS(dist_pval,paste0("../Data_PRJNA434002/8.Result/kl_pval/p",perm_label,perm_method,"_",dist_method,"_",fit_method,"_",F_method,"_pval_",ind_covariate_flag,"_",pre_tag,"_sim_",cluster_tag,"_",file_tag,".rds"))
+    saveRDS(dist_pval,paste0("../Data_PRJNA434002/8.Result/"dist_method,"_",fit_method,"_pval/p",perm_label,perm_method,"_",dist_method,"_",fit_method,"_",F_method,"_pval_",ind_covariate_flag,"_",pre_tag,"_sim_",cluster_tag,"_",file_tag,".rds"))
     
   }
   if(is.na(ind_covariate_flag)){
-    saveRDS(dist_pval,paste0("../Data_PRJNA434002/8.Result/kl_pval/p",perm_label,perm_method,"_",dist_method,"_",fit_method,"_",F_method,"_pval_",pre_tag,"_sim_",cluster_tag,"_",file_tag,".rds"))
+    saveRDS(dist_pval,paste0("../Data_PRJNA434002/8.Result/"dist_method,"_",fit_method,"_pval/p",perm_label,perm_method,"_",dist_method,"_",fit_method,"_",F_method,"_pval_",pre_tag,"_sim_",cluster_tag,"_",file_tag,".rds"))
   }
   
   
@@ -209,10 +209,10 @@ for(perm_label in perm_label_seq){
   
   
   if(!is.na(ind_covariate_flag)){
-    saveRDS(dist_pval,paste0("../Data_PRJNA434002/8.Result/kl_pval/p",perm_label,perm_method,"_",dist_method,"_",fit_method,"_",F_method,"_pval_",ind_covariate_flag,"_",pre_tag,"_sim_",cluster_tag,"_",file_tag,".rds"))
+    saveRDS(dist_pval,paste0("../Data_PRJNA434002/8.Result/"dist_method,"_",fit_method,"_pval/p",perm_label,perm_method,"_",dist_method,"_",fit_method,"_",F_method,"_pval_",ind_covariate_flag,"_",pre_tag,"_sim_",cluster_tag,"_",file_tag,".rds"))
   }
   if(is.na(ind_covariate_flag)){
-    saveRDS(dist_pval,paste0("../Data_PRJNA434002/8.Result/kl_pval/p",perm_label,perm_method,"_",dist_method,"_",fit_method,"_",F_method,"_pval_",pre_tag,"_sim_",cluster_tag,"_",file_tag,".rds"))
+    saveRDS(dist_pval,paste0("../Data_PRJNA434002/8.Result/"dist_method,"_",fit_method,"_pval/p",perm_label,perm_method,"_",dist_method,"_",fit_method,"_",F_method,"_pval_",pre_tag,"_sim_",cluster_tag,"_",file_tag,".rds"))
   }
   
 }

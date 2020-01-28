@@ -68,10 +68,10 @@ if(!file.exists(paste0("../Data_PRJNA434002/10.Result/",dist_method,"_",fit_meth
       #logsum_count=log(apply(sim_matrix,2,sum))
       quantile99=log(apply(sim_matrix,2,function(x)return(quantile(x,0.99)+1)))
       covariate=as.matrix(quantile99)
-      pdf(paste0("../Data_PRJNA434002/10.Result/hist_sim_ind_raw_",covariate_flag,"_",r_mean,"_",r_var,"_",r_disp,"_",r_change_prop,"_",file_tag,"_",(2*n),"_",ncell,".pdf"),height = 4,width = 6)
+      pdf(paste0("../Data_PRJNA434002/10.Result/hist_sim_ind/hist_sim_ind_raw_",covariate_flag,"_",r_mean,"_",r_var,"_",r_disp,"_",r_change_prop,"_",file_tag,"_",(2*n),"_",ncell,".pdf"),height = 4,width = 6)
     }
     if(is.na(covariate_flag)){
-      pdf(paste0("../Data_PRJNA434002/10.Result/hist_sim_ind_raw_",r_mean,"_",r_var,"_",r_disp,"_",r_change_prop,"_",file_tag,"_",(2*n),"_",ncell,".pdf"),height = 4,width = 6)
+      pdf(paste0("../Data_PRJNA434002/10.Result/hist_sim_ind/hist_sim_ind_raw_",r_mean,"_",r_var,"_",r_disp,"_",r_change_prop,"_",file_tag,"_",(2*n),"_",ncell,".pdf"),height = 4,width = 6)
     }
     sim_fit=array(dim=c(nrow(sim_matrix),length(cur_individual),3),
                   dimnames = list(rownames(sim_matrix),cur_individual,c("logmean","dispersion","dropout_rate")))
@@ -257,7 +257,7 @@ for(perm_label in 1:10){
     }
     
     #dist_pval=apply(dist_array,1,function(x){tryCatch(return(cal_permanova_pval(x,phenotype)), error = function(e) {NA} )})
-    saveRDS(dist_pval,paste0("../Data_PRJNA434002/10.Result/p",perm_label,perm_method,"_",dist_method,"_",fit_method,"_raw_pval_",r_mean,"_",r_var,"_",r_disp,"_",r_change_prop,"_",file_tag,"_",(2*n),"_",ncell,".rds"))
+    saveRDS(dist_pval,paste0("../Data_PRJNA434002/10.Result/"dist_method,"_",fit_method,"_pval/p",perm_label,perm_method,"_",dist_method,"_",fit_method,"_raw_pval_",r_mean,"_",r_var,"_",r_disp,"_",r_change_prop,"_",file_tag,"_",(2*n),"_",ncell,".rds"))
     
     
     
