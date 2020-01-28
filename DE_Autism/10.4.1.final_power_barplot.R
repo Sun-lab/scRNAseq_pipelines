@@ -4,7 +4,7 @@
 setwd("/Volumes/SpecialPass/fh_data/Data_PRJNA434002/")
 #setwd("/fh/fast/sun_w/mengqi/1.Testing_scRNAseq/")
 
-perm_label=2
+perm_label=0
 perm_method=""
 param_tag=4 #c(1,2,3,4)
 
@@ -12,9 +12,8 @@ perm_label_seq=1:2
 param_tag_seq=1:4
 perm_method_seq=c("","b")
 for(perm_method in perm_method_seq){
-  for(param_tag in param_tag_seq){
-    for(perm_label in perm_label_seq){
-      
+  for(perm_label in perm_label_seq){
+    for(param_tag in param_tag_seq){ 
       file_tag_seq=1:4
       
       r_mean_seq=1.2 
@@ -129,10 +128,10 @@ for(perm_method in perm_method_seq){
                     if(perm_label==0){
                       tryCatch({jsd_zinb_pval=readRDS(paste0("../Data_PRJNA434002/10.Result/JSD_zinb_pval/JSD_zinb_raw_pval_",r_mean,"_",r_var,"_",r_disp,"_",r_mult,"_",file_tag,"_",n_ind,"_",n_cell,".rds"))}, error = function(e) {NA} )
                       tryCatch({jsd_empirical_pval=readRDS(paste0("../Data_PRJNA434002/10.Result/JSD_empirical_pval/JSD_empirical_raw_pval_",r_mean,"_",r_var,"_",r_disp,"_",r_mult,"_",file_tag,"_",n_ind,"_",n_cell,".rds"))}, error = function(e) {NA} )
-                      tryCatch({jsd_direct_pval=readRDS(paste0("../Data_PRJNA434002/10.Result/JSD_direct_pval/JSD_direct_raw_pval_",r_mean,"_",r_var,"_",r_disp,"_",r_mult,"_",file_tag,"_",n_ind,"_",n_cell,".rds"))}, error = function(e) {NA} )
+                      tryCatch({jsd_direct_pval=readRDS(paste0("../Data_PRJNA434002/10.Result/JSD_direct_pval/p",perm_label,perm_method,"_JSD_direct_raw_pval_",r_mean,"_",r_var,"_",r_disp,"_",r_mult,"_",file_tag,"_",n_ind,"_",n_cell,".rds"))}, error = function(e) {NA} )
                       tryCatch({klmean_zinb_pval=readRDS(paste0("../Data_PRJNA434002/10.Result/mean_zinb_pval/mean_zinb_raw_pval_",r_mean,"_",r_var,"_",r_disp,"_",r_mult,"_",file_tag,"_",n_ind,"_",n_cell,".rds"))}, error = function(e) {NA} )
                       tryCatch({klmean_empirical_pval=readRDS(paste0("../Data_PRJNA434002/10.Result/mean_empirical_pval/mean_empirical_raw_pval_",r_mean,"_",r_var,"_",r_disp,"_",r_mult,"_",file_tag,"_",n_ind,"_",n_cell,".rds"))}, error = function(e) {NA} )
-                      tryCatch({klmean_direct_pval=readRDS(paste0("../Data_PRJNA434002/10.Result/mean_direct_pval/mean_direct_raw_pval_",r_mean,"_",r_var,"_",r_disp,"_",r_mult,"_",file_tag,"_",n_ind,"_",n_cell,".rds"))}, error = function(e) {NA} )
+                      tryCatch({klmean_direct_pval=readRDS(paste0("../Data_PRJNA434002/10.Result/mean_direct_pval/p",perm_label,perm_method,"_mean_direct_raw_pval_",r_mean,"_",r_var,"_",r_disp,"_",r_mult,"_",file_tag,"_",n_ind,"_",n_cell,".rds"))}, error = function(e) {NA} )
                       tryCatch({deseq2_pval=readRDS(paste0("../Data_PRJNA434002/10.Result/DESeq2_pval/DESeq2_pval_",r_mean,"_",r_var,"_",r_disp,"_",r_mult,"_",file_tag,"_",n_ind,".rds"))}, error = function(e) {NA} )
                       
                       #note! please be sure to use 10.3.MAST_postArrangment.R when all permutation results are ready.

@@ -33,14 +33,14 @@ power_array=array(dim=c(
   length(pre_tag_seq),
   length(cluster_tag_seq),
   length(perm_label_seq),
-  6),
+  8),
   dimnames = list(
     file_tag_seq,
     F_method_seq,
     pre_tag_seq,
     cluster_tag_seq,
     c("Power","Type I error"),
-    c("DESeq","MAST","jsd_empirical","klmean_empirical","jsd_zinb","klmean_zinb")))
+    c("DESeq","MAST","jsd_empirical","klmean_empirical","jsd_zinb","klmean_zinb","jsd_direct","klmean_direct")))
 
 ks_array=power_array
 cor_nonexpres_ind_array=power_array
@@ -52,7 +52,7 @@ cor_overdisp_max_array=power_array
 cor_dropout_median_array=power_array
 cor_dropout_max_array=power_array
 count=1
-zeros=matrix(ncol=6,nrow=length(file_tag_seq)*length(F_method_seq)*length(pre_tag_seq)*length(cluster_tag_seq)*length(perm_label_seq))
+zeros=matrix(ncol=8,nrow=length(file_tag_seq)*length(F_method_seq)*length(pre_tag_seq)*length(cluster_tag_seq)*length(perm_label_seq))
 rownames_zeros=matrix(ncol=1,nrow=length(file_tag_seq)*length(F_method_seq)*length(pre_tag_seq)*length(cluster_tag_seq)*length(perm_label_seq))
 colnames(zeros)=c("deseq2_pval","MAST_pval","jsd_empirical_pval","klmean_empirical_pval","jsd_zinb_pval","klmean_zinb_pval")
 
@@ -66,13 +66,13 @@ for(i_file in 1:length(file_tag_seq)){
     length(pre_tag_seq),
     length(cluster_tag_seq),
     length(perm_label_seq),
-    6,pval_length),
+    8,pval_length),
     dimnames = list(
       F_method_seq,
       pre_tag_seq,
       cluster_tag_seq,
       c("Power","Type I error"),
-      c("DESeq","MAST","jsd_empirical","klmean_empirical","jsd_zinb","klmean_zinb"),1:pval_length))
+      c("DESeq","MAST","jsd_empirical","klmean_empirical","jsd_zinb","klmean_zinb","jsd_direct","klmean_direct"),1:pval_length))
   
   for(i_F in 1:length(F_method_seq)){
     for(i_pre in 1:length(pre_tag_seq)){
@@ -86,18 +86,22 @@ for(i_file in 1:length(file_tag_seq)){
           
           jsd_zinb_pval=NA
           jsd_empirical_pval=NA
+          jsd_direct_pval=NA
           klmean_zinb_pval=NA
           klmean_empirical_pval=NA
+          klmean_direct_pval=NA
           deseq2_pval=NA
           MAST_pval=NA
           
-          jsd_zinb_pval=tryCatch({readRDS(paste0("../Data_PRJNA434002/8.Result/kl_pval/p",perm_label,"_jsd_nbzinb_",F_method,"_pval_ind_",pre_tag,"_sim_",cluster_tag,"_",file_tag,".rds"))}, error = function(e) {NA} )
-          jsd_empirical_pval=tryCatch({readRDS(paste0("../Data_PRJNA434002/8.Result/kl_pval/p",perm_label,"_jsd_empirical_",F_method,"_pval_ind_",pre_tag,"_sim_",cluster_tag,"_",file_tag,".rds"))}, error = function(e) {NA} )
-          klmean_zinb_pval=tryCatch({readRDS(paste0("../Data_PRJNA434002/8.Result/kl_pval/p",perm_label,"_klmean_nbzinb_",F_method,"_pval_ind_",pre_tag,"_sim_",cluster_tag,"_",file_tag,".rds"))}, error = function(e) {NA} )
-          klmean_empirical_pval=tryCatch({readRDS(paste0("../Data_PRJNA434002/8.Result/kl_pval/p",perm_label,"_klmean_empirical_",F_method,"_pval_ind_",pre_tag,"_sim_",cluster_tag,"_",file_tag,".rds"))}, error = function(e) {NA} )
-          deseq2_pval=tryCatch({readRDS(paste0("../Data_PRJNA434002/8.Result/DESeq2_pval/p",perm_label,"_DESeq2_ob_pval_",pre_tag,"_sim_",cluster_tag,"_",file_tag,".rds"))}, error = function(e) {NA} )
+          jsd_zinb_pval=tryCatch({readRDS(paste0("../Data_PRJNA434002/8.Result/jsd_nbzinb_pval/p",perm_label,"_jsd_nbzinb_",F_method,"_pval_ind_",pre_tag,"_sim_",cluster_tag,"_",file_tag,".rds"))}, error = function(e) {NA} )
+          jsd_empirical_pval=tryCatch({readRDS(paste0("../Data_PRJNA434002/8.Result/jsd_empirical_pval/p",perm_label,"_jsd_empirical_",F_method,"_pval_ind_",pre_tag,"_sim_",cluster_tag,"_",file_tag,".rds"))}, error = function(e) {NA} )
+          jsd_direct_pval=tryCatch({readRDS(paste0("../Data_PRJNA434002/8.Result/jsd_direct_pval/p",perm_label,"_jsd_direct_",F_method,"_pval_ind_",pre_tag,"_sim_",cluster_tag,"_",file_tag,".rds"))}, error = function(e) {NA} )
+          klmean_direct_pval=tryCatch({readRDS(paste0("../Data_PRJNA434002/8.Result/klmean_direct_pval/p",perm_label,"_klmean_direct_",F_method,"_pval_ind_",pre_tag,"_sim_",cluster_tag,"_",file_tag,".rds"))}, error = function(e) {NA} )
+          klmean_zinb_pval=tryCatch({readRDS(paste0("../Data_PRJNA434002/8.Result/klmean_nbzinb_pval/p",perm_label,"_klmean_nbzinb_",F_method,"_pval_ind_",pre_tag,"_sim_",cluster_tag,"_",file_tag,".rds"))}, error = function(e) {NA} )
+          klmean_empirical_pval=tryCatch({readRDS(paste0("../Data_PRJNA434002/8.Result/klmean_empirical_pval/p",perm_label,"_klmean_empirical_",F_method,"_pval_ind_",pre_tag,"_sim_",cluster_tag,"_",file_tag,".rds"))}, error = function(e) {NA} )
+          deseq2_pval=tryCatch({readRDS(paste0("../Data_PRJNA434002/8.Result/DESeq2_pval/p",perm_label,"_DESeq2_ob_pval_",cluster_tag,"_",file_tag,".rds"))}, error = function(e) {NA} )
 
-          MAST_pval=tryCatch({readRDS(paste0("../Data_PRJNA434002/8.Result/MAST_pval/p",perm_label,"_MAST_pval1_",pre_tag,"_sim_",cluster_tag,"_",file_tag,".rds"))}, error = function(e) {NA} )
+          MAST_pval=tryCatch({readRDS(paste0("../Data_PRJNA434002/8.Result/MAST_pval/p",perm_label,"_MAST_pval1_rawcount_",cluster_tag,"_",file_tag,".rds"))}, error = function(e) {NA} )
           
           pval_list[[file_tag]][i_F,i_pre,i_cluster,i_perm_label,1,]=deseq2_pval
           pval_list[[file_tag]][i_F,i_pre,i_cluster,i_perm_label,2,]=MAST_pval
@@ -105,28 +109,32 @@ for(i_file in 1:length(file_tag_seq)){
           pval_list[[file_tag]][i_F,i_pre,i_cluster,i_perm_label,4,]=klmean_empirical_pval
           pval_list[[file_tag]][i_F,i_pre,i_cluster,i_perm_label,5,]=jsd_zinb_pval
           pval_list[[file_tag]][i_F,i_pre,i_cluster,i_perm_label,6,]=klmean_zinb_pval
+          pval_list[[file_tag]][i_F,i_pre,i_cluster,i_perm_label,7,]=jsd_direct_pval
+          pval_list[[file_tag]][i_F,i_pre,i_cluster,i_perm_label,8,]=klmean_direct_pval
           
-          zeros[count,]=c(sum(is.na(deseq2_pval)),sum(is.na(MAST_pval)), sum(is.na(jsd_empirical_pval)),sum(is.na(klmean_empirical_pval)),sum(is.na(jsd_zinb_pval)),sum(is.na(klmean_zinb_pval)))
+          zeros[count,]=c(sum(is.na(deseq2_pval)),sum(is.na(MAST_pval)), sum(is.na(jsd_empirical_pval)),sum(is.na(klmean_empirical_pval)),sum(is.na(jsd_zinb_pval)),sum(is.na(klmean_zinb_pval)),sum(is.na(jsd_direct_pval)),sum(is.na(klmean_direct_pval)))
           rownames_zeros[count]=paste0(perm_label,"_",F_method,"_",pre_tag,"_",cluster_tag,"_",file_tag)
           count=count+1  
           
           #histogram
-          png(paste0("../Data_PRJNA434002/8.Result/fig_final_power/final_power_p",perm_label,"_",F_method,"_",pre_tag,"_",cluster_tag,"_",file_tag,".png"),height = 1200,width = 800)
-          op=par(mfrow = c(3, 2), pty = "s")
+          png(paste0("../Data_PRJNA434002/8.Result/fig_final_power/final_power_p",perm_label,"_",F_method,"_",pre_tag,"_",cluster_tag,"_",file_tag,".png"),height = 1600,width = 800)
+          op=par(mfrow = c(4, 2), pty = "s")
           tryCatch({hist(deseq2_pval,main="pval of deseq2 method",xlab="p-values",breaks = 20)}, error = function(e) {NA} )
           tryCatch({hist(MAST_pval,main="pval of MAST method",xlab="p-values",breaks = 20)}, error = function(e) {NA} )
           tryCatch({hist(jsd_empirical_pval,main="pval of jsd_empirical method",xlab="p-values",breaks = 20)}, error = function(e) {NA} )
           tryCatch({hist(klmean_empirical_pval,main="pval of klmean_empirical method",xlab="p-values",breaks = 20)}, error = function(e) {NA} )
           tryCatch({hist(jsd_zinb_pval,main="pval of jsd_zinb method",xlab="p-values",breaks = 20)}, error = function(e) {NA} )
           tryCatch({hist(klmean_zinb_pval,main="pval of klmean_zinb method",xlab="p-values",breaks = 20)}, error = function(e) {NA} )
+          tryCatch({hist(jsd_direct_pval,main="pval of jsd_direct method",xlab="p-values",breaks = 20)}, error = function(e) {NA} )
+          tryCatch({hist(klmean_direct_pval,main="pval of klmean_direct method",xlab="p-values",breaks = 20)}, error = function(e) {NA} )
           
           par(op)
           
           dev.off()
           
           #record power
-          power_matrix=matrix(nrow=6,ncol=1)
-          names(power_matrix)=c("DESeq","MAST","jsd_empirical","klmean_empirical","jsd_zinb","klmean_zinb")
+          power_matrix=matrix(nrow=8,ncol=1)
+          names(power_matrix)=c("DESeq","MAST","jsd_empirical","klmean_empirical","jsd_zinb","klmean_zinb","jsd_direct","klmean_direct")
           colnames(power_matrix)="pval"
           power_matrix[1]=tryCatch({cal_power(deseq2_pval,threshold = 0.05)}, error = function(e) {NA} )
           power_matrix[2]=tryCatch({cal_power(MAST_pval,threshold = 0.05)}, error = function(e) {NA} )
@@ -134,11 +142,13 @@ for(i_file in 1:length(file_tag_seq)){
           power_matrix[4]=tryCatch({cal_power(klmean_empirical_pval,threshold = 0.05)}, error = function(e) {NA} )
           power_matrix[5]=tryCatch({cal_power(jsd_zinb_pval,threshold = 0.05)}, error = function(e) {NA} )
           power_matrix[6]=tryCatch({cal_power(klmean_zinb_pval,threshold = 0.05)}, error = function(e) {NA} )
+          power_matrix[7]=tryCatch({cal_power(jsd_direct_pval,threshold = 0.05)}, error = function(e) {NA} )
+          power_matrix[8]=tryCatch({cal_power(klmean_direct_pval,threshold = 0.05)}, error = function(e) {NA} )
           power_array[i_file,i_F,i_pre,i_cluster,i_perm_label,]=power_matrix
           
           #record ks test result
-          ks_matrix=matrix(nrow=6,ncol=1)
-          names(ks_matrix)=c("DESeq","MAST","jsd_empirical","klmean_empirical","jsd_zinb","klmean_zinb")
+          ks_matrix=matrix(nrow=8,ncol=1)
+          names(ks_matrix)=c("DESeq","MAST","jsd_empirical","klmean_empirical","jsd_zinb","klmean_zinb","jsd_direct","klmean_direct")
           colnames(ks_matrix)="pval"
           ks_matrix[1]=tryCatch({cal_ks(deseq2_pval,method = "less")}, error = function(e) {NA} )
           ks_matrix[2]=tryCatch({cal_ks(MAST_pval,method = "less")}, error = function(e) {NA} )
@@ -146,6 +156,8 @@ for(i_file in 1:length(file_tag_seq)){
           ks_matrix[4]=tryCatch({cal_ks(klmean_empirical_pval,method = "less")}, error = function(e) {NA} )
           ks_matrix[5]=tryCatch({cal_ks(jsd_zinb_pval,method = "less")}, error = function(e) {NA} )
           ks_matrix[6]=tryCatch({cal_ks(klmean_zinb_pval,method = "less")}, error = function(e) {NA} )
+          ks_matrix[7]=tryCatch({cal_ks(jsd_direct_pval,method = "less")}, error = function(e) {NA} )
+          ks_matrix[8]=tryCatch({cal_ks(klmean_direct_pval,method = "less")}, error = function(e) {NA} )
           ks_array[i_file,i_F,i_pre,i_cluster,i_perm_label,]=ks_matrix
           
           
@@ -170,9 +182,11 @@ for(i_file in 1:length(file_tag_seq)){
           log_klmean_empirical_pval=tryCatch({-log10(klmean_empirical_pval+min(klmean_empirical_pval[klmean_empirical_pval>0],na.rm = TRUE))}, error = function(e) {NA} )
           log_jsd_zinb_pval=tryCatch({-log10(jsd_zinb_pval+min(jsd_zinb_pval[jsd_zinb_pval>0],na.rm = TRUE))}, error = function(e) {NA} )
           log_klmean_zinb_pval=tryCatch({-log10(klmean_zinb_pval+min(klmean_zinb_pval[klmean_zinb_pval>0],na.rm = TRUE))}, error = function(e) {NA} )
+          log_jsd_direct_pval=tryCatch({-log10(jsd_direct_pval+min(jsd_direct_pval[jsd_direct_pval>0],na.rm = TRUE))}, error = function(e) {NA} )
+          log_klmean_direct_pval=tryCatch({-log10(klmean_direct_pval+min(klmean_direct_pval[klmean_direct_pval>0],na.rm = TRUE))}, error = function(e) {NA} )
           
-          cor_matrix=matrix(nrow=6,ncol=1)
-          names(cor_matrix)=c("DESeq","MAST","jsd_empirical","klmean_empirical","jsd_zinb","klmean_zinb")
+          cor_matrix=matrix(nrow=8,ncol=1)
+          names(cor_matrix)=c("DESeq","MAST","jsd_empirical","klmean_empirical","jsd_zinb","klmean_zinb","jsd_direct","klmean_direct")
           colnames(cor_matrix)="cor"
           cor_matrix[1]=tryCatch({cor(zerorate_ind_mean,log_deseq2_pval)}, error = function(e) {NA} )
           cor_matrix[2]=tryCatch({cor(zerorate_ind_mean,log_MAST_pval)}, error = function(e) {NA} )
@@ -180,10 +194,12 @@ for(i_file in 1:length(file_tag_seq)){
           cor_matrix[4]=tryCatch({cor(zerorate_ind_mean,log_klmean_empirical_pval)}, error = function(e) {NA} )
           cor_matrix[5]=tryCatch({cor(zerorate_ind_mean,log_jsd_zinb_pval)}, error = function(e) {NA} )
           cor_matrix[6]=tryCatch({cor(zerorate_ind_mean,log_klmean_zinb_pval)}, error = function(e) {NA} )
+          cor_matrix[7]=tryCatch({cor(zerorate_ind_mean,log_jsd_direct_pval)}, error = function(e) {NA} )
+          cor_matrix[8]=tryCatch({cor(zerorate_ind_mean,log_klmean_direct_pval)}, error = function(e) {NA} )
           cor_zerorate_ind_mean_array[i_file,i_F,i_pre,i_cluster,i_perm_label,]=cor_matrix
           
-          cor_matrix=matrix(nrow=6,ncol=1)
-          names(cor_matrix)=c("DESeq","MAST","jsd_empirical","klmean_empirical","jsd_zinb","klmean_zinb")
+          cor_matrix=matrix(nrow=8,ncol=1)
+          names(cor_matrix)=c("DESeq","MAST","jsd_empirical","klmean_empirical","jsd_zinb","klmean_zinb","jsd_direct","klmean_direct")
           colnames(cor_matrix)="cor"
           cor_matrix[1]=tryCatch({cor(nonexpres_ind,log_deseq2_pval)}, error = function(e) {NA} )
           cor_matrix[2]=tryCatch({cor(nonexpres_ind,log_MAST_pval)}, error = function(e) {NA} )
@@ -191,10 +207,12 @@ for(i_file in 1:length(file_tag_seq)){
           cor_matrix[4]=tryCatch({cor(nonexpres_ind,log_klmean_empirical_pval)}, error = function(e) {NA} )
           cor_matrix[5]=tryCatch({cor(nonexpres_ind,log_jsd_zinb_pval)}, error = function(e) {NA} )
           cor_matrix[6]=tryCatch({cor(nonexpres_ind,log_klmean_zinb_pval)}, error = function(e) {NA} )
+          cor_matrix[7]=tryCatch({cor(nonexpres_ind,log_jsd_direct_pval)}, error = function(e) {NA} )
+          cor_matrix[8]=tryCatch({cor(nonexpres_ind,log_klmean_direct_pval)}, error = function(e) {NA} )
           cor_nonexpres_ind_array[i_file,i_F,i_pre,i_cluster,i_perm_label,]=cor_matrix
           
-          cor_matrix=matrix(nrow=6,ncol=1)
-          names(cor_matrix)=c("DESeq","MAST","jsd_empirical","klmean_empirical","jsd_zinb","klmean_zinb")
+          cor_matrix=matrix(nrow=8,ncol=1)
+          names(cor_matrix)=c("DESeq","MAST","jsd_empirical","klmean_empirical","jsd_zinb","klmean_zinb","jsd_direct","klmean_direct")
           colnames(cor_matrix)="cor"
           cor_matrix[1]=tryCatch({cor(zero_rate,log_deseq2_pval)}, error = function(e) {NA} )
           cor_matrix[2]=tryCatch({cor(zero_rate,log_MAST_pval)}, error = function(e) {NA} )
@@ -202,10 +220,12 @@ for(i_file in 1:length(file_tag_seq)){
           cor_matrix[4]=tryCatch({cor(zero_rate,log_klmean_empirical_pval)}, error = function(e) {NA} )
           cor_matrix[5]=tryCatch({cor(zero_rate,log_jsd_zinb_pval)}, error = function(e) {NA} )
           cor_matrix[6]=tryCatch({cor(zero_rate,log_klmean_zinb_pval)}, error = function(e) {NA} )
-          cor_zerorate_array[i_file,i_F,i_pre,i_cluster,i_perm_label,]=cor_matrix
+          cor_matrix[7]=tryCatch({cor(zero_rate,log_jsd_direct_pval)}, error = function(e) {NA} )
+          cor_matrix[8]=tryCatch({cor(zero_rate,log_klmean_direct_pval)}, error = function(e) {NA} )
+          cor_zero_rate_array[i_file,i_F,i_pre,i_cluster,i_perm_label,]=cor_matrix
           
-          cor_matrix=matrix(nrow=6,ncol=1)
-          names(cor_matrix)=c("DESeq","MAST","jsd_empirical","klmean_empirical","jsd_zinb","klmean_zinb")
+          cor_matrix=matrix(nrow=8,ncol=1)
+          names(cor_matrix)=c("DESeq","MAST","jsd_empirical","klmean_empirical","jsd_zinb","klmean_zinb","jsd_direct","klmean_direct")
           colnames(cor_matrix)="cor"
           cor_matrix[1]=tryCatch({cor(expression_level,log_deseq2_pval)}, error = function(e) {NA} )
           cor_matrix[2]=tryCatch({cor(expression_level,log_MAST_pval)}, error = function(e) {NA} )
@@ -213,55 +233,66 @@ for(i_file in 1:length(file_tag_seq)){
           cor_matrix[4]=tryCatch({cor(expression_level,log_klmean_empirical_pval)}, error = function(e) {NA} )
           cor_matrix[5]=tryCatch({cor(expression_level,log_jsd_zinb_pval)}, error = function(e) {NA} )
           cor_matrix[6]=tryCatch({cor(expression_level,log_klmean_zinb_pval)}, error = function(e) {NA} )
-          cor_expression_array[i_file,i_F,i_pre,i_cluster,i_perm_label,]=cor_matrix
+          cor_matrix[7]=tryCatch({cor(expression_level,log_jsd_direct_pval)}, error = function(e) {NA} )
+          cor_matrix[8]=tryCatch({cor(expression_level,log_klmean_direct_pval)}, error = function(e) {NA} )
+          cor_expression_level_array[i_file,i_F,i_pre,i_cluster,i_perm_label,]=cor_matrix
           
-          cor_matrix=matrix(nrow=6,ncol=1)
-          names(cor_matrix)=c("DESeq","MAST","jsd_empirical","klmean_empirical","jsd_zinb","klmean_zinb")
+          cor_matrix=matrix(nrow=8,ncol=1)
+          names(cor_matrix)=c("DESeq","MAST","jsd_empirical","klmean_empirical","jsd_zinb","klmean_zinb","jsd_direct","klmean_direct")
           colnames(cor_matrix)="cor"
-          cor_matrix[1]=tryCatch({cor(overdisp_max,log_deseq2_pval,use="complete.obs")}, error = function(e) {NA} )
-          cor_matrix[2]=tryCatch({cor(overdisp_max,log_MAST_pval,use="complete.obs")}, error = function(e) {NA} )
-          cor_matrix[3]=tryCatch({cor(overdisp_max,log_jsd_empirical_pval,use="complete.obs")}, error = function(e) {NA} )
-          cor_matrix[4]=tryCatch({cor(overdisp_max,log_klmean_empirical_pval,use="complete.obs")}, error = function(e) {NA} )
-          cor_matrix[5]=tryCatch({cor(overdisp_max,log_jsd_zinb_pval,use="complete.obs")}, error = function(e) {NA} )
-          cor_matrix[6]=tryCatch({cor(overdisp_max,log_klmean_zinb_pval,use="complete.obs")}, error = function(e) {NA} )
+          cor_matrix[1]=tryCatch({cor(overdisp_max,log_deseq2_pval)}, error = function(e) {NA} )
+          cor_matrix[2]=tryCatch({cor(overdisp_max,log_MAST_pval)}, error = function(e) {NA} )
+          cor_matrix[3]=tryCatch({cor(overdisp_max,log_jsd_empirical_pval)}, error = function(e) {NA} )
+          cor_matrix[4]=tryCatch({cor(overdisp_max,log_klmean_empirical_pval)}, error = function(e) {NA} )
+          cor_matrix[5]=tryCatch({cor(overdisp_max,log_jsd_zinb_pval)}, error = function(e) {NA} )
+          cor_matrix[6]=tryCatch({cor(overdisp_max,log_klmean_zinb_pval)}, error = function(e) {NA} )
+          cor_matrix[7]=tryCatch({cor(overdisp_max,log_jsd_direct_pval)}, error = function(e) {NA} )
+          cor_matrix[8]=tryCatch({cor(overdisp_max,log_klmean_direct_pval)}, error = function(e) {NA} )
           cor_overdisp_max_array[i_file,i_F,i_pre,i_cluster,i_perm_label,]=cor_matrix
           
-          cor_matrix=matrix(nrow=6,ncol=1)
-          names(cor_matrix)=c("DESeq","MAST","jsd_empirical","klmean_empirical","jsd_zinb","klmean_zinb")
+          cor_matrix=matrix(nrow=8,ncol=1)
+          names(cor_matrix)=c("DESeq","MAST","jsd_empirical","klmean_empirical","jsd_zinb","klmean_zinb","jsd_direct","klmean_direct")
           colnames(cor_matrix)="cor"
-          cor_matrix[1]=tryCatch({cor(overdisp_median,log_deseq2_pval,use="complete.obs")}, error = function(e) {NA} )
-          cor_matrix[2]=tryCatch({cor(overdisp_median,log_MAST_pval,use="complete.obs")}, error = function(e) {NA} )
-          cor_matrix[3]=tryCatch({cor(overdisp_median,log_jsd_empirical_pval,use="complete.obs")}, error = function(e) {NA} )
-          cor_matrix[4]=tryCatch({cor(overdisp_median,log_klmean_empirical_pval,use="complete.obs")}, error = function(e) {NA} )
-          cor_matrix[5]=tryCatch({cor(overdisp_median,log_jsd_zinb_pval,use="complete.obs")}, error = function(e) {NA} )
-          cor_matrix[6]=tryCatch({cor(overdisp_median,log_klmean_zinb_pval,use="complete.obs")}, error = function(e) {NA} )
+          cor_matrix[1]=tryCatch({cor(overdisp_median,log_deseq2_pval)}, error = function(e) {NA} )
+          cor_matrix[2]=tryCatch({cor(overdisp_median,log_MAST_pval)}, error = function(e) {NA} )
+          cor_matrix[3]=tryCatch({cor(overdisp_median,log_jsd_empirical_pval)}, error = function(e) {NA} )
+          cor_matrix[4]=tryCatch({cor(overdisp_median,log_klmean_empirical_pval)}, error = function(e) {NA} )
+          cor_matrix[5]=tryCatch({cor(overdisp_median,log_jsd_zinb_pval)}, error = function(e) {NA} )
+          cor_matrix[6]=tryCatch({cor(overdisp_median,log_klmean_zinb_pval)}, error = function(e) {NA} )
+          cor_matrix[7]=tryCatch({cor(overdisp_median,log_jsd_direct_pval)}, error = function(e) {NA} )
+          cor_matrix[8]=tryCatch({cor(overdisp_median,log_klmean_direct_pval)}, error = function(e) {NA} )
           cor_overdisp_median_array[i_file,i_F,i_pre,i_cluster,i_perm_label,]=cor_matrix
           
-          cor_matrix=matrix(nrow=6,ncol=1)
-          names(cor_matrix)=c("DESeq","MAST","jsd_empirical","klmean_empirical","jsd_zinb","klmean_zinb")
+          cor_matrix=matrix(nrow=8,ncol=1)
+          names(cor_matrix)=c("DESeq","MAST","jsd_empirical","klmean_empirical","jsd_zinb","klmean_zinb","jsd_direct","klmean_direct")
           colnames(cor_matrix)="cor"
-          cor_matrix[1]=tryCatch({cor(dropout_max,log_deseq2_pval,use="complete.obs")}, error = function(e) {NA} )
-          cor_matrix[2]=tryCatch({cor(dropout_max,log_MAST_pval,use="complete.obs")}, error = function(e) {NA} )
-          cor_matrix[3]=tryCatch({cor(dropout_max,log_jsd_empirical_pval,use="complete.obs")}, error = function(e) {NA} )
-          cor_matrix[4]=tryCatch({cor(dropout_max,log_klmean_empirical_pval,use="complete.obs")}, error = function(e) {NA} )
-          cor_matrix[5]=tryCatch({cor(dropout_max,log_jsd_zinb_pval,use="complete.obs")}, error = function(e) {NA} )
-          cor_matrix[6]=tryCatch({cor(dropout_max,log_klmean_zinb_pval,use="complete.obs")}, error = function(e) {NA} )
+          cor_matrix[1]=tryCatch({cor(dropout_max,log_deseq2_pval)}, error = function(e) {NA} )
+          cor_matrix[2]=tryCatch({cor(dropout_max,log_MAST_pval)}, error = function(e) {NA} )
+          cor_matrix[3]=tryCatch({cor(dropout_max,log_jsd_empirical_pval)}, error = function(e) {NA} )
+          cor_matrix[4]=tryCatch({cor(dropout_max,log_klmean_empirical_pval)}, error = function(e) {NA} )
+          cor_matrix[5]=tryCatch({cor(dropout_max,log_jsd_zinb_pval)}, error = function(e) {NA} )
+          cor_matrix[6]=tryCatch({cor(dropout_max,log_klmean_zinb_pval)}, error = function(e) {NA} )
+          cor_matrix[7]=tryCatch({cor(dropout_max,log_jsd_direct_pval)}, error = function(e) {NA} )
+          cor_matrix[8]=tryCatch({cor(dropout_max,log_klmean_direct_pval)}, error = function(e) {NA} )
           cor_dropout_max_array[i_file,i_F,i_pre,i_cluster,i_perm_label,]=cor_matrix
           
-          cor_matrix=matrix(nrow=6,ncol=1)
-          names(cor_matrix)=c("DESeq","MAST","jsd_empirical","klmean_empirical","jsd_zinb","klmean_zinb")
+          cor_matrix=matrix(nrow=8,ncol=1)
+          names(cor_matrix)=c("DESeq","MAST","jsd_empirical","klmean_empirical","jsd_zinb","klmean_zinb","jsd_direct","klmean_direct")
           colnames(cor_matrix)="cor"
-          cor_matrix[1]=tryCatch({cor(dropout_median,log_deseq2_pval,use="complete.obs")}, error = function(e) {NA} )
-          cor_matrix[2]=tryCatch({cor(dropout_median,log_MAST_pval,use="complete.obs")}, error = function(e) {NA} )
-          cor_matrix[3]=tryCatch({cor(dropout_median,log_jsd_empirical_pval,use="complete.obs")}, error = function(e) {NA} )
-          cor_matrix[4]=tryCatch({cor(dropout_median,log_klmean_empirical_pval,use="complete.obs")}, error = function(e) {NA} )
-          cor_matrix[5]=tryCatch({cor(dropout_median,log_jsd_zinb_pval,use="complete.obs")}, error = function(e) {NA} )
-          cor_matrix[6]=tryCatch({cor(dropout_median,log_klmean_zinb_pval,use="complete.obs")}, error = function(e) {NA} )
+          cor_matrix[1]=tryCatch({cor(dropout_median,log_deseq2_pval)}, error = function(e) {NA} )
+          cor_matrix[2]=tryCatch({cor(dropout_median,log_MAST_pval)}, error = function(e) {NA} )
+          cor_matrix[3]=tryCatch({cor(dropout_median,log_jsd_empirical_pval)}, error = function(e) {NA} )
+          cor_matrix[4]=tryCatch({cor(dropout_median,log_klmean_empirical_pval)}, error = function(e) {NA} )
+          cor_matrix[5]=tryCatch({cor(dropout_median,log_jsd_zinb_pval)}, error = function(e) {NA} )
+          cor_matrix[6]=tryCatch({cor(dropout_median,log_klmean_zinb_pval)}, error = function(e) {NA} )
+          cor_matrix[7]=tryCatch({cor(dropout_median,log_jsd_direct_pval)}, error = function(e) {NA} )
+          cor_matrix[8]=tryCatch({cor(dropout_median,log_klmean_direct_pval)}, error = function(e) {NA} )
           cor_dropout_median_array[i_file,i_F,i_pre,i_cluster,i_perm_label,]=cor_matrix
+          
         }
         #barplot
         png(paste0("../Data_PRJNA434002/8.Result/fig_barplot/barplot_p",perm_label,"_",F_method,"_",pre_tag,"_",cluster_tag,"_",file_tag,".png"),height = 1200,width = 800)
-        op=par(mfrow = c(3, 2), pty = "s")
+        op=par(mfrow = c(4, 2), pty = "s")
         barplot(power_array[i_file,i_F,i_pre,i_cluster,,1],ylab="power",main=names(power_matrix)[1],ylim=c(0,1))
         abline(h = 0.05, col = "red") 
         barplot(power_array[i_file,i_F,i_pre,i_cluster,,2],ylab="power",main=names(power_matrix)[2],ylim=c(0,1))
@@ -273,6 +304,10 @@ for(i_file in 1:length(file_tag_seq)){
         barplot(power_array[i_file,i_F,i_pre,i_cluster,,5],ylab="power",main=names(power_matrix)[5],ylim=c(0,1))
         abline(h = 0.05, col = "red") 
         barplot(power_array[i_file,i_F,i_pre,i_cluster,,6],ylab="power",main=names(power_matrix)[6],ylim=c(0,1))
+        abline(h = 0.05, col = "red") 
+        barplot(power_array[i_file,i_F,i_pre,i_cluster,,7],ylab="power",main=names(power_matrix)[7],ylim=c(0,1))
+        abline(h = 0.05, col = "red") 
+        barplot(power_array[i_file,i_F,i_pre,i_cluster,,8],ylab="power",main=names(power_matrix)[8],ylim=c(0,1))
         abline(h = 0.05, col = "red") 
         par(op)
         dev.off()
@@ -286,8 +321,10 @@ for(i_file in 1:length(file_tag_seq)){
         points(power_array[i_file,i_F,i_pre,i_cluster,2,4],power_array[i_file,i_F,i_pre,i_cluster,1,4],col="brown",pch=3,cex=3)
         points(power_array[i_file,i_F,i_pre,i_cluster,2,5],power_array[i_file,i_F,i_pre,i_cluster,1,5],col="orange",pch=3,cex=3)
         points(power_array[i_file,i_F,i_pre,i_cluster,2,6],power_array[i_file,i_F,i_pre,i_cluster,1,6],col="green",pch=3,cex=3)
+        points(power_array[i_file,i_F,i_pre,i_cluster,2,7],power_array[i_file,i_F,i_pre,i_cluster,1,7],col="navy",pch=3,cex=3)
+        points(power_array[i_file,i_F,i_pre,i_cluster,2,8],power_array[i_file,i_F,i_pre,i_cluster,1,8],col="purple",pch=3,cex=3)
         
-        legend("topright",c(names(power_matrix)),pch=rep(3,6),cex=1.5,col=c("red","blue","pink","brown","orange","green"))
+        legend("topright",c(names(power_matrix)),pch=rep(3,8),cex=1.5,col=c("red","blue","pink","brown","orange","green","navy","purple"))
           
         dev.off()
         
@@ -315,7 +352,7 @@ saveRDS(zeros,paste0("../Data_PRJNA434002/10.Result/power_array_NAs_p",perm_labe
 
 ###############Power array analysis###################
 #######one-time plotting functions############
-scatter_cell_num_1v6=function(a,...){
+scatter_cell_num_1v8=function(a,...){
   plot(cell_num,a[,1],type="p",pch=3,cex=1.1, col="red",xlab="cell number of each cell type",cex.lab=1.5, cex.axis=1.5, cex.main=1.5, cex.sub=1.5,...)
   abline(h = -log10(0.05), col = "red") 
   points(cell_num,a[,2],pch=4,cex=1.1, col="blue")
@@ -323,14 +360,16 @@ scatter_cell_num_1v6=function(a,...){
   points(cell_num,a[,4],pch=6,cex=1.1, col="brown")
   points(cell_num,a[,5],pch=7,cex=1.1, col="orange")
   points(cell_num,a[,6],pch=8,cex=1.1, col="green")
-  legend("topright",c(colnames(a)),pch=3:8,cex=1.5,col=c("red","blue","pink","brown","orange","green"))
+  points(cell_num,a[,7],pch=9,cex=1.1, col="navy")
+  points(cell_num,a[,8],pch=10,cex=1.1, col="purple")
+  legend("topright",c(colnames(a)),pch=3:10,cex=1.5,col=c("red","blue","pink","brown","orange","green","navy","purple"))
 }
 #usage
 #a=-log10(ks_array[i_file,i_F,i_pre,,2,]+min(ks_array[ks_array>0],na.rm = TRUE))
 #scatter_cell_num_1v6(a,main="-log10 pvalues from KS test, observed data",ylab="-log10 ks pval",ylim=c(0,max_ab))
 
 
-scatter_6v6=function(b,a,...){
+scatter_8v8=function(b,a,...){
   plot(b[,1],a[,1],type="p",pch=3,cex=1.1, col="red",cex.lab=1.5, cex.axis=1.5, cex.main=1.5, cex.sub=1.5,...)
   abline(v = 0.05, col = "red") 
   points(b[,2],a[,2],pch=4,cex=1.1, col="blue")
@@ -338,7 +377,9 @@ scatter_6v6=function(b,a,...){
   points(b[,4],a[,4],pch=6,cex=1.1, col="brown")
   points(b[,5],a[,5],pch=7,cex=1.1, col="orange")
   points(b[,6],a[,6],pch=8,cex=1.1, col="green")
-  legend("topright",c(colnames(b)),pch=3:8,cex=1.5,col=c("red","blue","pink","brown","orange","green"))
+  points(b[,7],a[,7],pch=9,cex=1.1, col="navy")
+  points(b[,8],a[,8],pch=10,cex=1.1, col="purple")
+  legend("topright",c(colnames(b)),pch=3:10,cex=1.5,col=c("red","blue","pink","brown","orange","green","navy","purple"))
 }
 #usage
 #a=power_array[i_file,i_F,i_pre,,1,]
@@ -397,10 +438,10 @@ for(i_file in 1:length(file_tag_seq)){
       a=power_array[i_file,i_F,i_pre,,1,]
       b=power_array[i_file,i_F,i_pre,,2,]
       
-      scatter_cell_num_1v6(a,main="proportion of pval<0.05,observed data",ylab="Power",ylim=c(0,1))
-      scatter_cell_num_1v6(b,main="proportion of pval<0.05,permutated data",ylab="Power",ylim=c(0,1))
+      scatter_cell_num_1v8(a,main="proportion of pval<0.05,observed data",ylab="Power",ylim=c(0,1))
+      scatter_cell_num_1v8(b,main="proportion of pval<0.05,permutated data",ylab="Power",ylim=c(0,1))
       
-      scatter_6v6(b,a,ylab="observed (Power)",xlab="permutated (Type I error)",main="proportion of pval<0.05, observed vs permutated",ylim=c(0,1),xlim=c(0,1))
+      scatter_8v8(b,a,ylab="observed (Power)",xlab="permutated (Type I error)",main="proportion of pval<0.05, observed vs permutated",ylim=c(0,1),xlim=c(0,1))
       par(op)
       dev.off()
     }
@@ -409,7 +450,7 @@ for(i_file in 1:length(file_tag_seq)){
 
 ###############KS test array analysis###################
 #######one-time plotting functions############
-scatter_cell_num_1v6=function(a,b=cell_num,...){
+scatter_cell_num_1v8=function(a,b=cell_num,...){
   plot(cell_num,a[,1],type="p",pch=3,cex=1.1, col="red",xlab="cell number of each cell type",cex.lab=1.5, cex.axis=1.5, cex.main=1.5, cex.sub=1.5,...)
   abline(h = -log10(0.05), col = "red") 
   points(cell_num,a[,2],pch=4,cex=1.1, col="blue")
@@ -417,14 +458,16 @@ scatter_cell_num_1v6=function(a,b=cell_num,...){
   points(cell_num,a[,4],pch=6,cex=1.1, col="brown")
   points(cell_num,a[,5],pch=7,cex=1.1, col="orange")
   points(cell_num,a[,6],pch=8,cex=1.1, col="green")
-  legend("topright",c(colnames(a)),pch=3:8,cex=1.5,col=c("red","blue","pink","brown","orange","green"))
+  points(cell_num,a[,7],pch=9,cex=1.1, col="navy")
+  points(cell_num,a[,8],pch=10,cex=1.1, col="purple")
+  legend("topright",c(colnames(a)),pch=3:10,cex=1.5,col=c("red","blue","pink","brown","orange","green","navy","purple"))
 }
 
 #usage
 #a=-log10(ks_array[i_file,i_F,i_pre,,2,]+min(ks_array[ks_array>0],na.rm = TRUE))
 #scatter_cell_num_1v6(a,main="-log10 pvalues from KS test, observed data",ylab="-log10 ks pval",ylim=c(0,max_ab))
 
-scatter_6v6=function(b,a,...){
+scatter_8v8=function(b,a,...){
   plot(b[,1],a[,1],type="p",pch=3,cex=1.1, col="red",cex.lab=1.5, cex.axis=1.5, cex.main=1.5, cex.sub=1.5,xlab="permutated",main="-log10 pvalues from KS test, observed vs permutated",ylim=c(0,max_ab),xlim=c(0,max_ab))
   abline(v = 0.05, col = "red") 
   points(b[,2],a[,2],pch=4,cex=1.1, col="blue")
@@ -432,7 +475,9 @@ scatter_6v6=function(b,a,...){
   points(b[,4],a[,4],pch=6,cex=1.1, col="brown")
   points(b[,5],a[,5],pch=7,cex=1.1, col="orange")
   points(b[,6],a[,6],pch=8,cex=1.1, col="green")
-  legend("topright",c(colnames(b)),pch=3:8,cex=1.5,col=c("red","blue","pink","brown","orange","green"))
+  points(b[,7],a[,7],pch=9,cex=1.1, col="navy")
+  points(b[,8],a[,8],pch=10,cex=1.1, col="purple")
+  legend("topright",c(colnames(b)),pch=3:10,cex=1.5,col=c("red","blue","pink","brown","orange","green","navy","purple"))
 }
 #usage
 #a=-log10(ks_array[i_file,i_F,i_pre,,1,]+min(ks_array[ks_array>0],na.rm = TRUE))
@@ -495,9 +540,9 @@ for(i_file in 1:length(file_tag_seq)){
       b=-log10(ks_array[i_file,i_F,i_pre,,2,]+min(ks_array[ks_array>0],na.rm = TRUE))
       max_ab=max(a,b,na.rm = TRUE)
       
-      scatter_cell_num_1v6(a,main="-log10 pvalues from KS test, observed data",ylab="-log10 ks pval",ylim=c(0,max_ab))
-      scatter_cell_num_1v6(b,main="-log10 pvalues from KS test, permutated data",ylab="-log10 ks pval",ylim=c(0,max_ab))
-      scatter_6v6(b,a,ylab="observed",xlab="permutated",main="-log10 pvalues from KS test, observed vs permutated",ylim=c(0,max_ab),xlim=c(0,max_ab))
+      scatter_cell_num_1v8(a,main="-log10 pvalues from KS test, observed data",ylab="-log10 ks pval",ylim=c(0,max_ab))
+      scatter_cell_num_1v8(b,main="-log10 pvalues from KS test, permutated data",ylab="-log10 ks pval",ylim=c(0,max_ab))
+      scatter_8v8(b,a,ylab="observed",xlab="permutated",main="-log10 pvalues from KS test, observed vs permutated",ylim=c(0,max_ab),xlim=c(0,max_ab))
       
       par(op)
       dev.off()
@@ -532,8 +577,8 @@ cor_scatter_plot=function(cur_array,cur_label){
         F_method=F_method_seq[i_F]
         pre_tag=pre_tag_seq[i_pre]
         
-        png(paste0("../Data_PRJNA434002/8.Result/fig_scatter_",cur_label,"/scatter_",cur_label,"_",F_method,"_",pre_tag,"_",file_tag,".png"),height = 1200,width = 500)
-        op=par(mfrow=c(3,1))
+        png(paste0("../Data_PRJNA434002/8.Result/fig_scatter_",cur_label,"/scatter_",cur_label,"_",F_method,"_",pre_tag,"_",file_tag,".png"),height = 1600,width = 500)
+        op=par(mfrow=c(4,1))
         
         a=cur_array[i_file,i_F,i_pre,,1,]
         b=cur_array[i_file,i_F,i_pre,,2,]
@@ -545,7 +590,9 @@ cor_scatter_plot=function(cur_array,cur_label){
         points(cell_num,a[,4],pch=6,cex=1.1, col="brown")
         points(cell_num,a[,5],pch=7,cex=1.1, col="orange")
         points(cell_num,a[,6],pch=8,cex=1.1, col="green")
-        legend("topright",c(colnames(a)),pch=3:8,cex=1.5,col=c("red","blue","pink","brown","orange","green"))
+        points(cell_num,a[,7],pch=9,cex=1.1, col="navy")
+        points(cell_num,a[,8],pch=10,cex=1.1, col="purple")
+        legend("topright",c(colnames(a)),pch=3:10,cex=1.5,col=c("red","blue","pink","brown","orange","green","navy","purple"))
         
         plot(cell_num,b[,1],type="p",pch=3,cex=1.1, col="red",xlab="cell number of each cell type",ylab="correlation",cex.lab=1.5, cex.axis=1.5, cex.main=1.5, cex.sub=1.5,main=paste0("correlation between pval and ",cur_label,",permutated data"),ylim=c(-1,1))
         abline(h = 0.0, col = "red") 
@@ -554,7 +601,9 @@ cor_scatter_plot=function(cur_array,cur_label){
         points(cell_num,b[,4],pch=6,cex=1.1, col="brown")
         points(cell_num,b[,5],pch=7,cex=1.1, col="orange")
         points(cell_num,b[,6],pch=8,cex=1.1, col="green")
-        legend("topright",c(colnames(b)),pch=3:8,cex=1.5,col=c("red","blue","pink","brown","orange","green"))
+        points(cell_num,a[,7],pch=9,cex=1.1, col="navy")
+        points(cell_num,a[,8],pch=10,cex=1.1, col="purple")
+        legend("topright",c(colnames(a)),pch=3:10,cex=1.5,col=c("red","blue","pink","brown","orange","green","navy","purple"))
         
         plot(b[,1],a[,1],type="p",pch=3,cex=1.1, col="red",ylab="observed",xlab="permutated",cex.lab=1.5, cex.axis=1.5, cex.main=1.5, cex.sub=1.5,main=paste0("correlation between pval and ",cur_label,", observed vs permutated"),ylim=c(-1,1),xlim=c(-1,1))
         abline(v = 0, col = "red") 
@@ -564,7 +613,9 @@ cor_scatter_plot=function(cur_array,cur_label){
         points(b[,4],a[,4],pch=6,cex=1.1, col="brown")
         points(b[,5],a[,5],pch=7,cex=1.1, col="orange")
         points(b[,6],a[,6],pch=8,cex=1.1, col="green")
-        legend("topright",c(colnames(b)),pch=3:8,cex=1.5,col=c("red","blue","pink","brown","orange","green"))
+        points(cell_num,a[,7],pch=9,cex=1.1, col="navy")
+        points(cell_num,a[,8],pch=10,cex=1.1, col="purple")
+        legend("topright",c(colnames(a)),pch=3:10,cex=1.5,col=c("red","blue","pink","brown","orange","green","navy","purple"))
         
         par(op)
         dev.off()
@@ -739,7 +790,9 @@ for(i_file in 1:length(file_tag_seq)){
       points(cell_num,cor_obperm[,4],pch=6,cex=1.1, col="brown")
       points(cell_num,cor_obperm[,5],pch=7,cex=1.1, col="orange")
       points(cell_num,cor_obperm[,6],pch=8,cex=1.1, col="green")
-      legend("topright",dimnames(log10_ob_pval)[[2]],pch=3:8,cex=.5,col=c("red","blue","pink","brown","orange","green"))
+      points(cell_num,cor_obperm[,7],pch=9,cex=1.1, col="navy")
+      points(cell_num,cor_obperm[,8],pch=10,cex=1.1, col="purple")
+      legend("topright",dimnames(log10_ob_pval)[[2]],pch=3:10,cex=.5,col=c("red","blue","pink","brown","orange","green","navy","purple"))
 
       dev.off()
 
@@ -917,7 +970,7 @@ for(i_file in 1:length(file_tag_seq)){
         log10_overdisp_median=log10(overdisp_median+1)
         #plot
         png(paste0("../Data_PRJNA434002/8.Result/fig_scatter_pval_cor_pheno/scatter_pval_cor_pheno_",F_method,"_",pre_tag,"_",cluster_tag,"_",file_tag,".png"),height = 1200,width =2000)
-        op=par(mfrow = c(6, 10))
+        op=par(mfrow = c(8, 10))
         for(i_pval in 1:dim(log10_perm_pval)[2]){
           cur_plot_pval=NA
           cur_plot_pval=log10_perm_pval[cluster_tag,i_pval,]
