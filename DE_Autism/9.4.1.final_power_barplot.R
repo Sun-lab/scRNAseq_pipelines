@@ -12,10 +12,10 @@ fit_method_seq=c("empirical","nbzinb")
 F_method_seq=c("p","ps")
 
 
-perm_label_seq=c(0,1:10)
+perm_label_seq=c(0,1)
 ind_covariate_flag=NA
 
-
+perm_method="s"
 ###################functions###################
 
 #power calculation
@@ -39,14 +39,14 @@ power_array=array(dim=c(
     F_method_seq,
     pre_tag_seq,
     cluster_tag_seq,
-    c("Power","Type I error"),
+    perm_label_seq,
     c("DESeq","MAST","jsd_empirical","klmean_empirical","jsd_zinb","klmean_zinb","jsd_direct","klmean_direct")))
 
 ks_array=power_array
 cor_nonexpres_ind_array=power_array
 cor_zerorate_ind_mean_array=power_array
-cor_zerorate_array=power_array
-cor_expression_array=power_array
+cor_zero_rate_array=power_array
+cor_expression_level_array=power_array
 cor_overdisp_median_array=power_array
 cor_overdisp_max_array=power_array
 cor_dropout_median_array=power_array
@@ -54,7 +54,7 @@ cor_dropout_max_array=power_array
 count=1
 zeros=matrix(ncol=8,nrow=length(file_tag_seq)*length(F_method_seq)*length(pre_tag_seq)*length(cluster_tag_seq)*length(perm_label_seq))
 rownames_zeros=matrix(ncol=1,nrow=length(file_tag_seq)*length(F_method_seq)*length(pre_tag_seq)*length(cluster_tag_seq)*length(perm_label_seq))
-colnames(zeros)=c("deseq2_pval","MAST_pval","jsd_empirical_pval","klmean_empirical_pval","jsd_zinb_pval","klmean_zinb_pval")
+colnames(zeros)=c("deseq2_pval","MAST_pval","jsd_empirical_pval","klmean_empirical_pval","jsd_zinb_pval","klmean_zinb_pval","jsd_direct_pval","klmean_direct_pval")
 
 pval_list=list()
 
@@ -71,7 +71,7 @@ for(i_file in 1:length(file_tag_seq)){
       F_method_seq,
       pre_tag_seq,
       cluster_tag_seq,
-      c("Power","Type I error"),
+      perm_label_seq,
       c("DESeq","MAST","jsd_empirical","klmean_empirical","jsd_zinb","klmean_zinb","jsd_direct","klmean_direct"),1:pval_length))
   
   for(i_F in 1:length(F_method_seq)){
@@ -93,15 +93,15 @@ for(i_file in 1:length(file_tag_seq)){
           deseq2_pval=NA
           MAST_pval=NA
           
-          jsd_zinb_pval=tryCatch({readRDS(paste0("../Data_PRJNA434002/8.Result/jsd_nbzinb_pval/p",perm_label,"_jsd_nbzinb_",F_method,"_pval_ind_",pre_tag,"_sim_",cluster_tag,"_",file_tag,".rds"))}, error = function(e) {NA} )
-          jsd_empirical_pval=tryCatch({readRDS(paste0("../Data_PRJNA434002/8.Result/jsd_empirical_pval/p",perm_label,"_jsd_empirical_",F_method,"_pval_ind_",pre_tag,"_sim_",cluster_tag,"_",file_tag,".rds"))}, error = function(e) {NA} )
-          jsd_direct_pval=tryCatch({readRDS(paste0("../Data_PRJNA434002/8.Result/jsd_direct_pval/p",perm_label,"_jsd_direct_",F_method,"_pval_ind_",pre_tag,"_sim_",cluster_tag,"_",file_tag,".rds"))}, error = function(e) {NA} )
-          klmean_direct_pval=tryCatch({readRDS(paste0("../Data_PRJNA434002/8.Result/klmean_direct_pval/p",perm_label,"_klmean_direct_",F_method,"_pval_ind_",pre_tag,"_sim_",cluster_tag,"_",file_tag,".rds"))}, error = function(e) {NA} )
-          klmean_zinb_pval=tryCatch({readRDS(paste0("../Data_PRJNA434002/8.Result/klmean_nbzinb_pval/p",perm_label,"_klmean_nbzinb_",F_method,"_pval_ind_",pre_tag,"_sim_",cluster_tag,"_",file_tag,".rds"))}, error = function(e) {NA} )
-          klmean_empirical_pval=tryCatch({readRDS(paste0("../Data_PRJNA434002/8.Result/klmean_empirical_pval/p",perm_label,"_klmean_empirical_",F_method,"_pval_ind_",pre_tag,"_sim_",cluster_tag,"_",file_tag,".rds"))}, error = function(e) {NA} )
-          deseq2_pval=tryCatch({readRDS(paste0("../Data_PRJNA434002/8.Result/DESeq2_pval/p",perm_label,"_DESeq2_ob_pval_",cluster_tag,"_",file_tag,".rds"))}, error = function(e) {NA} )
+          jsd_zinb_pval=tryCatch({readRDS(paste0("../Data_PRJNA434002/8.Result/jsd_nbzinb_pval/p",perm_label,perm_method,"_jsd_nbzinb_",F_method,"_pval_ind_",pre_tag,"_sim_",cluster_tag,"_",file_tag,".rds"))}, error = function(e) {NA} )
+          jsd_empirical_pval=tryCatch({readRDS(paste0("../Data_PRJNA434002/8.Result/jsd_empirical_pval/p",perm_label,perm_method,"_jsd_empirical_",F_method,"_pval_ind_",pre_tag,"_sim_",cluster_tag,"_",file_tag,".rds"))}, error = function(e) {NA} )
+          jsd_direct_pval=tryCatch({readRDS(paste0("../Data_PRJNA434002/8.Result/jsd_direct_pval/p",perm_label,perm_method,"_jsd_direct_",F_method,"_pval_ind_",pre_tag,"_sim_",cluster_tag,"_",file_tag,".rds"))}, error = function(e) {NA} )
+          klmean_direct_pval=tryCatch({readRDS(paste0("../Data_PRJNA434002/8.Result/klmean_direct_pval/p",perm_label,perm_method,"_klmean_direct_",F_method,"_pval_ind_",pre_tag,"_sim_",cluster_tag,"_",file_tag,".rds"))}, error = function(e) {NA} )
+          klmean_zinb_pval=tryCatch({readRDS(paste0("../Data_PRJNA434002/8.Result/klmean_nbzinb_pval/p",perm_label,perm_method,"_klmean_nbzinb_",F_method,"_pval_ind_",pre_tag,"_sim_",cluster_tag,"_",file_tag,".rds"))}, error = function(e) {NA} )
+          klmean_empirical_pval=tryCatch({readRDS(paste0("../Data_PRJNA434002/8.Result/klmean_empirical_pval/p",perm_label,perm_method,"_klmean_empirical_",F_method,"_pval_ind_",pre_tag,"_sim_",cluster_tag,"_",file_tag,".rds"))}, error = function(e) {NA} )
+          deseq2_pval=tryCatch({readRDS(paste0("../Data_PRJNA434002/8.Result/DESeq2_pval/p",perm_label,perm_method,"_DESeq2_ob_pval_",cluster_tag,"_",file_tag,".rds"))}, error = function(e) {NA} )
 
-          MAST_pval=tryCatch({readRDS(paste0("../Data_PRJNA434002/8.Result/MAST_pval/p",perm_label,"_MAST_pval1_rawcount_",cluster_tag,"_",file_tag,".rds"))}, error = function(e) {NA} )
+          MAST_pval=tryCatch({readRDS(paste0("../Data_PRJNA434002/8.Result/MAST_pval/p",perm_label,perm_method,"_MAST_pval1_rawcount_",cluster_tag,"_",file_tag,".rds"))}, error = function(e) {NA} )
           
           pval_list[[file_tag]][i_F,i_pre,i_cluster,i_perm_label,1,]=deseq2_pval
           pval_list[[file_tag]][i_F,i_pre,i_cluster,i_perm_label,2,]=MAST_pval
@@ -117,7 +117,7 @@ for(i_file in 1:length(file_tag_seq)){
           count=count+1  
           
           #histogram
-          png(paste0("../Data_PRJNA434002/8.Result/fig_final_power/final_power_p",perm_label,"_",F_method,"_",pre_tag,"_",cluster_tag,"_",file_tag,".png"),height = 1600,width = 800)
+          png(paste0("../Data_PRJNA434002/8.Result/fig_final_power/final_power_p",perm_label,perm_method,"_",F_method,"_",pre_tag,"_",cluster_tag,"_",file_tag,".png"),height = 1600,width = 800)
           op=par(mfrow = c(4, 2), pty = "s")
           tryCatch({hist(deseq2_pval,main="pval of deseq2 method",xlab="p-values",breaks = 20)}, error = function(e) {NA} )
           tryCatch({hist(MAST_pval,main="pval of MAST method",xlab="p-values",breaks = 20)}, error = function(e) {NA} )
@@ -291,7 +291,7 @@ for(i_file in 1:length(file_tag_seq)){
           
         }
         #barplot
-        png(paste0("../Data_PRJNA434002/8.Result/fig_barplot/barplot_p",perm_label,"_",F_method,"_",pre_tag,"_",cluster_tag,"_",file_tag,".png"),height = 1200,width = 800)
+        png(paste0("../Data_PRJNA434002/8.Result/fig_barplot/barplot_p",perm_label,perm_method,"_",F_method,"_",pre_tag,"_",cluster_tag,"_",file_tag,".png"),height = 1200,width = 800)
         op=par(mfrow = c(4, 2), pty = "s")
         barplot(power_array[i_file,i_F,i_pre,i_cluster,,1],ylab="power",main=names(power_matrix)[1],ylim=c(0,1))
         abline(h = 0.05, col = "red") 
@@ -314,21 +314,21 @@ for(i_file in 1:length(file_tag_seq)){
         
         #power scatter
         png(paste0("../Data_PRJNA434002/8.Result/fig_power_point/power_point_",perm_label,"_",F_method,"_",pre_tag,"_",cluster_tag,"_",file_tag,".png"),height = 600,width = 600)
-        plot(power_array[i_file,i_F,i_pre,i_cluster,2,1],power_array[i_file,i_F,i_pre,i_cluster,1,1],xlim=c(0,1),ylim=c(0,1),xlab="False positive rate (FPR)",ylab="True positive rate (TPR)",type="p",col="red",pch=3,cex=3)
+        plot(power_array[i_file,i_F,i_pre,i_cluster,i_perm_label,1],power_array[i_file,i_F,i_pre,i_cluster,1,1],xlim=c(0,1),ylim=c(0,1),xlab="False positive rate (FPR)",ylab="True positive rate (TPR)",type="p",col="red",pch=3,cex=3)
         abline(v = 0.05, col = "red") 
-        points(power_array[i_file,i_F,i_pre,i_cluster,2,2],power_array[i_file,i_F,i_pre,i_cluster,1,2],col="blue",pch=3,cex=3)
-        points(power_array[i_file,i_F,i_pre,i_cluster,2,3],power_array[i_file,i_F,i_pre,i_cluster,1,3],col="pink",pch=3,cex=3)
-        points(power_array[i_file,i_F,i_pre,i_cluster,2,4],power_array[i_file,i_F,i_pre,i_cluster,1,4],col="brown",pch=3,cex=3)
-        points(power_array[i_file,i_F,i_pre,i_cluster,2,5],power_array[i_file,i_F,i_pre,i_cluster,1,5],col="orange",pch=3,cex=3)
-        points(power_array[i_file,i_F,i_pre,i_cluster,2,6],power_array[i_file,i_F,i_pre,i_cluster,1,6],col="green",pch=3,cex=3)
-        points(power_array[i_file,i_F,i_pre,i_cluster,2,7],power_array[i_file,i_F,i_pre,i_cluster,1,7],col="navy",pch=3,cex=3)
-        points(power_array[i_file,i_F,i_pre,i_cluster,2,8],power_array[i_file,i_F,i_pre,i_cluster,1,8],col="purple",pch=3,cex=3)
+        points(power_array[i_file,i_F,i_pre,i_cluster,i_perm_label,i_perm_label],power_array[i_file,i_F,i_pre,i_cluster,1,i_perm_label],col="blue",pch=3,cex=3)
+        points(power_array[i_file,i_F,i_pre,i_cluster,i_perm_label,3],power_array[i_file,i_F,i_pre,i_cluster,1,3],col="pink",pch=3,cex=3)
+        points(power_array[i_file,i_F,i_pre,i_cluster,i_perm_label,4],power_array[i_file,i_F,i_pre,i_cluster,1,4],col="brown",pch=3,cex=3)
+        points(power_array[i_file,i_F,i_pre,i_cluster,i_perm_label,5],power_array[i_file,i_F,i_pre,i_cluster,1,5],col="orange",pch=3,cex=3)
+        points(power_array[i_file,i_F,i_pre,i_cluster,i_perm_label,6],power_array[i_file,i_F,i_pre,i_cluster,1,6],col="green",pch=3,cex=3)
+        points(power_array[i_file,i_F,i_pre,i_cluster,i_perm_label,7],power_array[i_file,i_F,i_pre,i_cluster,1,7],col="navy",pch=3,cex=3)
+        points(power_array[i_file,i_F,i_pre,i_cluster,i_perm_label,8],power_array[i_file,i_F,i_pre,i_cluster,1,8],col="purple",pch=3,cex=3)
         
         legend("topright",c(names(power_matrix)),pch=rep(3,8),cex=1.5,col=c("red","blue","pink","brown","orange","green","navy","purple"))
           
         dev.off()
         
-        print(paste0("p",perm_label,"_",F_method,"_",pre_tag,"_",cluster_tag,"_",file_tag))
+        print(paste0("p",perm_label,perm_method,"_",F_method,"_",pre_tag,"_",cluster_tag,"_",file_tag))
       }
     }
   }
@@ -339,15 +339,15 @@ saveRDS(power_array,paste0("../Data_PRJNA434002/8.Result/final_power_array.rds")
 saveRDS(ks_array,paste0("../Data_PRJNA434002/8.Result/final_ks_array.rds"))
 saveRDS(cor_zerorate_ind_mean_array,paste0("../Data_PRJNA434002/8.Result/final_cor_zerorate_ind_mean_array.rds"))
 saveRDS(cor_nonexpres_ind_array,paste0("../Data_PRJNA434002/8.Result/final_cor_nonexpres_ind_array.rds"))
-saveRDS(cor_zerorate_array,paste0("../Data_PRJNA434002/8.Result/final_cor_zerorate_array.rds"))
-saveRDS(cor_expression_array,paste0("../Data_PRJNA434002/8.Result/final_cor_expression_array.rds"))
+saveRDS(cor_zero_rate_array,paste0("../Data_PRJNA434002/8.Result/final_cor_zero_rate_array.rds"))
+saveRDS(cor_expression_level_array,paste0("../Data_PRJNA434002/8.Result/final_cor_expression_level_array.rds"))
 saveRDS(cor_overdisp_max_array,paste0("../Data_PRJNA434002/8.Result/final_cor_overdisp_max_array.rds"))
 saveRDS(cor_overdisp_median_array,paste0("../Data_PRJNA434002/8.Result/final_cor_overdisp_median_array.rds"))
 saveRDS(cor_dropout_max_array,paste0("../Data_PRJNA434002/8.Result/final_cor_dropout_max_array.rds"))
 saveRDS(cor_dropout_median_array,paste0("../Data_PRJNA434002/8.Result/final_cor_dropout_median_array.rds"))
 rownames(zeros)=rownames_zeros
 #View(zeros)
-saveRDS(zeros,paste0("../Data_PRJNA434002/10.Result/power_array_NAs_p",perm_label,"_",F_method,"_",pre_tag,"_",cluster_tag,"_",file_tag,".rds"))
+saveRDS(zeros,paste0("../Data_PRJNA434002/10.Result/power_array_NAs_p",perm_label,perm_method,"_",F_method,"_",pre_tag,"_",cluster_tag,"_",file_tag,".rds"))
 
 
 ###############Power array analysis###################
