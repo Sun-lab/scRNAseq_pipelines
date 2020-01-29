@@ -25,7 +25,7 @@ calc_F_manova2=function(dist_array,label){
   
   epsilon=matrix((rep(label,time=n)==rep(label,each=n)),ncol=n,nrow=n)+0
   d2=dist_array*dist_array/(2*n)
-  sst=apply(d2*a,1,function(x){sum(x,na.rm = TRUE)})
+  sst=apply(d2/a,1,function(x){sum(x,na.rm = TRUE)})
   ssw=apply(d2,1,function(x){sum(x*epsilon,na.rm = TRUE)})
   Fstat=((sst-ssw)*(n-a))/(ssw*(a-1))
   return(Fstat)

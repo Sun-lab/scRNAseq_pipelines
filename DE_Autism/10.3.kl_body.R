@@ -174,9 +174,9 @@ if(!file.exists(paste0("../Data_PRJNA434002/10.Result/",dist_method,"_",fit_meth
 
 ###################Fstat calculation: Refer section 9 #######################
 
-for(perm_label in 1:10){
-  for(perm_method in c("","b")){
-    
+for(perm_label in 1:5){
+  #for(perm_method in c("","b")){
+   perm_method="" 
     
     
     
@@ -190,9 +190,10 @@ for(perm_label in 1:10){
     dist_res=NA
     dist_pval=NA
     
+    cur_phenotype=phenotype
     if(perm_label>0){
       if(length(grep("b",perm_method))==0){ #naive permutation
-        phenotype=phenotype[sample.int(length(phenotype))]
+        cur_phenotype=cur_phenotype[sample.int(length(cur_phenotype))]
       }
       if(length(grep("b",perm_method))>0){ #balanced permutation
         n_exchange=n/2
@@ -200,7 +201,7 @@ for(perm_label in 1:10){
         
         i_exchange=sample.int(n,n_exchange)
         i_exchange=c(i_exchange,n+i_exchange)
-        phenotype[i_exchange]=1-phenotype[i_exchange]
+        cur_phenotype[i_exchange]=1-cur_phenotype[i_exchange]
         
       }
     }
@@ -210,7 +211,7 @@ for(perm_label in 1:10){
     
     #real data test
     #dist_array=round(dist_array,5)
-    dist_res=cal_permanova_pval2(dist_array,phenotype,perm_num.min = perm_num)
+    dist_res=cal_permanova_pval2(dist_array,cur_phenotype,perm_num.min = perm_num)
     dist_pval=dist_res$pval
     F_ob0=dist_res$F_ob
     F_perm0=dist_res$F_perm
@@ -219,44 +220,44 @@ for(perm_label in 1:10){
     
     
     
-    png(paste0("../Data_PRJNA434002/10.Result/fig_Fstat/p",perm_label,perm_method,"_",dist_method,"_",fit_method,"_",r_mean,"_",r_var,"_",r_disp,"_",r_change_prop,"_",file_tag,"_",(2*n),"_",ncell,"_Fperm.png"),height = 900,width = 1800,type="cairo")
-    op=par(mfrow = c(2, 4))
-    pval_order=order(dist_pval)[c(1:4,100,200,300,400)]
-    for(iplot in pval_order){
-      hist(F_perm0[iplot,],xlim=range(min(F_perm0[iplot,],F_ob0[iplot]),max(F_perm0[iplot,],F_ob0[iplot])),main=paste0("Fstat distr of gene ",dimnames(dist_array)[[1]][iplot],", pval ",round(dist_pval[iplot],3),", rank ",iplot),breaks=50)
-      abline(v=F_ob0[iplot],col="red")
-    }
-    par(op)
-    dev.off()
-    
-    png(paste0("../Data_PRJNA434002/10.Result/fig_Fstat/p",perm_label,perm_method,"_",dist_method,"_",fit_method,"_",r_mean,"_",r_var,"_",r_disp,"_",r_change_prop,"_",file_tag,"_",(2*n),"_",ncell,"_Fob.png"),height = 600,width = 1200,type="cairo")
-    hist(F_ob0,main=paste0("Fstat distr of gene, Fob"),breaks=50)
-    dev.off()
-    
+    # png(paste0("../Data_PRJNA434002/10.Result/fig_Fstat/p",perm_label,perm_method,"_",dist_method,"_",fit_method,"_",r_mean,"_",r_var,"_",r_disp,"_",r_change_prop,"_",file_tag,"_",(2*n),"_",ncell,"_Fperm.png"),height = 900,width = 1800,type="cairo")
+    # op=par(mfrow = c(2, 4))
+    # pval_order=order(dist_pval)[c(1:4,100,200,300,400)]
+    # for(iplot in pval_order){
+    #   hist(F_perm0[iplot,],xlim=range(min(F_perm0[iplot,],F_ob0[iplot]),max(F_perm0[iplot,],F_ob0[iplot])),main=paste0("Fstat distr of gene ",dimnames(dist_array)[[1]][iplot],", pval ",round(dist_pval[iplot],3),", rank ",iplot),breaks=50)
+    #   abline(v=F_ob0[iplot],col="red")
+    # }
+    # par(op)
+    # dev.off()
+    # 
+    # png(paste0("../Data_PRJNA434002/10.Result/fig_Fstat/p",perm_label,perm_method,"_",dist_method,"_",fit_method,"_",r_mean,"_",r_var,"_",r_disp,"_",r_change_prop,"_",file_tag,"_",(2*n),"_",ncell,"_Fob.png"),height = 600,width = 1200,type="cairo")
+    # hist(F_ob0,main=paste0("Fstat distr of gene, Fob"),breaks=50)
+    # dev.off()
+    # 
     
     thres=tol/perm_num
     second_index=which(dist_pval<thres)
     if(length(second_index)>0){
       sub_dist_array=dist_array[second_index,,,drop=FALSE]
-      sub_dist_pval=cal_permanova_pval2(sub_dist_array,phenotype,perm_num.min = perm_num*10)$pval
+      sub_dist_pval=cal_permanova_pval2(sub_dist_array,cur_phenotype,perm_num.min = perm_num*10)$pval
       dist_pval[second_index]=sub_dist_pval
       thres=tol/(perm_num*10)
       second_index=which(dist_pval<thres)
       if(length(second_index)>0){
         sub_dist_array=dist_array[second_index,,,drop=FALSE]
-        sub_dist_pval=cal_permanova_pval2(sub_dist_array,phenotype,perm_num.min = perm_num*100)$pval
+        sub_dist_pval=cal_permanova_pval2(sub_dist_array,cur_phenotype,perm_num.min = perm_num*100)$pval
         dist_pval[second_index]=sub_dist_pval
         thres=tol/(perm_num*100)
         second_index=which(dist_pval<thres)
         if(length(second_index)>0){
           sub_dist_array=dist_array[second_index,,,drop=FALSE]
-          sub_dist_pval=cal_permanova_pval2(sub_dist_array,phenotype,perm_num.min = perm_num*1000)$pval
+          sub_dist_pval=cal_permanova_pval2(sub_dist_array,cur_phenotype,perm_num.min = perm_num*1000)$pval
           dist_pval[second_index]=sub_dist_pval
         }
       }
     }
     
-    #dist_pval=apply(dist_array,1,function(x){tryCatch(return(cal_permanova_pval(x,phenotype)), error = function(e) {NA} )})
+    #dist_pval=apply(dist_array,1,function(x){tryCatch(return(cal_permanova_pval(x,cur_phenotype)), error = function(e) {NA} )})
     saveRDS(dist_pval,paste0("../Data_PRJNA434002/10.Result/"dist_method,"_",fit_method,"_pval/p",perm_label,perm_method,"_",dist_method,"_",fit_method,"_raw_pval_",r_mean,"_",r_var,"_",r_disp,"_",r_change_prop,"_",file_tag,"_",(2*n),"_",ncell,".rds"))
     
     
@@ -266,7 +267,7 @@ for(perm_label in 1:10){
     
     
     
-  }
+  #}
 }
 
 

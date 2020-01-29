@@ -8,8 +8,8 @@
 # fit_method="nbzinb"
 # F_method="p"
 
-perm_label_seq=0:10
-perm_method="s" # "" or "s"(set cell threshold, any individuals with less cells would be removed)
+perm_label_seq=0:5
+perm_method="" # "" or "s"(set cell threshold, any individuals with less cells would be removed)
 cell_threshold=4
 
 ind_covariate_flag="ind" 
