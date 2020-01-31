@@ -25,6 +25,15 @@ for(cluster_tag in cluster_tag_seq){
   cur_cell=readRDS(paste0("../Data_PRJNA434002/7.Result/rawcount_ind_cellnum_",cluster_tag,"_",file_tag,".rds"))
   res[match(rownames(cur_cell),total_individual),cluster_tag]=cur_cell
 }
+heatmap(res)
+
+cor_pheno=matrix(ncol=1,nrow=17)
+for(cluster_tag in cluster_tag_seq){
+  cor_pheno[cluster_tag]=cor(phenotype=="ASD",res[,cluster_tag])
+}
+
+cor_pheno
+
 
 saveRDS(res,paste0("11.check_clusters_individual_cellnum_",file_tag,".rds"))
 saveRDS(res,paste0("~/Desktop/github/scRNAseq_pipelines/DE_Autism/11.check/11.check_clusters_individual_cellnum_",file_tag,".rds"))

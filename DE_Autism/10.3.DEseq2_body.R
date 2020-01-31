@@ -63,7 +63,7 @@ for(n in n_seq){
   # observed pvalue calculation
   dds = DESeq(dds)
   deseq_pval = results(dds)$pvalue
-  saveRDS(deseq_pval,paste0("../Data_PRJNA434002/10.Result/p",perm_label,perm_method,"_DESeq2_pval_",r_mean,"_",r_var,"_",r_disp,"_",r_change_prop,"_",file_tag,"_",(2*n),".rds"))
+  saveRDS(deseq_pval,paste0("../Data_PRJNA434002/10.Result/DESeq2_pval/p",perm_label,perm_method,"_DESeq2_pval_",r_mean,"_",r_var,"_",r_disp,"_",r_change_prop,"_",file_tag,"_",(2*n),".rds"))
 }
 
 

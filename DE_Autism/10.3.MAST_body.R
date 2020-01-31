@@ -144,8 +144,8 @@ for(ncell in ncell_seq){
     print(paste0("print system details, ncell= ",ncell,", n= ",n, ", after all"))
     print(date())
     print(gc())
-    tryCatch(saveRDS(MAST_pval0,paste0("../Data_PRJNA434002/10.Result/p",perm_label,perm_method,"_MAST_pval0_",r_mean,"_",r_var,"_",r_disp,"_",r_change_prop,"_",file_tag,"_",(2*n),"_",ncell,".rds")), error = function(e) {NA} )
-    tryCatch(saveRDS(MAST_pval1,paste0("../Data_PRJNA434002/10.Result/p",perm_label,perm_method,"_MAST_pval1_",r_mean,"_",r_var,"_",r_disp,"_",r_change_prop,"_",file_tag,"_",(2*n),"_",ncell,".rds")), error = function(e) {NA} )
+    tryCatch(saveRDS(MAST_pval0,paste0("../Data_PRJNA434002/10.Result/MAST_pval/p",perm_label,perm_method,"_MAST_pval0_",r_mean,"_",r_var,"_",r_disp,"_",r_change_prop,"_",file_tag,"_",(2*n),"_",ncell,".rds")), error = function(e) {NA} )
+    tryCatch(saveRDS(MAST_pval1,paste0("../Data_PRJNA434002/10.Result/MAST_pval/p",perm_label,perm_method,"_MAST_pval1_",r_mean,"_",r_var,"_",r_disp,"_",r_change_prop,"_",file_tag,"_",(2*n),"_",ncell,".rds")), error = function(e) {NA} )
     print(c(n,ncell))
   }
 }

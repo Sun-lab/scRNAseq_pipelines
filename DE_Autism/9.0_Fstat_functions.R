@@ -11,7 +11,7 @@ calc_F_manova=function(dist_matrix,label){
   
   epsilon=matrix((rep(label,time=n)==rep(label,each=n)),ncol=n,nrow=n)+0
   d2=dist_matrix*dist_matrix
-  sst=sum(d2/(2*n),na.rm = TRUE)
+  sst=sum(d2/(2*n*a),na.rm = TRUE)
   ssw=sum((d2*epsilon)/(2*n),na.rm = TRUE)
   
   Fstat=((sst-ssw)*(n-a))/(ssw*(a-1))
@@ -25,7 +25,7 @@ calc_F_manova2=function(dist_array,label){
   
   epsilon=matrix((rep(label,time=n)==rep(label,each=n)),ncol=n,nrow=n)+0
   d2=dist_array*dist_array/(2*n)
-  sst=apply(d2,1,function(x){sum(x,na.rm = TRUE)})
+  sst=apply(d2/a,1,function(x){sum(x,na.rm = TRUE)})
   ssw=apply(d2,1,function(x){sum(x*epsilon,na.rm = TRUE)})
   Fstat=((sst-ssw)*(n-a))/(ssw*(a-1))
   return(Fstat)
@@ -89,10 +89,10 @@ calG_3a=function(m){#m is array dim1=n_genes dim2=dim3=n_individual
 
 #this function calculate the residuals
 #eg
-# cov_z = data.frame(cbind(seq(1:50),rnorm(50),rpois(50,1),runif(50,0,1)))
-# zm=model.matrix(~.,cov_z)
-# x = cbind(rbinom(50,1,prob=0.5),c(rbinom(25,1,prob=0.2),rbinom(25,1,prob=0.8)) ,sort(rnorm(50,1)))
-# res=cal_residual(zm,x)
+#cov_z = data.frame(cbind(seq(1:50),rnorm(50),rpois(50,1),runif(50,0,1)))
+#zm=model.matrix(~.,cov_z)
+#x = cbind(rbinom(50,1,prob=0.5),c(rbinom(25,1,prob=0.2),rbinom(25,1,prob=0.8)) ,sort(rnorm(50,1)))
+#res=cal_residual(zm,x)
 #returns a list, first element residual, second element estimated x, third is the glm flag(discrete flag)
 cal_residual_perm=function(zm=NA,x,perm_num=500){
   x=as.matrix(x)
@@ -105,27 +105,27 @@ cal_residual_perm=function(zm=NA,x,perm_num=500){
     if(length(unique(cur_x))==2){
       #step1: fit
       m1=glm(cur_x~0+zm,family=binomial(link="logit"))  #logit model
-      cur_res=resid(m1)  #cal residuals
+      cur_res=residuals(m1,type = "response")  #cal residuals
       cur_fit=fitted(m1) #cal fit
       
       #step2: permutation
       for(ip in 1:perm_num){
         perm_x=rbinom(length(cur_fit),1,prob=cur_fit)
-        m2=glm(perm_x~zm,family=binomial(link="logit"))
-        perm_res[,ix,ip]=resid(m2)
+        m2=glm(perm_x~0+zm,family=binomial(link="logit"))
+        perm_res[,ix,ip]=residuals(m2,type = "response")  
       }
     }
     else{
       #step1: fit
       m1=lm(cur_x~0+zm)  #linear model
-      cur_res=resid(m1) #cal residuals
+      cur_res=residuals(m1,type = "response")   #cal residuals
       cur_fit=fitted(m1) #cal fit
       
       #step2: permutation
       for(ip in 1:perm_num){
         perm_x=cur_res[sample.int(length(cur_res),length(cur_res))]+cur_fit 
-        m2=lm(perm_x~zm)  #logit model
-        perm_res[,ix,ip]=resid(m2)  #cal residuals
+        m2=lm(perm_x~0+zm)  #logit model
+        perm_res[,ix,ip]=residuals(m2,type = "response")  #cal residuals
       }
     }
   }
@@ -141,12 +141,12 @@ cal_residual_ob=function(zm=NA,x){
   for(ix in 1:ncol(x)){
     cur_x=as.numeric(x[,ix])
     if(length(unique(cur_x))==2){
-      m1=glm(cur_x~zm,family=binomial(link="logit"))  #logit model
-      ob_res[,ix,1]=resid(m1)  #cal residuals
+      m1=glm(cur_x~0+zm,family=binomial(link="logit"))  #logit model
+      ob_res[,ix,1]=residuals(m1,type = "response")   #cal residuals
     }
     else{
-      m1=lm(cur_x~zm)  #linear model
-      ob_res[,ix,1]=resid(m1)  #cal residuals
+      m1=lm(cur_x~0+zm)  #linear model
+      ob_res[,ix,1]=residuals(m1,type = "response")   #cal residuals
     }
   }
   return(ob_res)
