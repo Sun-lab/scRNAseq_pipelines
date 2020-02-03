@@ -85,7 +85,7 @@ GTF_calc_gene_length = function(work_dir,rsem_gtf_fn){
   
 	# Calculate exonic gene lengths
 	tmp_df = smart_df(gene_id = names(exons_list_per_gene),
-	gene_length = as.numeric(sum(width(GenomicRanges::reduce(exons_list_per_gene)))))
+		gene_length = as.numeric(sum(width(GenomicRanges::reduce(exons_list_per_gene)))))
 	tmp_df = tmp_df[match(gtf$gene_id,tmp_df$gene_id),]
 	all(gtf$gene_id == tmp_df$gene_id)
 	gtf$gene_length = tmp_df$gene_length
