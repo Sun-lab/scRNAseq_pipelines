@@ -1,12 +1,12 @@
 
 #setwd("~/Desktop/fh/1.Testing_scRNAseq/")
 #setwd("/Users/mzhang24/Desktop/fh/1.Testing_scRNAseq/")
-setwd("/Volumes/SpecialPass/fh_data/Data_PRJNA434002/")
+setwd("/Volumes/SpecialData/fh_data/Data_PRJNA434002/")
 #setwd("/fh/fast/sun_w/mengqi/1.Testing_scRNAseq/")
 
-perm_label=0
+perm_label=1
 perm_method=""
-param_tag=4 #c(1,2,3,4)
+param_tag=1 #c(1,2,3,4)
 
 perm_label_seq=1:2
 param_tag_seq=1:4
@@ -14,7 +14,7 @@ perm_method_seq=c("","b")
 for(perm_method in perm_method_seq){
   for(perm_label in perm_label_seq){
     for(param_tag in param_tag_seq){ 
-      file_tag_seq=1:4
+      file_tag_seq=1:2
       
       r_mean_seq=1.2 
       r_var_seq=1.2 
@@ -97,10 +97,10 @@ for(perm_method in perm_method_seq){
                     n_ind=ind_seq[i_ind]
                     n_cell=cell_seq[i_cell]
                     
-                    mean_index=readRDS(paste0("../Data_PRJNA434002/10.Result/sim_de.mean_",r_mean,"_",r_var,"_",r_disp,"_",r_mult,"_",file_tag,".rds"))
-                    var_index=readRDS(paste0("../Data_PRJNA434002/10.Result/sim_de.var_",r_mean,"_",r_var,"_",r_disp,"_",r_mult,"_",file_tag,".rds"))
-                    disp_index=readRDS(paste0("../Data_PRJNA434002/10.Result/sim_de.disp_",r_mean,"_",r_var,"_",r_disp,"_",r_mult,"_",file_tag,".rds"))
-                    mult_index=readRDS(paste0("../Data_PRJNA434002/10.Result/sim_de.mult_",r_mean,"_",r_var,"_",r_disp,"_",r_mult,"_",file_tag,".rds"))
+                    mean_index=readRDS(paste0("../Data_PRJNA434002/10.Result/de_label/sim_de.mean_",r_mean,"_",r_var,"_",r_disp,"_",r_mult,"_",file_tag,".rds"))
+                    var_index=readRDS(paste0("../Data_PRJNA434002/10.Result/de_label/sim_de.var_",r_mean,"_",r_var,"_",r_disp,"_",r_mult,"_",file_tag,".rds"))
+                    disp_index=readRDS(paste0("../Data_PRJNA434002/10.Result/de_label/sim_de.disp_",r_mean,"_",r_var,"_",r_disp,"_",r_mult,"_",file_tag,".rds"))
+                    mult_index=readRDS(paste0("../Data_PRJNA434002/10.Result/de_label/sim_de.mult_",r_mean,"_",r_var,"_",r_disp,"_",r_mult,"_",file_tag,".rds"))
                     
                     #tryCatch({     }, error = function(e) {NA} )
                     
@@ -377,12 +377,6 @@ for(perm_method in perm_method_seq){
           }
         }
       }
-      
-      
-      
-      
-      
-      
       
     }
   }

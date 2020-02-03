@@ -12,7 +12,7 @@
 #setwd("/Users/mzhang24/Desktop/fh/1.Testing_scRNAseq/")
 setwd("/fh/fast/sun_w/mengqi/1.Testing_scRNAseq/")
 perm_label=1
-perm_method="b" #c("","b") 
+perm_method="" #c("","b") 
 
 n_seq=c(20,15,10,5)
 ncell_seq=c(100,80,60,40,20)
@@ -103,8 +103,9 @@ for(ncell in ncell_seq){
       diagnosis=as.factor(diag_kind[ind_index,2])
     }
     
-    diagnosis[diagnosis == 1] = "Case"
-    diagnosis[diagnosis == 0] = "Control"
+    diagnosis2=matrix("Control",ncol=1,nrow=length(diagnosis))
+    diagnosis2[which(diagnosis == "1")] = "Case"
+    diagnosis= as.factor(diagnosis2)
     
     sca = MAST::FromMatrix(cur_sim_matrix_log, cData, fData)
     colData(sca)$cngeneson = as.numeric(meta$CDR)

@@ -1,7 +1,7 @@
 
 #setwd("~/Desktop/fh/1.Testing_scRNAseq/")
 setwd("/Users/mzhang24/Desktop/fh/1.Testing_scRNAseq/")
-setwd("/Volumes/SpecialPass/fh_data/Data_PRJNA434002/")
+setwd("/Volumes/SpecialData/fh_data/Data_PRJNA434002/")
 #setwd("/fh/fast/sun_w/mengqi/1.Testing_scRNAseq/")
 
 cluster_tag_seq=1:17
@@ -12,10 +12,13 @@ fit_method_seq=c("empirical","nbzinb")
 F_method_seq=c("p","ps")
 
 
+file_tag_seq="5k"
+pre_tag_seq="scvi"
+
 perm_label_seq=c(0,1)
 ind_covariate_flag=NA
 
-perm_method="s"
+perm_method=""
 ###################functions###################
 
 #power calculation
@@ -290,27 +293,6 @@ for(i_file in 1:length(file_tag_seq)){
           cor_dropout_median_array[i_file,i_F,i_pre,i_cluster,i_perm_label,]=cor_matrix
           
         }
-        #barplot
-        png(paste0("../Data_PRJNA434002/8.Result/fig_barplot/barplot_p",perm_label,perm_method,"_",F_method,"_",pre_tag,"_",cluster_tag,"_",file_tag,".png"),height = 1200,width = 800)
-        op=par(mfrow = c(4, 2), pty = "s")
-        barplot(power_array[i_file,i_F,i_pre,i_cluster,,1],ylab="power",main=names(power_matrix)[1],ylim=c(0,1))
-        abline(h = 0.05, col = "red") 
-        barplot(power_array[i_file,i_F,i_pre,i_cluster,,2],ylab="power",main=names(power_matrix)[2],ylim=c(0,1))
-        abline(h = 0.05, col = "red") 
-        barplot(power_array[i_file,i_F,i_pre,i_cluster,,3],ylab="power",main=names(power_matrix)[3],ylim=c(0,1))
-        abline(h = 0.05, col = "red") 
-        barplot(power_array[i_file,i_F,i_pre,i_cluster,,4],ylab="power",main=names(power_matrix)[4],ylim=c(0,1))
-        abline(h = 0.05, col = "red") 
-        barplot(power_array[i_file,i_F,i_pre,i_cluster,,5],ylab="power",main=names(power_matrix)[5],ylim=c(0,1))
-        abline(h = 0.05, col = "red") 
-        barplot(power_array[i_file,i_F,i_pre,i_cluster,,6],ylab="power",main=names(power_matrix)[6],ylim=c(0,1))
-        abline(h = 0.05, col = "red") 
-        barplot(power_array[i_file,i_F,i_pre,i_cluster,,7],ylab="power",main=names(power_matrix)[7],ylim=c(0,1))
-        abline(h = 0.05, col = "red") 
-        barplot(power_array[i_file,i_F,i_pre,i_cluster,,8],ylab="power",main=names(power_matrix)[8],ylim=c(0,1))
-        abline(h = 0.05, col = "red") 
-        par(op)
-        dev.off()
         
         #power scatter
         png(paste0("../Data_PRJNA434002/8.Result/fig_power_point/power_point_",perm_label,"_",F_method,"_",pre_tag,"_",cluster_tag,"_",file_tag,".png"),height = 600,width = 600)
@@ -395,14 +377,18 @@ for(i_file in 1:length(file_tag_seq)){
       file_tag=file_tag_seq[i_file]
       F_method=F_method_seq[i_F]
       pre_tag=pre_tag_seq[i_pre]
-      png(paste0("../Data_PRJNA434002/8.Result/fig_boxplot_power/boxplot_power_",F_method,"_",pre_tag,"_",file_tag,".png"),height = 800,width = 500)
-      op=par(mfrow=c(2,1))
+      png(paste0("../Data_PRJNA434002/8.Result/fig_boxplot_power/boxplot_power_",F_method,"_",pre_tag,"_",file_tag,".png"),height = 400*(length(perm_label_seq)+1),width = 500)
+      op=par(mfrow=c((length(perm_label_seq)+1),1))
       a=power_array[i_file,i_F,i_pre,,1,]
-      b=power_array[i_file,i_F,i_pre,,2,]
       boxplot(a,cex.lab=1.5, cex.axis=1.5, cex.main=1.5, cex.sub=1.5,main="proportion of p-values less than 0.05 of all clusters, observed data",ylab="power")
       abline(h = 0.05, col = "red") 
-      boxplot(b,cex.lab=1.5, cex.axis=1.5, cex.main=1.5, cex.sub=1.5,main="proportion of p-values less than 0.05 of all clusters, permutated data",ylab="type I error")
-      abline(h = 0.05, col = "red") 
+      
+      for(perm_label in perm_label_seq){
+        b=power_array[i_file,i_F,i_pre,,perm_label,]
+        boxplot(b,cex.lab=1.5, cex.axis=1.5, cex.main=1.5, cex.sub=1.5,main="proportion of p-values less than 0.05 of all clusters, permutated data",ylab="type I error")
+        abline(h = 0.05, col = "red") 
+      }
+      
       par(op)
       dev.off()
     }
@@ -432,16 +418,18 @@ for(i_file in 1:length(file_tag_seq)){
       F_method=F_method_seq[i_F]
       pre_tag=pre_tag_seq[i_pre]
       
-      png(paste0("../Data_PRJNA434002/8.Result/fig_scatter_power/scatter_power_",F_method,"_",pre_tag,"_",file_tag,".png"),height = 1200,width = 500)
-      op=par(mfrow=c(3,1))
+      png(paste0("../Data_PRJNA434002/8.Result/fig_scatter_power/scatter_power_",F_method,"_",pre_tag,"_",file_tag,".png"),height = 1200,width = 500*length(perm_label_seq))
+      op=par(mfrow=c(3,length(perm_label_seq)))
 
       a=power_array[i_file,i_F,i_pre,,1,]
-      b=power_array[i_file,i_F,i_pre,,2,]
       
-      scatter_cell_num_1v8(a,main="proportion of pval<0.05,observed data",ylab="Power",ylim=c(0,1))
-      scatter_cell_num_1v8(b,main="proportion of pval<0.05,permutated data",ylab="Power",ylim=c(0,1))
+      for(perm_label in perm_label_seq){
+        b=power_array[i_file,i_F,i_pre,,perm_label,]
+        scatter_cell_num_1v8(a,main="proportion of pval<0.05,observed data",ylab="Power",ylim=c(0,1))
+        scatter_cell_num_1v8(b,main="proportion of pval<0.05,permutated data",ylab="Power",ylim=c(0,1))
+        scatter_8v8(b,a,ylab="observed (Power)",xlab="permutated (Type I error)",main="proportion of pval<0.05, observed vs permutated",ylim=c(0,1),xlim=c(0,1))
+      }
       
-      scatter_8v8(b,a,ylab="observed (Power)",xlab="permutated (Type I error)",main="proportion of pval<0.05, observed vs permutated",ylim=c(0,1),xlim=c(0,1))
       par(op)
       dev.off()
     }
@@ -494,14 +482,17 @@ for(i_file in 1:length(file_tag_seq)){
       file_tag=file_tag_seq[i_file]
       F_method=F_method_seq[i_F]
       pre_tag=pre_tag_seq[i_pre]
-      png(paste0("../Data_PRJNA434002/8.Result/fig_boxplot_ks/boxplot_ks_",F_method,"_",pre_tag,"_",file_tag,".png"),height = 800,width = 500)
-      op=par(mfrow=c(2,1))
+      png(paste0("../Data_PRJNA434002/8.Result/fig_boxplot_ks/boxplot_ks_",F_method,"_",pre_tag,"_",file_tag,".png"),height = 400*(1+length(perm_label_seq)),width = 500)
+      op=par(mfrow=c((length(perm_label_seq)+1),1))
       a=ks_array[i_file,i_F,i_pre,,1,]
-      b=ks_array[i_file,i_F,i_pre,,2,]
       boxplot(a,cex.lab=1.5, cex.axis=1.5, cex.main=1.5, cex.sub=1.5,main="ks test for distribution of pvalues, observed data",ylab="ks pval")
       abline(h = 0.05, col = "red") 
-      boxplot(b,cex.lab=1.5, cex.axis=1.5, cex.main=1.5, cex.sub=1.5,main="ks test for distribution of pvalues, permutated data",ylab="ks pval")
-      abline(h = 0.05, col = "red") 
+      for(perm_label in 1:length(perm_label_seq)){
+        b=ks_array[i_file,i_F,i_pre,,perm_label,]
+        boxplot(b,cex.lab=1.5, cex.axis=1.5, cex.main=1.5, cex.sub=1.5,main="ks test for distribution of pvalues, permutated data",ylab="ks pval")
+        abline(h = 0.05, col = "red") 
+      }
+      
       par(op)
       dev.off()
     }
@@ -533,17 +524,19 @@ for(i_file in 1:length(file_tag_seq)){
       F_method=F_method_seq[i_F]
       pre_tag=pre_tag_seq[i_pre]
       
-      png(paste0("../Data_PRJNA434002/8.Result/fig_scatter_ks/scatter_ks_",F_method,"_",pre_tag,"_",file_tag,".png"),height = 1200,width = 500)
-      op=par(mfrow=c(3,1))
+      png(paste0("../Data_PRJNA434002/8.Result/fig_scatter_ks/scatter_ks_",F_method,"_",pre_tag,"_",file_tag,".png"),height = 500,width = 500*length(perm_label_seq))
+      op=par(mfrow=c(3,length(perm_label_seq)))
 
       a=-log10(ks_array[i_file,i_F,i_pre,,1,]+min(ks_array[ks_array>0],na.rm = TRUE))
-      b=-log10(ks_array[i_file,i_F,i_pre,,2,]+min(ks_array[ks_array>0],na.rm = TRUE))
-      max_ab=max(a,b,na.rm = TRUE)
       
-      scatter_cell_num_1v8(a,main="-log10 pvalues from KS test, observed data",ylab="-log10 ks pval",ylim=c(0,max_ab))
-      scatter_cell_num_1v8(b,main="-log10 pvalues from KS test, permutated data",ylab="-log10 ks pval",ylim=c(0,max_ab))
-      scatter_8v8(b,a,ylab="observed",xlab="permutated",main="-log10 pvalues from KS test, observed vs permutated",ylim=c(0,max_ab),xlim=c(0,max_ab))
-      
+      for(perm_label in perm_label_seq){
+        b=-log10(ks_array[i_file,i_F,i_pre,,perm_label,]+min(ks_array[ks_array>0],na.rm = TRUE))
+        max_ab=max(a,b,na.rm = TRUE)
+        
+        scatter_cell_num_1v8(a,main="-log10 pvalues from KS test, observed data",ylab="-log10 ks pval",ylim=c(0,max_ab))
+        scatter_cell_num_1v8(b,main="-log10 pvalues from KS test, permutated data",ylab="-log10 ks pval",ylim=c(0,max_ab))
+        scatter_8v8(b,a,ylab="observed",xlab="permutated",main="-log10 pvalues from KS test, observed vs permutated",ylim=c(0,max_ab),xlim=c(0,max_ab))
+      }
       par(op)
       dev.off()
     }
@@ -577,48 +570,51 @@ cor_scatter_plot=function(cur_array,cur_label){
         F_method=F_method_seq[i_F]
         pre_tag=pre_tag_seq[i_pre]
         
-        png(paste0("../Data_PRJNA434002/8.Result/fig_scatter_",cur_label,"/scatter_",cur_label,"_",F_method,"_",pre_tag,"_",file_tag,".png"),height = 1600,width = 500)
-        op=par(mfrow=c(4,1))
+        png(paste0("../Data_PRJNA434002/8.Result/fig_scatter_",cur_label,"/scatter_",cur_label,"_",F_method,"_",pre_tag,"_",file_tag,".png"),height = 1200,width = 500*dim(cur_array)[4])
+        op=par(mfrow=c(3,dim(cur_array)[4]))
         
         a=cur_array[i_file,i_F,i_pre,,1,]
-        b=cur_array[i_file,i_F,i_pre,,2,]
         
-        plot(cell_num,a[,1],type="p",pch=3,cex=1.1, col="red",xlab="cell number of each cell type",ylab="correlation",cex.lab=1.5, cex.axis=1.5, cex.main=1.5, cex.sub=1.5,main=paste0("correlation between pval and ",cur_label,", observed data"),ylim=c(-1,1))
-        abline(h = 0.0, col = "red") 
-        points(cell_num,a[,2],pch=4,cex=1.1, col="blue")
-        points(cell_num,a[,3],pch=5,cex=1.1, col="pink")
-        points(cell_num,a[,4],pch=6,cex=1.1, col="brown")
-        points(cell_num,a[,5],pch=7,cex=1.1, col="orange")
-        points(cell_num,a[,6],pch=8,cex=1.1, col="green")
-        points(cell_num,a[,7],pch=9,cex=1.1, col="navy")
-        points(cell_num,a[,8],pch=10,cex=1.1, col="purple")
-        legend("topright",c(colnames(a)),pch=3:10,cex=1.5,col=c("red","blue","pink","brown","orange","green","navy","purple"))
-        
-        plot(cell_num,b[,1],type="p",pch=3,cex=1.1, col="red",xlab="cell number of each cell type",ylab="correlation",cex.lab=1.5, cex.axis=1.5, cex.main=1.5, cex.sub=1.5,main=paste0("correlation between pval and ",cur_label,",permutated data"),ylim=c(-1,1))
-        abline(h = 0.0, col = "red") 
-        points(cell_num,b[,2],pch=4,cex=1.1, col="blue")
-        points(cell_num,b[,3],pch=5,cex=1.1, col="pink")
-        points(cell_num,b[,4],pch=6,cex=1.1, col="brown")
-        points(cell_num,b[,5],pch=7,cex=1.1, col="orange")
-        points(cell_num,b[,6],pch=8,cex=1.1, col="green")
-        points(cell_num,a[,7],pch=9,cex=1.1, col="navy")
-        points(cell_num,a[,8],pch=10,cex=1.1, col="purple")
-        legend("topright",c(colnames(a)),pch=3:10,cex=1.5,col=c("red","blue","pink","brown","orange","green","navy","purple"))
-        
-        plot(b[,1],a[,1],type="p",pch=3,cex=1.1, col="red",ylab="observed",xlab="permutated",cex.lab=1.5, cex.axis=1.5, cex.main=1.5, cex.sub=1.5,main=paste0("correlation between pval and ",cur_label,", observed vs permutated"),ylim=c(-1,1),xlim=c(-1,1))
-        abline(v = 0, col = "red") 
-        abline(h = 0, col = "red") 
-        points(b[,2],a[,2],pch=4,cex=1.1, col="blue")
-        points(b[,3],a[,3],pch=5,cex=1.1, col="pink")
-        points(b[,4],a[,4],pch=6,cex=1.1, col="brown")
-        points(b[,5],a[,5],pch=7,cex=1.1, col="orange")
-        points(b[,6],a[,6],pch=8,cex=1.1, col="green")
-        points(cell_num,a[,7],pch=9,cex=1.1, col="navy")
-        points(cell_num,a[,8],pch=10,cex=1.1, col="purple")
-        legend("topright",c(colnames(a)),pch=3:10,cex=1.5,col=c("red","blue","pink","brown","orange","green","navy","purple"))
-        
-        par(op)
-        dev.off()
+        for(ip in 2:dim(cur_array)[4]){
+          b=cur_array[i_file,i_F,i_pre,,ip,]
+          
+          plot(cell_num,a[,1],type="p",pch=3,cex=1.1, col="red",xlab="cell number of each cell type",ylab="correlation",cex.lab=1.5, cex.axis=1.5, cex.main=1.5, cex.sub=1.5,main=paste0("correlation between pval and ",cur_label,", observed data"),ylim=c(-1,1))
+          abline(h = 0.0, col = "red") 
+          points(cell_num,a[,2],pch=4,cex=1.1, col="blue")
+          points(cell_num,a[,3],pch=5,cex=1.1, col="pink")
+          points(cell_num,a[,4],pch=6,cex=1.1, col="brown")
+          points(cell_num,a[,5],pch=7,cex=1.1, col="orange")
+          points(cell_num,a[,6],pch=8,cex=1.1, col="green")
+          points(cell_num,a[,7],pch=9,cex=1.1, col="navy")
+          points(cell_num,a[,8],pch=10,cex=1.1, col="purple")
+          legend("topright",c(colnames(a)),pch=3:10,cex=1.5,col=c("red","blue","pink","brown","orange","green","navy","purple"))
+          
+          plot(cell_num,b[,1],type="p",pch=3,cex=1.1, col="red",xlab="cell number of each cell type",ylab="correlation",cex.lab=1.5, cex.axis=1.5, cex.main=1.5, cex.sub=1.5,main=paste0("correlation between pval and ",cur_label,",permutated data"),ylim=c(-1,1))
+          abline(h = 0.0, col = "red") 
+          points(cell_num,b[,2],pch=4,cex=1.1, col="blue")
+          points(cell_num,b[,3],pch=5,cex=1.1, col="pink")
+          points(cell_num,b[,4],pch=6,cex=1.1, col="brown")
+          points(cell_num,b[,5],pch=7,cex=1.1, col="orange")
+          points(cell_num,b[,6],pch=8,cex=1.1, col="green")
+          points(cell_num,a[,7],pch=9,cex=1.1, col="navy")
+          points(cell_num,a[,8],pch=10,cex=1.1, col="purple")
+          legend("topright",c(colnames(a)),pch=3:10,cex=1.5,col=c("red","blue","pink","brown","orange","green","navy","purple"))
+          
+          plot(b[,1],a[,1],type="p",pch=3,cex=1.1, col="red",ylab="observed",xlab="permutated",cex.lab=1.5, cex.axis=1.5, cex.main=1.5, cex.sub=1.5,main=paste0("correlation between pval and ",cur_label,", observed vs permutated"),ylim=c(-1,1),xlim=c(-1,1))
+          abline(v = 0, col = "red") 
+          abline(h = 0, col = "red") 
+          points(b[,2],a[,2],pch=4,cex=1.1, col="blue")
+          points(b[,3],a[,3],pch=5,cex=1.1, col="pink")
+          points(b[,4],a[,4],pch=6,cex=1.1, col="brown")
+          points(b[,5],a[,5],pch=7,cex=1.1, col="orange")
+          points(b[,6],a[,6],pch=8,cex=1.1, col="green")
+          points(cell_num,a[,7],pch=9,cex=1.1, col="navy")
+          points(cell_num,a[,8],pch=10,cex=1.1, col="purple")
+          legend("topright",c(colnames(a)),pch=3:10,cex=1.5,col=c("red","blue","pink","brown","orange","green","navy","purple"))
+          
+          par(op)
+          dev.off()
+        }
       }
     }
   }
@@ -752,277 +748,266 @@ for(i_file in 1:length(file_tag_seq)){
       pre_tag=pre_tag_seq[i_pre]
 
       log10_ob_pval=-log10(pval_array[i_F,i_pre,,1,,]+min(pval_array[pval_array>0],na.rm = TRUE))
-      log10_perm_pval=-log10(pval_array[i_F,i_pre,,2,,]+min(pval_array[pval_array>0],na.rm = TRUE))
       
-      
-      
-      
-      
-      
-      
-      ##do scatter plot about ob pval vs perm pval
-
-
-
-
-      cor_obperm=array(dim=dim(log10_ob_pval)[1:2],dimnames=list(dimnames(log10_ob_pval)[[1]],dimnames(log10_ob_pval)[[2]]))
-      cor_obob=array(dim=dim(log10_ob_pval)[c(1,2,2)],dimnames=list(dimnames(log10_ob_pval)[[1]],dimnames(log10_ob_pval)[[2]],dimnames(log10_ob_pval)[[2]]))
-      cor_permperm=array(dim=dim(log10_ob_pval)[c(1,2,2)],dimnames=list(dimnames(log10_ob_pval)[[1]],dimnames(log10_ob_pval)[[2]],dimnames(log10_ob_pval)[[2]]))
-      for(ia in 1:dim(log10_ob_pval)[1]){
-        for(ib in 1:dim(log10_ob_pval)[2]){
+      for(perm_label in 1:length(perm_label_seq)){
+        log10_perm_pval=-log10(pval_array[i_F,i_pre,,perm_label,,]+min(pval_array[pval_array>0],na.rm = TRUE))
+        
+        ##do scatter plot about ob pval vs perm pval
+        cor_obperm=array(dim=dim(log10_ob_pval)[1:2],dimnames=list(dimnames(log10_ob_pval)[[1]],dimnames(log10_ob_pval)[[2]]))
+        cor_obob=array(dim=dim(log10_ob_pval)[c(1,2,2)],dimnames=list(dimnames(log10_ob_pval)[[1]],dimnames(log10_ob_pval)[[2]],dimnames(log10_ob_pval)[[2]]))
+        cor_permperm=array(dim=dim(log10_ob_pval)[c(1,2,2)],dimnames=list(dimnames(log10_ob_pval)[[1]],dimnames(log10_ob_pval)[[2]],dimnames(log10_ob_pval)[[2]]))
+        for(ia in 1:dim(log10_ob_pval)[1]){
+          for(ib in 1:dim(log10_ob_pval)[2]){
+            
+            #tryCatch({ }, error = function(e) {NA} )
+            cor_obperm[ia,ib]=tryCatch({cor(log10_ob_pval[ia,ib,],log10_perm_pval[ia,ib,],use = "complete.obs")}, error = function(e) {NA} )
+            cor_obob[ia,ib,]=tryCatch({apply(log10_ob_pval[ia,,],1, function(x){return(cor(x,log10_ob_pval[ia,ib,],use = "complete.obs"))})}, error = function(e) {NA} )
+            cor_permperm[ia,ib,]=tryCatch({apply(log10_perm_pval[ia,,],1, function(x){return(cor(x,log10_perm_pval[ia,ib,],use = "complete.obs"))})}, error = function(e) {NA} )
+          }
+        }
+        
+        saveRDS(cor_obperm,paste0("../Data_PRJNA434002/8.Result/cor_pval_obperm_",F_method,"_",pre_tag,"_",file_tag,".rds"))
+        saveRDS(cor_obob,paste0("../Data_PRJNA434002/8.Result/cor_pval_obob_",F_method,"_",pre_tag,"_",file_tag,".rds"))
+        saveRDS(cor_permperm,paste0("../Data_PRJNA434002/8.Result/cor_pval_permperm_",F_method,"_",pre_tag,"_",file_tag,".rds"))
+        #plot cor pval ob vs perm
+        png(paste0("../Data_PRJNA434002/8.Result/fig_scatter_cor_pval/scatter_cor_pval_",F_method,"_",pre_tag,"_",file_tag,".png"),height = 400,width = 500)
+        plot(cell_num,cor_obperm[,1],type="p",pch=3,cex=1.1, col="red",xlab="cell number of each cell type",ylab="-log10 pval_cor",cex.lab=1.5, cex.axis=1.5, cex.main=1.5, cex.sub=1.5,main="correlation between observed and permutation -log10 pvalues",,ylim=c(-1,1))
+        abline(h = -log10(0.05), col = "red")
+        points(cell_num,cor_obperm[,2],pch=4,cex=1.1, col="blue")
+        points(cell_num,cor_obperm[,3],pch=5,cex=1.1, col="pink")
+        points(cell_num,cor_obperm[,4],pch=6,cex=1.1, col="brown")
+        points(cell_num,cor_obperm[,5],pch=7,cex=1.1, col="orange")
+        points(cell_num,cor_obperm[,6],pch=8,cex=1.1, col="green")
+        points(cell_num,cor_obperm[,7],pch=9,cex=1.1, col="navy")
+        points(cell_num,cor_obperm[,8],pch=10,cex=1.1, col="purple")
+        legend("topright",dimnames(log10_ob_pval)[[2]],pch=3:10,cex=.5,col=c("red","blue","pink","brown","orange","green","navy","purple"))
+        
+        dev.off()
+        
+        
+        for(cluster_tag in 1:dim(log10_perm_pval)[1]){
           
-          #tryCatch({ }, error = function(e) {NA} )
-          cor_obperm[ia,ib]=tryCatch({cor(log10_ob_pval[ia,ib,],log10_perm_pval[ia,ib,],use = "complete.obs")}, error = function(e) {NA} )
-          cor_obob[ia,ib,]=tryCatch({apply(log10_ob_pval[ia,,],1, function(x){return(cor(x,log10_ob_pval[ia,ib,],use = "complete.obs"))})}, error = function(e) {NA} )
-          cor_permperm[ia,ib,]=tryCatch({apply(log10_perm_pval[ia,,],1, function(x){return(cor(x,log10_perm_pval[ia,ib,],use = "complete.obs"))})}, error = function(e) {NA} )
+          fit_data=readRDS(paste0("../Data_PRJNA434002/7.Result/fit_ind_",pre_tag,"_sim_",cluster_tag,"_",file_tag,".rds"))
+          sim_data=readRDS(paste0("../Data_PRJNA434002/7.Result/sim_ind_",pre_tag,"_sim_",cluster_tag,"_",file_tag,".rds"))
+          
+          #permutation phenotype
+          cur_phenotype=tmeta$diagnosis[tmeta$cluster==cur_cluster[cluster_tag]]!="Control"
+          cur_phenotype_ind=tmeta$diagnosis[match(unlist(dimnames(fit_data)[2]),tmeta$individual)]!="Control"
+          
+          cur_individual=tmeta$individual[tmeta$cluster==cur_cluster[cluster_tag]]
+          cur_individual_ind=tmeta$individual[match(unlist(dimnames(fit_data)[2]),tmeta$individual)]
+          #count cases and controls
+          diag_info=paste0(tmeta$ind,":",tmeta$diagnosis)
+          diag_kind=unique(diag_info)
+          diag_kind=t(apply(as.matrix(diag_kind),1,function(x){return(unlist(strsplit(x,":")))}))
+          if(perm_label>0){
+            #permute
+            perm_order=readRDS(paste0("../Data_PRJNA434002/7.Result/ind_perm_order.rds"))
+            perm_order=as.numeric(perm_order[,perm_label])
+            diag_kind[,2]=diag_kind[perm_order,2]
+          }
+          #match back to each individuals
+          diag_kind=diag_kind[match(unlist(dimnames(fit_data)[[2]]),diag_kind[,1]),]
+          
+          ind_index=match(tmeta$ind,diag_kind[,1])
+          ind_index=ind_index[!is.na(ind_index)]
+          cur_phenotype=as.factor(diag_kind[ind_index,2])
+          cur_phenotype_ind=diag_kind[,2]
+          cur_phenotype=cur_phenotype[tmeta$cluster==cur_cluster[cluster_tag]]!="Control"
+          cur_phenotype_ind=cur_phenotype_ind!="Control"
+          
+          
+          
+          
+          #plot first 4 smallest permutated data's pval's gene's re-constructed expression distribution vs the median pvals
+          print("sig_gene_count")
+          png(paste0("../Data_PRJNA434002/8.Result/fig_sig_gene_count/sig_gene_count_",F_method,"_",pre_tag,"_",cluster_tag,"_",file_tag,".png"),height = 2400,width =3200)
+          op=par(mfrow = c(6, 8))
+          for(i_pval in 1:dim(log10_perm_pval)[2]){
+            #sig pval
+            cur_index=order(log10_perm_pval[cluster_tag,i_pval,],decreasing = TRUE)[1:4]
+            for(iplot in cur_index){
+              #cur_hist_plot_param(xx=fit_data,i1=iplot,i2=cur_phenotype_ind,i3=1,xlab="logmean",
+              #                    main=paste0("ind-zinb param,",dimnames(log10_perm_pval)[[2]][i_pval]," sig pval of Perm ",iplot))
+              #cur_hist_plot_param(xx=fit_data,i1=iplot,i2=cur_phenotype_ind,i3=2,xlab="dispersion",
+              #                    main=paste0("ind-zinb param,",dimnames(log10_perm_pval)[[2]][i_pval]," sig pval of Perm ",iplot))
+              #cur_hist_plot_param(xx=fit_data,i1=iplot,i2=cur_phenotype_ind,i3=3,xlab="dropout",
+              #                    main=paste0("ind-zinb param,",dimnames(log10_perm_pval)[[2]][i_pval]," sig pval of Perm ",iplot))
+              
+              cur_hist_plot_param(xx=sim_data,i1=iplot,i2=cur_phenotype,i3=1:dim(sim_data)[[3]],xlab="read count",
+                                  main=paste0("sim gene expres,",dimnames(log10_perm_pval)[[2]][i_pval]," sig pval of Perm ",iplot))
+            }
+            
+            #median pval
+            cur_index=order(log10_perm_pval[cluster_tag,i_pval,],decreasing = TRUE)[1501:1504]
+            for(iplot in cur_index){
+              #cur_hist_plot_param(xx=fit_data,i1=iplot,i2=cur_phenotype_ind,i3=1,xlab="logmean",
+              #                    main=paste0("ind-zinb param,",dimnames(log10_perm_pval)[[2]][i_pval]," median pval of Perm ",iplot))
+              #cur_hist_plot_param(xx=fit_data,i1=iplot,i2=cur_phenotype_ind,i3=2,xlab="dispersion",
+              #                    main=paste0("ind-zinb param,",dimnames(log10_perm_pval)[[2]][i_pval]," median pval of Perm ",iplot))
+              #cur_hist_plot_param(xx=fit_data,i1=iplot,i2=cur_phenotype_ind,i3=3,xlab="dropout",
+              #                    main=paste0("ind-zinb param,",dimnames(log10_perm_pval)[[2]][i_pval]," median pval of Perm ",iplot))
+              
+              cur_hist_plot_param(xx=sim_data,i1=iplot,i2=cur_phenotype,i3=1:dim(sim_data)[[3]],xlab="read count",
+                                  main=paste0("sim gene expres,",dimnames(log10_perm_pval)[[2]][i_pval]," median pval of Perm ",iplot))
+            }
+          }
+          par(op)
+          dev.off()
+          
+          #plot first 4 smallest permutated data's pval's gene's re-constructed expression distribution vs the median pvals with individual info
+          
+          print("sig_gene_count_ind")
+          png(paste0("../Data_PRJNA434002/8.Result/fig_sig_gene_count_ind/sig_gene_count_ind_",F_method,"_",pre_tag,"_",cluster_tag,"_",file_tag,".png"),height = 4500,width =6000)
+          op=par(mfrow = c(12, 16))
+          for(i_pval in 1:dim(log10_perm_pval)[2]){
+            #sig pval
+            cur_index=order(log10_perm_pval[cluster_tag,i_pval,],decreasing = TRUE)[1:4]
+            for(iplot in cur_index){
+              cur_scatter_param(xx=fit_data,i1=iplot,i2=cur_phenotype_ind,i3=1,
+                                ind_info=cur_individual_ind,xlab="individual",ylab="logmean",
+                                main=paste0("ind-zinb param,",dimnames(log10_perm_pval)[[2]][i_pval]," sig pval of Perm ",iplot))
+              cur_scatter_param(xx=log10(fit_data),i1=iplot,i2=cur_phenotype_ind,i3=2,
+                                ind_info=cur_individual_ind,xlab="individual",ylab="log10 dispersion",
+                                main=paste0("ind-zinb param,",dimnames(log10_perm_pval)[[2]][i_pval]," sig pval of Perm ",iplot))
+              cur_scatter_param(xx=fit_data,i1=iplot,i2=cur_phenotype_ind,i3=3,
+                                ind_info=cur_individual_ind,xlab="individual",ylab="dropout",
+                                main=paste0("ind-zinb param,",dimnames(log10_perm_pval)[[2]][i_pval]," sig pval of Perm ",iplot))
+              cur_boxplot_param(xx=sim_data,i1=iplot,i2=cur_phenotype,i3=1:dim(sim_data)[[3]],
+                                ind_info=cur_individual,xlab="individual",ylab="read count",
+                                main=paste0("sim gene expres,",dimnames(log10_perm_pval)[[2]][i_pval]," sig pval of Perm ",iplot))
+            }
+            
+            #median pval
+            cur_index=order(log10_perm_pval[cluster_tag,i_pval,],decreasing = TRUE)[1501:1504]
+            for(iplot in cur_index){
+              cur_scatter_param(xx=fit_data,i1=iplot,i2=cur_phenotype_ind,i3=1,
+                                ind_info=cur_individual_ind,xlab="individual",ylab="logmean",
+                                main=paste0("ind-zinb param,",dimnames(log10_perm_pval)[[2]][i_pval]," median pval of Perm ",iplot))
+              cur_scatter_param(xx=log10(fit_data),i1=iplot,i2=cur_phenotype_ind,i3=2,
+                                ind_info=cur_individual_ind,xlab="individual",ylab="log10 dispersion",
+                                main=paste0("ind-zinb param,",dimnames(log10_perm_pval)[[2]][i_pval]," median pval of Perm ",iplot))
+              cur_scatter_param(xx=fit_data,i1=iplot,i2=cur_phenotype_ind,i3=3,
+                                ind_info=cur_individual_ind,xlab="individual",ylab="dropout",
+                                main=paste0("ind-zinb param,",dimnames(log10_perm_pval)[[2]][i_pval]," median pval of Perm ",iplot))
+              cur_boxplot_param(xx=sim_data,i1=iplot,i2=cur_phenotype,i3=1:dim(sim_data)[[3]],
+                                ind_info=cur_individual,xlab="individual",ylab="read count",
+                                main=paste0("sim gene expres,",dimnames(log10_perm_pval)[[2]][i_pval]," median pval of Perm ",iplot))
+            }
+          }
+          par(op)
+          dev.off()
+          
+          
+          
+          ##plot first 4 smallest permutated data's pval's gene's re-constructed expression distribution vs the median pvals 
+          #Draw three density plot of histograms of the distances within cases, within controls and between cases and controls. 
+          
+          print("ind_dist_density")
+          dist_list=list()
+          dist_list[["jsd_empirical"]]=readRDS(paste0("../Data_PRJNA434002/8.Result/jsd_empirical_array_",pre_tag,"_sim_",cluster_tag,"_",file_tag,".rds"))
+          dist_list[["klmean_empirical"]]=readRDS(paste0("../Data_PRJNA434002/8.Result/klmean_empirical_array_",pre_tag,"_sim_",cluster_tag,"_",file_tag,".rds"))
+          dist_list[["jsd_zinb"]]=readRDS(paste0("../Data_PRJNA434002/8.Result/jsd_nbzinb_array_",pre_tag,"_sim_",cluster_tag,"_",file_tag,".rds"))
+          dist_list[["klmean_zinb"]]=readRDS(paste0("../Data_PRJNA434002/8.Result/klmean_nbzinb_array_",pre_tag,"_sim_",cluster_tag,"_",file_tag,".rds"))
+          
+          
+          png(paste0("../Data_PRJNA434002/8.Result/fig_ind_dist_density/ind_dist_density_",F_method,"_",pre_tag,"_",cluster_tag,"_",file_tag,".png"),height = 2400,width =1200)
+          #png(paste0("../Data_PRJNA434002/8.Result/fig_ind_dist_density/ind_dist_density_",F_method,"_",pre_tag,"_",cluster_tag,"_",file_tag,".png"),height = 2400,width =1200)
+          op=par(mfrow = c(8, 4))
+          for(i_pval in 3:dim(log10_perm_pval)[2]){
+            cur_label=dimnames(log10_perm_pval)[[2]][i_pval]
+            cur_array=dist_list[[cur_label]]
+            #sig pval
+            cur_index=order(log10_perm_pval[cluster_tag,i_pval,],decreasing = TRUE)[1:4]
+            for(iplot in cur_index){ #plot density
+              dist_matrix_density_plot(mx=cur_array,i1=iplot,i2=cur_phenotype_ind,xlab="Distance",ylab="Density",
+                                       main=paste0("Density of distance, ",cur_label,", sig pval of Perm ",iplot))
+            }
+            #median pval
+            cur_index=order(log10_perm_pval[cluster_tag,i_pval,],decreasing = TRUE)[1501:1504]
+            for(iplot in cur_index){ #plot density
+              dist_matrix_density_plot(mx=cur_array,i1=iplot,i2=cur_phenotype_ind,xlab="Distance",ylab="Density",
+                                       main=paste0("Density of distance, ",cur_label,", median pval of Perm ",iplot))
+            }
+          }
+          par(op)
+          dev.off()
+          
+          #plot the relationship between log10_perm_pval and a lot of characters
+          
+          print("scatter_pval_cor_pheno")
+          #statistical info
+          zero_rate_ind=readRDS(paste0("../Data_PRJNA434002/7.Result/sim_ind_zero_rate_",pre_tag,"_sim_",cluster_tag,"_",file_tag,".rds"))
+          zerorate_ind_mean=apply(zero_rate_ind,1,mean)
+          nonexpres_ind=apply(zero_rate_ind==10,1,sum)
+          zero_rate=readRDS(paste0("../Data_PRJNA434002/7.Result/sim_zero_rate_",pre_tag,"_sim_",cluster_tag,"_",file_tag,".rds"))
+          expression_level=readRDS(paste0("../Data_PRJNA434002/7.Result/sim_gene_read_count_total_",pre_tag,"_sim_",cluster_tag,"_",file_tag,".rds"))
+          zinb_fit=readRDS(paste0("../Data_PRJNA434002/7.Result/fit_ind_",pre_tag,"_sim_",cluster_tag,"_",file_tag,".rds"))
+          logmean_max=apply(zinb_fit[,,1],1,function(x){return(max(x,na.rm = TRUE))})
+          logmean_median=apply(zinb_fit[,,1],1,function(x){return(median(x,na.rm = TRUE))})
+          overdisp_max=apply(zinb_fit[,,2],1,function(x){return(max(x,na.rm = TRUE))})
+          overdisp_median=apply(zinb_fit[,,2],1,function(x){return(median(x,na.rm = TRUE))})
+          dropout_max=apply(zinb_fit[,,3],1,function(x){return(max(x,na.rm = TRUE))})
+          dropout_median=apply(zinb_fit[,,3],1,function(x){return(median(x,na.rm = TRUE))})
+          
+          log10_expression_level=log10(expression_level+1)
+          log10_overdisp_max=log10(overdisp_max+1)
+          log10_overdisp_median=log10(overdisp_median+1)
+          #plot
+          png(paste0("../Data_PRJNA434002/8.Result/fig_scatter_pval_cor_pheno/scatter_pval_cor_pheno_",F_method,"_",pre_tag,"_",cluster_tag,"_",file_tag,".png"),height = 1200,width =2000)
+          op=par(mfrow = c(8, 10))
+          for(i_pval in 1:dim(log10_perm_pval)[2]){
+            cur_plot_pval=NA
+            cur_plot_pval=log10_perm_pval[cluster_tag,i_pval,]
+            if(sum(!is.na(cur_plot_pval))>0){
+              #zerorate_ind_mean
+              plot(cur_plot_pval,zerorate_ind_mean,type="p",pch=1,cex=0.1, xlab="-log10 pval",cex.lab=1.5, cex.axis=1.5, cex.main=1.5, cex.sub=1.5,ylab="zerorate_ind_mean",main=paste0(dimnames(log10_perm_pval)[[2]][i_pval]," x zerorate_ind_mean"))
+              abline(v = -log10(0.05), col = "red")
+              
+              #nonexpres_ind
+              plot(cur_plot_pval,nonexpres_ind,type="p",pch=1,cex=0.1, xlab="-log10 pval",cex.lab=1.5, cex.axis=1.5, cex.main=1.5, cex.sub=1.5,ylab="nonexpres_ind",main=paste0(dimnames(log10_perm_pval)[[2]][i_pval]," x nonexpres_ind"))
+              abline(v = -log10(0.05), col = "red")
+              
+              #zero_rate
+              plot(cur_plot_pval,zero_rate,type="p",pch=1,cex=0.1, xlab="-log10 pval",cex.lab=1.5, cex.axis=1.5, cex.main=1.5, cex.sub=1.5,ylab="zero_rate",main=paste0(dimnames(log10_perm_pval)[[2]][i_pval]," x zero_rate"))
+              abline(v = -log10(0.05), col = "red")
+              
+              #log10_expression_level
+              plot(cur_plot_pval,log10_expression_level,type="p",pch=1,cex=0.1, xlab="-log10 pval",cex.lab=1.5, cex.axis=1.5, cex.main=1.5, cex.sub=1.5,ylab="log10_expression_level",main=paste0(dimnames(log10_perm_pval)[[2]][i_pval]," x log10_expression_level"))
+              abline(v = -log10(0.05), col = "red")
+              
+              #logmean_max
+              plot(cur_plot_pval,logmean_max,type="p",pch=1,cex=0.1, xlab="-log10 pval",cex.lab=1.5, cex.axis=1.5, cex.main=1.5, cex.sub=1.5,ylab="logmean_max",main=paste0(dimnames(log10_perm_pval)[[2]][i_pval]," x logmean_max"))
+              abline(v = -log10(0.05), col = "red")
+              
+              #logmean_median
+              plot(cur_plot_pval,logmean_median,type="p",pch=1,cex=0.1, xlab="-log10 pval",cex.lab=1.5, cex.axis=1.5, cex.main=1.5, cex.sub=1.5,ylab="logmean_median",main=paste0(dimnames(log10_perm_pval)[[2]][i_pval]," x logmean_median"))
+              abline(v = -log10(0.05), col = "red")
+              
+              #log10_overdisp_max
+              plot(cur_plot_pval,log10_overdisp_max,type="p",pch=1,cex=0.1, xlab="-log10 pval",cex.lab=1.5, cex.axis=1.5, cex.main=1.5, cex.sub=1.5,ylab="log10_overdisp_max",main=paste0(dimnames(log10_perm_pval)[[2]][i_pval]," x log10_overdisp_max"))
+              abline(v = -log10(0.05), col = "red")
+              
+              #log10_overdisp_median
+              plot(cur_plot_pval,log10_overdisp_median,type="p",pch=1,cex=0.1, xlab="-log10 pval",cex.lab=1.5, cex.axis=1.5, cex.main=1.5, cex.sub=1.5,ylab="log10_overdisp_median",main=paste0(dimnames(log10_perm_pval)[[2]][i_pval]," x log10_overdisp_median"))
+              abline(v = -log10(0.05), col = "red")
+              
+              #dropout_max
+              plot(cur_plot_pval,dropout_max,type="p",pch=1,cex=0.1, xlab="-log10 pval",cex.lab=1.5, cex.axis=1.5, cex.main=1.5, cex.sub=1.5,ylab="dropout_max",main=paste0(dimnames(log10_perm_pval)[[2]][i_pval]," x dropout_max"))
+              abline(v = -log10(0.05), col = "red")
+              
+              #dropout_median
+              plot(cur_plot_pval,dropout_median,type="p",pch=1,cex=0.1, xlab="-log10 pval",cex.lab=1.5, cex.axis=1.5, cex.main=1.5, cex.sub=1.5,ylab="dropout_median",main=paste0(dimnames(log10_perm_pval)[[2]][i_pval]," x dropout_median"))
+              abline(v = -log10(0.05), col = "red")
+            }
+          }
+          par(op)
+          dev.off()
+          
+          print(paste0(F_method,"_",pre_tag,"_",cluster_tag,"_",file_tag))
+          
         }
       }
-
-      saveRDS(cor_obperm,paste0("../Data_PRJNA434002/8.Result/cor_pval_obperm_",F_method,"_",pre_tag,"_",file_tag,".rds"))
-      saveRDS(cor_obob,paste0("../Data_PRJNA434002/8.Result/cor_pval_obob_",F_method,"_",pre_tag,"_",file_tag,".rds"))
-      saveRDS(cor_permperm,paste0("../Data_PRJNA434002/8.Result/cor_pval_permperm_",F_method,"_",pre_tag,"_",file_tag,".rds"))
-      #plot cor pval ob vs perm
-      png(paste0("../Data_PRJNA434002/8.Result/fig_scatter_cor_pval/scatter_cor_pval_",F_method,"_",pre_tag,"_",file_tag,".png"),height = 400,width = 500)
-      plot(cell_num,cor_obperm[,1],type="p",pch=3,cex=1.1, col="red",xlab="cell number of each cell type",ylab="-log10 pval_cor",cex.lab=1.5, cex.axis=1.5, cex.main=1.5, cex.sub=1.5,main="correlation between observed and permutation -log10 pvalues",,ylim=c(-1,1))
-      abline(h = -log10(0.05), col = "red")
-      points(cell_num,cor_obperm[,2],pch=4,cex=1.1, col="blue")
-      points(cell_num,cor_obperm[,3],pch=5,cex=1.1, col="pink")
-      points(cell_num,cor_obperm[,4],pch=6,cex=1.1, col="brown")
-      points(cell_num,cor_obperm[,5],pch=7,cex=1.1, col="orange")
-      points(cell_num,cor_obperm[,6],pch=8,cex=1.1, col="green")
-      points(cell_num,cor_obperm[,7],pch=9,cex=1.1, col="navy")
-      points(cell_num,cor_obperm[,8],pch=10,cex=1.1, col="purple")
-      legend("topright",dimnames(log10_ob_pval)[[2]],pch=3:10,cex=.5,col=c("red","blue","pink","brown","orange","green","navy","purple"))
-
-      dev.off()
-
-
-      
-      
-      perm_label=2
-      for(cluster_tag in 1:dim(log10_perm_pval)[1]){
-    
-        fit_data=readRDS(paste0("../Data_PRJNA434002/7.Result/fit_ind_",pre_tag,"_sim_",cluster_tag,"_",file_tag,".rds"))
-        sim_data=readRDS(paste0("../Data_PRJNA434002/7.Result/sim_ind_",pre_tag,"_sim_",cluster_tag,"_",file_tag,".rds"))
-        
-        #permutation phenotype
-        cur_phenotype=tmeta$diagnosis[tmeta$cluster==cur_cluster[cluster_tag]]!="Control"
-        cur_phenotype_ind=tmeta$diagnosis[match(unlist(dimnames(fit_data)[2]),tmeta$individual)]!="Control"
-        
-        cur_individual=tmeta$individual[tmeta$cluster==cur_cluster[cluster_tag]]
-        cur_individual_ind=tmeta$individual[match(unlist(dimnames(fit_data)[2]),tmeta$individual)]
-        #count cases and controls
-        diag_info=paste0(tmeta$ind,":",tmeta$diagnosis)
-        diag_kind=unique(diag_info)
-        diag_kind=t(apply(as.matrix(diag_kind),1,function(x){return(unlist(strsplit(x,":")))}))
-        if(perm_label>0){
-          #permute
-          perm_order=readRDS(paste0("../Data_PRJNA434002/7.Result/ind_perm_order.rds"))
-          perm_order=as.numeric(perm_order[,perm_label])
-          diag_kind[,2]=diag_kind[perm_order,2]
-        }
-        #match back to each individuals
-        diag_kind=diag_kind[match(unlist(dimnames(fit_data)[[2]]),diag_kind[,1]),]
-        
-        ind_index=match(tmeta$ind,diag_kind[,1])
-        ind_index=ind_index[!is.na(ind_index)]
-        cur_phenotype=as.factor(diag_kind[ind_index,2])
-        cur_phenotype_ind=diag_kind[,2]
-        cur_phenotype=cur_phenotype[tmeta$cluster==cur_cluster[cluster_tag]]!="Control"
-        cur_phenotype_ind=cur_phenotype_ind!="Control"
-        
-        
-        
-        
-        #plot first 4 smallest permutated data's pval's gene's re-constructed expression distribution vs the median pvals
-        print("sig_gene_count")
-        png(paste0("../Data_PRJNA434002/8.Result/fig_sig_gene_count/sig_gene_count_",F_method,"_",pre_tag,"_",cluster_tag,"_",file_tag,".png"),height = 2400,width =3200)
-        op=par(mfrow = c(6, 8))
-        for(i_pval in 1:dim(log10_perm_pval)[2]){
-          #sig pval
-          cur_index=order(log10_perm_pval[cluster_tag,i_pval,],decreasing = TRUE)[1:4]
-          for(iplot in cur_index){
-            #cur_hist_plot_param(xx=fit_data,i1=iplot,i2=cur_phenotype_ind,i3=1,xlab="logmean",
-            #                    main=paste0("ind-zinb param,",dimnames(log10_perm_pval)[[2]][i_pval]," sig pval of Perm ",iplot))
-            #cur_hist_plot_param(xx=fit_data,i1=iplot,i2=cur_phenotype_ind,i3=2,xlab="dispersion",
-            #                    main=paste0("ind-zinb param,",dimnames(log10_perm_pval)[[2]][i_pval]," sig pval of Perm ",iplot))
-            #cur_hist_plot_param(xx=fit_data,i1=iplot,i2=cur_phenotype_ind,i3=3,xlab="dropout",
-            #                    main=paste0("ind-zinb param,",dimnames(log10_perm_pval)[[2]][i_pval]," sig pval of Perm ",iplot))
-
-            cur_hist_plot_param(xx=sim_data,i1=iplot,i2=cur_phenotype,i3=1:dim(sim_data)[[3]],xlab="read count",
-                                main=paste0("sim gene expres,",dimnames(log10_perm_pval)[[2]][i_pval]," sig pval of Perm ",iplot))
-          }
-
-          #median pval
-          cur_index=order(log10_perm_pval[cluster_tag,i_pval,],decreasing = TRUE)[1501:1504]
-          for(iplot in cur_index){
-            #cur_hist_plot_param(xx=fit_data,i1=iplot,i2=cur_phenotype_ind,i3=1,xlab="logmean",
-            #                    main=paste0("ind-zinb param,",dimnames(log10_perm_pval)[[2]][i_pval]," median pval of Perm ",iplot))
-            #cur_hist_plot_param(xx=fit_data,i1=iplot,i2=cur_phenotype_ind,i3=2,xlab="dispersion",
-            #                    main=paste0("ind-zinb param,",dimnames(log10_perm_pval)[[2]][i_pval]," median pval of Perm ",iplot))
-            #cur_hist_plot_param(xx=fit_data,i1=iplot,i2=cur_phenotype_ind,i3=3,xlab="dropout",
-            #                    main=paste0("ind-zinb param,",dimnames(log10_perm_pval)[[2]][i_pval]," median pval of Perm ",iplot))
-
-            cur_hist_plot_param(xx=sim_data,i1=iplot,i2=cur_phenotype,i3=1:dim(sim_data)[[3]],xlab="read count",
-                                main=paste0("sim gene expres,",dimnames(log10_perm_pval)[[2]][i_pval]," median pval of Perm ",iplot))
-          }
-        }
-        par(op)
-        dev.off()
-
-        #plot first 4 smallest permutated data's pval's gene's re-constructed expression distribution vs the median pvals with individual info
-
-        print("sig_gene_count_ind")
-        png(paste0("../Data_PRJNA434002/8.Result/fig_sig_gene_count_ind/sig_gene_count_ind_",F_method,"_",pre_tag,"_",cluster_tag,"_",file_tag,".png"),height = 4500,width =6000)
-        op=par(mfrow = c(12, 16))
-        for(i_pval in 1:dim(log10_perm_pval)[2]){
-          #sig pval
-          cur_index=order(log10_perm_pval[cluster_tag,i_pval,],decreasing = TRUE)[1:4]
-          for(iplot in cur_index){
-            cur_scatter_param(xx=fit_data,i1=iplot,i2=cur_phenotype_ind,i3=1,
-                              ind_info=cur_individual_ind,xlab="individual",ylab="logmean",
-                                main=paste0("ind-zinb param,",dimnames(log10_perm_pval)[[2]][i_pval]," sig pval of Perm ",iplot))
-            cur_scatter_param(xx=log10(fit_data),i1=iplot,i2=cur_phenotype_ind,i3=2,
-                              ind_info=cur_individual_ind,xlab="individual",ylab="log10 dispersion",
-                                main=paste0("ind-zinb param,",dimnames(log10_perm_pval)[[2]][i_pval]," sig pval of Perm ",iplot))
-            cur_scatter_param(xx=fit_data,i1=iplot,i2=cur_phenotype_ind,i3=3,
-                              ind_info=cur_individual_ind,xlab="individual",ylab="dropout",
-                                main=paste0("ind-zinb param,",dimnames(log10_perm_pval)[[2]][i_pval]," sig pval of Perm ",iplot))
-            cur_boxplot_param(xx=sim_data,i1=iplot,i2=cur_phenotype,i3=1:dim(sim_data)[[3]],
-                              ind_info=cur_individual,xlab="individual",ylab="read count",
-                              main=paste0("sim gene expres,",dimnames(log10_perm_pval)[[2]][i_pval]," sig pval of Perm ",iplot))
-          }
-
-          #median pval
-          cur_index=order(log10_perm_pval[cluster_tag,i_pval,],decreasing = TRUE)[1501:1504]
-          for(iplot in cur_index){
-            cur_scatter_param(xx=fit_data,i1=iplot,i2=cur_phenotype_ind,i3=1,
-                              ind_info=cur_individual_ind,xlab="individual",ylab="logmean",
-                              main=paste0("ind-zinb param,",dimnames(log10_perm_pval)[[2]][i_pval]," median pval of Perm ",iplot))
-            cur_scatter_param(xx=log10(fit_data),i1=iplot,i2=cur_phenotype_ind,i3=2,
-                              ind_info=cur_individual_ind,xlab="individual",ylab="log10 dispersion",
-                              main=paste0("ind-zinb param,",dimnames(log10_perm_pval)[[2]][i_pval]," median pval of Perm ",iplot))
-            cur_scatter_param(xx=fit_data,i1=iplot,i2=cur_phenotype_ind,i3=3,
-                              ind_info=cur_individual_ind,xlab="individual",ylab="dropout",
-                              main=paste0("ind-zinb param,",dimnames(log10_perm_pval)[[2]][i_pval]," median pval of Perm ",iplot))
-            cur_boxplot_param(xx=sim_data,i1=iplot,i2=cur_phenotype,i3=1:dim(sim_data)[[3]],
-                              ind_info=cur_individual,xlab="individual",ylab="read count",
-                              main=paste0("sim gene expres,",dimnames(log10_perm_pval)[[2]][i_pval]," median pval of Perm ",iplot))
-          }
-        }
-        par(op)
-        dev.off()
-
-        
-        
-        ##plot first 4 smallest permutated data's pval's gene's re-constructed expression distribution vs the median pvals 
-        #Draw three density plot of histograms of the distances within cases, within controls and between cases and controls. 
-        
-      print("ind_dist_density")
-        dist_list=list()
-        dist_list[["jsd_empirical"]]=readRDS(paste0("../Data_PRJNA434002/8.Result/jsd_empirical_array_",pre_tag,"_sim_",cluster_tag,"_",file_tag,".rds"))
-        dist_list[["klmean_empirical"]]=readRDS(paste0("../Data_PRJNA434002/8.Result/klmean_empirical_array_",pre_tag,"_sim_",cluster_tag,"_",file_tag,".rds"))
-        dist_list[["jsd_zinb"]]=readRDS(paste0("../Data_PRJNA434002/8.Result/jsd_nbzinb_array_",pre_tag,"_sim_",cluster_tag,"_",file_tag,".rds"))
-        dist_list[["klmean_zinb"]]=readRDS(paste0("../Data_PRJNA434002/8.Result/klmean_nbzinb_array_",pre_tag,"_sim_",cluster_tag,"_",file_tag,".rds"))
-
-        
-        png(paste0("../Data_PRJNA434002/8.Result/fig_ind_dist_density/ind_dist_density_",F_method,"_",pre_tag,"_",cluster_tag,"_",file_tag,".png"),height = 2400,width =1200)
-        #png(paste0("../Data_PRJNA434002/8.Result/fig_ind_dist_density/ind_dist_density_",F_method,"_",pre_tag,"_",cluster_tag,"_",file_tag,".png"),height = 2400,width =1200)
-        op=par(mfrow = c(8, 4))
-        for(i_pval in 3:dim(log10_perm_pval)[2]){
-          cur_label=dimnames(log10_perm_pval)[[2]][i_pval]
-          cur_array=dist_list[[cur_label]]
-          #sig pval
-          cur_index=order(log10_perm_pval[cluster_tag,i_pval,],decreasing = TRUE)[1:4]
-          for(iplot in cur_index){ #plot density
-            dist_matrix_density_plot(mx=cur_array,i1=iplot,i2=cur_phenotype_ind,xlab="Distance",ylab="Density",
-                                     main=paste0("Density of distance, ",cur_label,", sig pval of Perm ",iplot))
-          }
-          #median pval
-          cur_index=order(log10_perm_pval[cluster_tag,i_pval,],decreasing = TRUE)[1501:1504]
-          for(iplot in cur_index){ #plot density
-            dist_matrix_density_plot(mx=cur_array,i1=iplot,i2=cur_phenotype_ind,xlab="Distance",ylab="Density",
-                                     main=paste0("Density of distance, ",cur_label,", median pval of Perm ",iplot))
-          }
-        }
-        par(op)
-        dev.off()
-        
-        #plot the relationship between log10_perm_pval and a lot of characters
-
-        print("scatter_pval_cor_pheno")
-        #statistical info
-        zero_rate_ind=readRDS(paste0("../Data_PRJNA434002/7.Result/sim_ind_zero_rate_",pre_tag,"_sim_",cluster_tag,"_",file_tag,".rds"))
-        zerorate_ind_mean=apply(zero_rate_ind,1,mean)
-        nonexpres_ind=apply(zero_rate_ind==10,1,sum)
-        zero_rate=readRDS(paste0("../Data_PRJNA434002/7.Result/sim_zero_rate_",pre_tag,"_sim_",cluster_tag,"_",file_tag,".rds"))
-        expression_level=readRDS(paste0("../Data_PRJNA434002/7.Result/sim_gene_read_count_total_",pre_tag,"_sim_",cluster_tag,"_",file_tag,".rds"))
-        zinb_fit=readRDS(paste0("../Data_PRJNA434002/7.Result/fit_ind_",pre_tag,"_sim_",cluster_tag,"_",file_tag,".rds"))
-        logmean_max=apply(zinb_fit[,,1],1,function(x){return(max(x,na.rm = TRUE))})
-        logmean_median=apply(zinb_fit[,,1],1,function(x){return(median(x,na.rm = TRUE))})
-        overdisp_max=apply(zinb_fit[,,2],1,function(x){return(max(x,na.rm = TRUE))})
-        overdisp_median=apply(zinb_fit[,,2],1,function(x){return(median(x,na.rm = TRUE))})
-        dropout_max=apply(zinb_fit[,,3],1,function(x){return(max(x,na.rm = TRUE))})
-        dropout_median=apply(zinb_fit[,,3],1,function(x){return(median(x,na.rm = TRUE))})
-
-        log10_expression_level=log10(expression_level+1)
-        log10_overdisp_max=log10(overdisp_max+1)
-        log10_overdisp_median=log10(overdisp_median+1)
-        #plot
-        png(paste0("../Data_PRJNA434002/8.Result/fig_scatter_pval_cor_pheno/scatter_pval_cor_pheno_",F_method,"_",pre_tag,"_",cluster_tag,"_",file_tag,".png"),height = 1200,width =2000)
-        op=par(mfrow = c(8, 10))
-        for(i_pval in 1:dim(log10_perm_pval)[2]){
-          cur_plot_pval=NA
-          cur_plot_pval=log10_perm_pval[cluster_tag,i_pval,]
-          if(sum(!is.na(cur_plot_pval))>0){
-            #zerorate_ind_mean
-            plot(cur_plot_pval,zerorate_ind_mean,type="p",pch=1,cex=0.1, xlab="-log10 pval",cex.lab=1.5, cex.axis=1.5, cex.main=1.5, cex.sub=1.5,ylab="zerorate_ind_mean",main=paste0(dimnames(log10_perm_pval)[[2]][i_pval]," x zerorate_ind_mean"))
-            abline(v = -log10(0.05), col = "red")
-            
-            #nonexpres_ind
-            plot(cur_plot_pval,nonexpres_ind,type="p",pch=1,cex=0.1, xlab="-log10 pval",cex.lab=1.5, cex.axis=1.5, cex.main=1.5, cex.sub=1.5,ylab="nonexpres_ind",main=paste0(dimnames(log10_perm_pval)[[2]][i_pval]," x nonexpres_ind"))
-            abline(v = -log10(0.05), col = "red")
-            
-            #zero_rate
-            plot(cur_plot_pval,zero_rate,type="p",pch=1,cex=0.1, xlab="-log10 pval",cex.lab=1.5, cex.axis=1.5, cex.main=1.5, cex.sub=1.5,ylab="zero_rate",main=paste0(dimnames(log10_perm_pval)[[2]][i_pval]," x zero_rate"))
-            abline(v = -log10(0.05), col = "red")
-            
-            #log10_expression_level
-            plot(cur_plot_pval,log10_expression_level,type="p",pch=1,cex=0.1, xlab="-log10 pval",cex.lab=1.5, cex.axis=1.5, cex.main=1.5, cex.sub=1.5,ylab="log10_expression_level",main=paste0(dimnames(log10_perm_pval)[[2]][i_pval]," x log10_expression_level"))
-            abline(v = -log10(0.05), col = "red")
-            
-            #logmean_max
-            plot(cur_plot_pval,logmean_max,type="p",pch=1,cex=0.1, xlab="-log10 pval",cex.lab=1.5, cex.axis=1.5, cex.main=1.5, cex.sub=1.5,ylab="logmean_max",main=paste0(dimnames(log10_perm_pval)[[2]][i_pval]," x logmean_max"))
-            abline(v = -log10(0.05), col = "red")
-            
-            #logmean_median
-            plot(cur_plot_pval,logmean_median,type="p",pch=1,cex=0.1, xlab="-log10 pval",cex.lab=1.5, cex.axis=1.5, cex.main=1.5, cex.sub=1.5,ylab="logmean_median",main=paste0(dimnames(log10_perm_pval)[[2]][i_pval]," x logmean_median"))
-            abline(v = -log10(0.05), col = "red")
-            
-            #log10_overdisp_max
-            plot(cur_plot_pval,log10_overdisp_max,type="p",pch=1,cex=0.1, xlab="-log10 pval",cex.lab=1.5, cex.axis=1.5, cex.main=1.5, cex.sub=1.5,ylab="log10_overdisp_max",main=paste0(dimnames(log10_perm_pval)[[2]][i_pval]," x log10_overdisp_max"))
-            abline(v = -log10(0.05), col = "red")
-            
-            #log10_overdisp_median
-            plot(cur_plot_pval,log10_overdisp_median,type="p",pch=1,cex=0.1, xlab="-log10 pval",cex.lab=1.5, cex.axis=1.5, cex.main=1.5, cex.sub=1.5,ylab="log10_overdisp_median",main=paste0(dimnames(log10_perm_pval)[[2]][i_pval]," x log10_overdisp_median"))
-            abline(v = -log10(0.05), col = "red")
-            
-            #dropout_max
-            plot(cur_plot_pval,dropout_max,type="p",pch=1,cex=0.1, xlab="-log10 pval",cex.lab=1.5, cex.axis=1.5, cex.main=1.5, cex.sub=1.5,ylab="dropout_max",main=paste0(dimnames(log10_perm_pval)[[2]][i_pval]," x dropout_max"))
-            abline(v = -log10(0.05), col = "red")
-            
-            #dropout_median
-            plot(cur_plot_pval,dropout_median,type="p",pch=1,cex=0.1, xlab="-log10 pval",cex.lab=1.5, cex.axis=1.5, cex.main=1.5, cex.sub=1.5,ylab="dropout_median",main=paste0(dimnames(log10_perm_pval)[[2]][i_pval]," x dropout_median"))
-            abline(v = -log10(0.05), col = "red")
-          }
-        }
-        par(op)
-        dev.off()
-      
-        print(paste0(F_method,"_",pre_tag,"_",cluster_tag,"_",file_tag))
-        
-        }
-      
     }
   }
 }

@@ -58,11 +58,11 @@ meta=t_meta[total_cell_index,]
 cur_individual=unique(meta$individual)
 phenotype=meta$phenotype[match(cur_individual,meta$individual)]
 
-if(file.exists(paste0("../Data_PRJNA434002/10.Result/",dist_method,"_",fit_method,"_dist_array_",r_mean,"_",r_var,"_",r_disp,"_",r_change_prop,"_",file_tag,"_",(2*n),"_",ncell,".rds"))){
-  dist_array=readRDS(paste0("../Data_PRJNA434002/10.Result/",dist_method,"_",fit_method,"_dist_array_",r_mean,"_",r_var,"_",r_disp,"_",r_change_prop,"_",file_tag,"_",(2*n),"_",ncell,".rds"))
+if(file.exists(paste0("../Data_PRJNA434002/10.Result/dist_array/",dist_method,"_",fit_method,"_dist_array_",r_mean,"_",r_var,"_",r_disp,"_",r_change_prop,"_",file_tag,"_",(2*n),"_",ncell,".rds"))){
+  dist_array=readRDS(paste0("../Data_PRJNA434002/10.Result/dist_array/",dist_method,"_",fit_method,"_dist_array_",r_mean,"_",r_var,"_",r_disp,"_",r_change_prop,"_",file_tag,"_",(2*n),"_",ncell,".rds"))
 }
 
-if(!file.exists(paste0("../Data_PRJNA434002/10.Result/",dist_method,"_",fit_method,"_dist_array_",r_mean,"_",r_var,"_",r_disp,"_",r_change_prop,"_",file_tag,"_",(2*n),"_",ncell,".rds"))){
+if(!file.exists(paste0("../Data_PRJNA434002/10.Result/dist_array/",dist_method,"_",fit_method,"_dist_array_",r_mean,"_",r_var,"_",r_disp,"_",r_change_prop,"_",file_tag,"_",(2*n),"_",ncell,".rds"))){
   if(fit_method=="zinb"){
     if(!is.na(covariate_flag)){
       #logsum_count=log(apply(sim_matrix,2,sum))
@@ -168,7 +168,7 @@ if(!file.exists(paste0("../Data_PRJNA434002/10.Result/",dist_method,"_",fit_meth
     }
   }
   
-  saveRDS(dist_array,paste0("../Data_PRJNA434002/10.Result/",dist_method,"_",fit_method,"_dist_array_",r_mean,"_",r_var,"_",r_disp,"_",r_change_prop,"_",file_tag,"_",(2*n),"_",ncell,".rds"))
+  saveRDS(dist_array,paste0("../Data_PRJNA434002/10.Result/dist_array/",dist_method,"_",fit_method,"_dist_array_",r_mean,"_",r_var,"_",r_disp,"_",r_change_prop,"_",file_tag,"_",(2*n),"_",ncell,".rds"))
 }
 
 
@@ -177,15 +177,6 @@ if(!file.exists(paste0("../Data_PRJNA434002/10.Result/",dist_method,"_",fit_meth
 for(perm_label in 1:5){
   #for(perm_method in c("","b")){
    perm_method="" 
-    
-    
-    
-    
-    
-    
-    
-    
-    
     
     dist_res=NA
     dist_pval=NA
@@ -258,12 +249,7 @@ for(perm_label in 1:5){
     }
     
     #dist_pval=apply(dist_array,1,function(x){tryCatch(return(cal_permanova_pval(x,cur_phenotype)), error = function(e) {NA} )})
-    saveRDS(dist_pval,paste0("../Data_PRJNA434002/10.Result/"dist_method,"_",fit_method,"_pval/p",perm_label,perm_method,"_",dist_method,"_",fit_method,"_raw_pval_",r_mean,"_",r_var,"_",r_disp,"_",r_change_prop,"_",file_tag,"_",(2*n),"_",ncell,".rds"))
-    
-    
-    
-    
-    
+    saveRDS(dist_pval,paste0("../Data_PRJNA434002/10.Result/",dist_method,"_",fit_method,"_pval/p",perm_label,perm_method,"_",dist_method,"_",fit_method,"_raw_pval_",r_mean,"_",r_var,"_",r_disp,"_",r_change_prop,"_",file_tag,"_",(2*n),"_",ncell,".rds"))
     
     
     
