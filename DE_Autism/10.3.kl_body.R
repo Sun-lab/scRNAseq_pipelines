@@ -50,9 +50,6 @@ sim_param=t_sim_param[,total_cell_index,]
 meta=t_meta[total_cell_index,]
 
 
-
-
-
 ##########################fit sim data by individual: Refer section 7 ############################
 
 cur_individual=unique(meta$individual)
@@ -174,7 +171,8 @@ if(!file.exists(paste0("../Data_PRJNA434002/10.Result/dist_array/",dist_method,"
 
 ###################Fstat calculation: Refer section 9 #######################
 
-for(perm_label in 1:5){
+
+for(perm_label in 0:5){
   #for(perm_method in c("","b")){
    perm_method="" 
     

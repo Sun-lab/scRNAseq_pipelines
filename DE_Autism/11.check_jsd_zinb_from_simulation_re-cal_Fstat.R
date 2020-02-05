@@ -15,7 +15,7 @@ r_disp=1.2
 r_mult=0.4
 file_tag=1
 n_ind=40
-n_cell=100
+n_cell=80
 
 
 
@@ -165,7 +165,6 @@ meta=t_meta[total_cell_index,]
 dist_array=dist_array[order(cur_pval),,]
 sim_param=sim_param[order(cur_pval),,]
 sim_matrix=sim_matrix[order(cur_pval),]
-cur_pval2=cur_pval[order(cur_pval)]
 
 op=par(mfrow = c(2, 2))
 for(i in 1:10){
@@ -324,26 +323,3 @@ plot(dist_quantile[1:1000,5],param12_quantile[1:1000,5],sub=paste0("cor=", round
 plot(dist_quantile[1501:1600,5],param12_quantile[1501:1600,5],sub=paste0("cor=", round(cor(dist_quantile[1501:1600,5],param12_quantile[1501:1600,5]),3)))
 plot(dist_quantile[2001:3000,5],param12_quantile[2001:3000,5],sub=paste0("cor=", round(cor(dist_quantile[,5],param12_quantile[,5]),3)))
 par(op)
-
-res=matrix(ncol=3,nrow=0)
-zero_num=matrix(ncol=1,nrow=3000)
-for(ig in 1:3000){
-  dist_matrix=dist_array[ig,,]
-  for(i in 1:(nrow(dist_matrix)-1)){
-    for(j in (i+1):nrow(dist_matrix)){
-      dist_range=dist_matrix[i,-c(i,j)]-dist_matrix[j,-c(i,j)]
-      dist_diff=abs(max(dist_range)-min(dist_range))
-      if(dist_diff<0.0001){
-        res=rbind(res,c(ig,i,j))
-        print(c(ig,i,j))
-        print(quantile(dist_range))
-      }
-    }
-  }
-  zero_num[ig]=sum(is.na(dist_matrix))
-}
-
-tie_table=table(res[,1])
-hist(cur_pval)
-hist(cur_pval[as.numeric(names(tie_table))])
-hist(cur_pval[-as.numeric(names(tie_table))])

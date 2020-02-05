@@ -7,26 +7,32 @@
 calc_F_manova=function(dist_matrix,label){
   label=as.numeric(label)
   a=length(unique(label))
-  n=length(label)
+  N=length(label)
   
-  epsilon=matrix((rep(label,time=n)==rep(label,each=n)),ncol=n,nrow=n)+0
+  epsilon=matrix((rep(label,time=N)==rep(label,each=N)),ncol=N,nrow=N)+0
   d2=dist_matrix*dist_matrix
-  sst=sum(d2/(2*n*a),na.rm = TRUE)
-  ssw=sum((d2*epsilon)/(2*n),na.rm = TRUE)
-  
-  Fstat=((sst-ssw)*(n-a))/(ssw*(a-1))
+  sst=sum(d2/(2*N))
+  ssw=0
+  for(ik in 1:a){
+    cur_index=which(label==(unique(label)[ik]))
+    ssw=ssw+sum(d2[cur_index,cur_index]/(2*length(cur_index)))
+  }
+  Fstat=((sst-ssw)*(N-a))/(ssw*(a-1))
   return(Fstat)
 }
 
 calc_F_manova2=function(dist_array,label){
   label=as.numeric(label)
   a=length(unique(label))
-  n=length(label)
-  
-  epsilon=matrix((rep(label,time=n)==rep(label,each=n)),ncol=n,nrow=n)+0
-  d2=dist_array*dist_array/(2*n)
-  sst=apply(d2/a,1,function(x){sum(x,na.rm = TRUE)})
-  ssw=apply(d2,1,function(x){sum(x*epsilon,na.rm = TRUE)})
+  N=length(label)
+  d2=dist_array*dist_array
+  sst=apply(d2/(2*N),1,function(x){sum(x)})
+  ssw=matrix(0,nrow=dim(dist_array)[1],ncol=1)
+  for(ik in 1:a){
+    cur_index=which(label==(unique(label)[ik]))
+    ssw=ssw+apply(d2,1,function(x){sum(x[cur_index,cur_index])/(2*length(cur_index))})
+  }
+  #ssw=apply(d2,1,function(x){sum(x*epsilon,na.rm = TRUE)})
   Fstat=((sst-ssw)*(n-a))/(ssw*(a-1))
   return(Fstat)
 }
@@ -287,8 +293,8 @@ cal_permanova_pval=function(dist_matrix,diagnose,zm=NA,Fstat_method="p",perm_num
     F_ob=as.numeric(calc_F_permanovaS(dist_matrix,label_array=R_ob))
     F_perm=as.numeric(calc_F_permanovaS(dist_matrix,label_array=R_array))
   }
-  
-  pval=sum(F_perm-F_ob>=0,na.rm = TRUE)/sum(!is.na(F_perm))
+  pval=mean(F_perm-F_ob>=0)
+  #pval=sum(F_perm-F_ob>=0,na.rm = TRUE)/sum(!is.na(F_perm))
   res=list()
   res[["pval"]]=pval
   res[["F_ob"]]=F_ob
@@ -317,7 +323,8 @@ cal_permanova_pval2=function(dist_array,diagnose,zm=NA,Fstat_method="p",perm_num
   if(length(F_ob)==1){
     F_perm0=t(F_perm0)
   }
-  pval=apply(F_perm0>=0,1,function(x){return(sum(x,na.rm = TRUE)/sum(!is.na(x)))})
+  pval=apply(F_perm0>=0,1,mean)
+  #pval=apply(F_perm0>=0,1,function(x){return(sum(x,na.rm = TRUE)/sum(!is.na(x)))})
   res=list()
   res[["pval"]]=pval
   res[["F_ob"]]=F_ob
