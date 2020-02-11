@@ -1,5 +1,35 @@
 
 ########################################Functions############################################
+#############pre analysis section ####################################
+
+library("vegan")
+#dist_matrix=nxn symmetric matrix with diag =0
+#label nx1 vector about categories.
+
+
+cal_betadisper_pval=function(dist_matrix,label,disper_type=c("median","centroid"),div_method=c("anova","TukeyHSD")){
+  flag=which(apply(dist_matrix,1,function(x){sum(is.na(x))==length(x)}))
+  if(length(flag)>0){
+    label=as.factor(label[-flag])
+    dist_matrix=dist_matrix[-flag,-flag]
+    dist_matrix[is.na(dist_matrix)]=median(dist_matrix)
+  }
+  
+  dis=as.dist(dist_matrix)
+  mod=betadisper(dis, label,type=disper_type)
+  
+  if(div_method=="anova"){
+    pval=anova(mod)$"Pr(>F)"[1]
+  }
+  if(div_method=="TukeyHSD"){
+    pval=TukeyHSD(mod)$group[4]
+  }
+  return(pval)
+}
+
+
+
+
 ####MANOVA Section ###############
 
 #dist_matrix=nxn symmetric matrix with diag =0
@@ -33,7 +63,7 @@ calc_F_manova2=function(dist_array,label){
     ssw=ssw+apply(d2,1,function(x){sum(x[cur_index,cur_index])/(2*length(cur_index))})
   }
   #ssw=apply(d2,1,function(x){sum(x*epsilon,na.rm = TRUE)})
-  Fstat=((sst-ssw)*(n-a))/(ssw*(a-1))
+  Fstat=((sst-ssw)*(N-a))/(ssw*(a-1))
   return(Fstat)
 }
 

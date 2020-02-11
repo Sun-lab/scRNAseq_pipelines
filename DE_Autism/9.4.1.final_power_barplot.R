@@ -298,7 +298,7 @@ for(i_file in 1:length(file_tag_seq)){
         png(paste0("../Data_PRJNA434002/8.Result/fig_power_point/power_point_",perm_label,"_",F_method,"_",pre_tag,"_",cluster_tag,"_",file_tag,".png"),height = 600,width = 600)
         plot(power_array[i_file,i_F,i_pre,i_cluster,i_perm_label,1],power_array[i_file,i_F,i_pre,i_cluster,1,1],xlim=c(0,1),ylim=c(0,1),xlab="False positive rate (FPR)",ylab="True positive rate (TPR)",type="p",col="red",pch=3,cex=3)
         abline(v = 0.05, col = "red") 
-        points(power_array[i_file,i_F,i_pre,i_cluster,i_perm_label,i_perm_label],power_array[i_file,i_F,i_pre,i_cluster,1,i_perm_label],col="blue",pch=3,cex=3)
+        points(power_array[i_file,i_F,i_pre,i_cluster,i_perm_label,2],power_array[i_file,i_F,i_pre,i_cluster,1,2],col="blue",pch=3,cex=3)
         points(power_array[i_file,i_F,i_pre,i_cluster,i_perm_label,3],power_array[i_file,i_F,i_pre,i_cluster,1,3],col="pink",pch=3,cex=3)
         points(power_array[i_file,i_F,i_pre,i_cluster,i_perm_label,4],power_array[i_file,i_F,i_pre,i_cluster,1,4],col="brown",pch=3,cex=3)
         points(power_array[i_file,i_F,i_pre,i_cluster,i_perm_label,5],power_array[i_file,i_F,i_pre,i_cluster,1,5],col="orange",pch=3,cex=3)
@@ -383,8 +383,8 @@ for(i_file in 1:length(file_tag_seq)){
       boxplot(a,cex.lab=1.5, cex.axis=1.5, cex.main=1.5, cex.sub=1.5,main="proportion of p-values less than 0.05 of all clusters, observed data",ylab="power")
       abline(h = 0.05, col = "red") 
       
-      for(perm_label in perm_label_seq){
-        b=power_array[i_file,i_F,i_pre,,perm_label,]
+      for(i_perm_label in 2:length(perm_label_seq)){
+        b=power_array[i_file,i_F,i_pre,,i_perm_label,]
         boxplot(b,cex.lab=1.5, cex.axis=1.5, cex.main=1.5, cex.sub=1.5,main="proportion of p-values less than 0.05 of all clusters, permutated data",ylab="type I error")
         abline(h = 0.05, col = "red") 
       }
@@ -423,8 +423,8 @@ for(i_file in 1:length(file_tag_seq)){
 
       a=power_array[i_file,i_F,i_pre,,1,]
       
-      for(perm_label in perm_label_seq){
-        b=power_array[i_file,i_F,i_pre,,perm_label,]
+      for(i_perm_label in 2:length(perm_label_seq)){
+        b=power_array[i_file,i_F,i_pre,,i_perm_label,]
         scatter_cell_num_1v8(a,main="proportion of pval<0.05,observed data",ylab="Power",ylim=c(0,1))
         scatter_cell_num_1v8(b,main="proportion of pval<0.05,permutated data",ylab="Power",ylim=c(0,1))
         scatter_8v8(b,a,ylab="observed (Power)",xlab="permutated (Type I error)",main="proportion of pval<0.05, observed vs permutated",ylim=c(0,1),xlim=c(0,1))
@@ -487,8 +487,8 @@ for(i_file in 1:length(file_tag_seq)){
       a=ks_array[i_file,i_F,i_pre,,1,]
       boxplot(a,cex.lab=1.5, cex.axis=1.5, cex.main=1.5, cex.sub=1.5,main="ks test for distribution of pvalues, observed data",ylab="ks pval")
       abline(h = 0.05, col = "red") 
-      for(perm_label in 1:length(perm_label_seq)){
-        b=ks_array[i_file,i_F,i_pre,,perm_label,]
+      for(i_perm_label in 2:length(perm_label_seq)){
+        b=ks_array[i_file,i_F,i_pre,,i_perm_label,]
         boxplot(b,cex.lab=1.5, cex.axis=1.5, cex.main=1.5, cex.sub=1.5,main="ks test for distribution of pvalues, permutated data",ylab="ks pval")
         abline(h = 0.05, col = "red") 
       }
@@ -529,8 +529,8 @@ for(i_file in 1:length(file_tag_seq)){
 
       a=-log10(ks_array[i_file,i_F,i_pre,,1,]+min(ks_array[ks_array>0],na.rm = TRUE))
       
-      for(perm_label in perm_label_seq){
-        b=-log10(ks_array[i_file,i_F,i_pre,,perm_label,]+min(ks_array[ks_array>0],na.rm = TRUE))
+      for(i_perm_label in 2:length(perm_label_seq)){
+        b=-log10(ks_array[i_file,i_F,i_pre,,i_perm_label,]+min(ks_array[ks_array>0],na.rm = TRUE))
         max_ab=max(a,b,na.rm = TRUE)
         
         scatter_cell_num_1v8(a,main="-log10 pvalues from KS test, observed data",ylab="-log10 ks pval",ylim=c(0,max_ab))
@@ -749,8 +749,8 @@ for(i_file in 1:length(file_tag_seq)){
 
       log10_ob_pval=-log10(pval_array[i_F,i_pre,,1,,]+min(pval_array[pval_array>0],na.rm = TRUE))
       
-      for(perm_label in 1:length(perm_label_seq)){
-        log10_perm_pval=-log10(pval_array[i_F,i_pre,,perm_label,,]+min(pval_array[pval_array>0],na.rm = TRUE))
+      for(i_perm_label in 2:length(perm_label_seq)){
+        log10_perm_pval=-log10(pval_array[i_F,i_pre,,i_perm_label,,]+min(pval_array[pval_array>0],na.rm = TRUE))
         
         ##do scatter plot about ob pval vs perm pval
         cor_obperm=array(dim=dim(log10_ob_pval)[1:2],dimnames=list(dimnames(log10_ob_pval)[[1]],dimnames(log10_ob_pval)[[2]]))

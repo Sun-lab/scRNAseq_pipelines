@@ -8,13 +8,13 @@ perm_label=1
 perm_method=""
 param_tag=1 #c(1,2,3,4)
 
-perm_label_seq=1:2
+perm_label_seq=1
 param_tag_seq=1:4
-perm_method_seq=c("","b")
+perm_method_seq="" #c("","b")
 for(perm_method in perm_method_seq){
   for(perm_label in perm_label_seq){
     for(param_tag in param_tag_seq){ 
-      file_tag_seq=1:2
+      file_tag_seq=1
       
       r_mean_seq=1.2 
       r_var_seq=1.2 

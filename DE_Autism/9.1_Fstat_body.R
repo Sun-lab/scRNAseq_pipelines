@@ -8,7 +8,7 @@
 # fit_method="nbzinb"
 # F_method="p"
 
-perm_label_seq=0:5
+perm_label_seq=0:10
 perm_method="" # "" or "s"(set cell threshold, any individuals with less cells would be removed)
 cell_threshold=4
 
@@ -53,6 +53,10 @@ phenotype[which(meta$diagnosis[match(cur_individual,meta$individual)]=="Control"
 
 ###################calculation t#################################
 print("start calculation: Part I: Empirical KLmean and JSD")
+
+pval_perm=matrix(ncol=(length(perm_label_seq)-1),nrow=dim(dist_array)[1])
+rownames(pval_perm)=dimnames(dist_array)[[1]]
+anova_centroid_pval_perm=pval_perm
 
 
 for(perm_label in perm_label_seq){
@@ -142,13 +146,13 @@ for(perm_label in perm_label_seq){
   }
   
   
-  if(!is.na(ind_covariate_flag)){
-    saveRDS(dist_pval,paste0("../Data_PRJNA434002/8.Result/"dist_method,"_",fit_method,"_pval/p",perm_label,perm_method,"_",dist_method,"_",fit_method,"_",F_method,"_pval_",ind_covariate_flag,"_",pre_tag,"_sim_",cluster_tag,"_",file_tag,".rds"))
-    
-  }
-  if(is.na(ind_covariate_flag)){
-    saveRDS(dist_pval,paste0("../Data_PRJNA434002/8.Result/"dist_method,"_",fit_method,"_pval/p",perm_label,perm_method,"_",dist_method,"_",fit_method,"_",F_method,"_pval_",pre_tag,"_sim_",cluster_tag,"_",file_tag,".rds"))
-  }
+  # if(!is.na(ind_covariate_flag)){
+  #   saveRDS(dist_pval,paste0("../Data_PRJNA434002/8.Result/"dist_method,"_",fit_method,"_pval/p",perm_label,perm_method,"_",dist_method,"_",fit_method,"_",F_method,"_pval_",ind_covariate_flag,"_",pre_tag,"_sim_",cluster_tag,"_",file_tag,".rds"))
+  #   
+  # }
+  # if(is.na(ind_covariate_flag)){
+  #   saveRDS(dist_pval,paste0("../Data_PRJNA434002/8.Result/"dist_method,"_",fit_method,"_pval/p",perm_label,perm_method,"_",dist_method,"_",fit_method,"_",F_method,"_pval_",pre_tag,"_sim_",cluster_tag,"_",file_tag,".rds"))
+  # }
   
   
   ####Second Chance, to see if we can get more from our method (OPTIONAL)##############################
@@ -207,16 +211,34 @@ for(perm_label in perm_label_seq){
     }
   }
   
-  
-  if(!is.na(ind_covariate_flag)){
-    saveRDS(dist_pval,paste0("../Data_PRJNA434002/8.Result/",dist_method,"_",fit_method,"_pval/p",perm_label,perm_method,"_",dist_method,"_",fit_method,"_",F_method,"_pval_",ind_covariate_flag,"_",pre_tag,"_sim_",cluster_tag,"_",file_tag,".rds"))
+  if(perm_label==0){
+    pval_ob=dist_pval
+    anova_centroid_pval_ob=apply(dist_array,1,function(x){tryCatch(cal_betadisper_pval(x,label = cur_phenotype_ind,disper_type = "centroid",div_method="anova"), error = function(e) {NA} )}) 
+    
   }
-  if(is.na(ind_covariate_flag)){
-    saveRDS(dist_pval,paste0("../Data_PRJNA434002/8.Result/",dist_method,"_",fit_method,"_pval/p",perm_label,perm_method,"_",dist_method,"_",fit_method,"_",F_method,"_pval_",pre_tag,"_sim_",cluster_tag,"_",file_tag,".rds"))
+  if(perm_label>0){
+    pval_perm[,perm_label]=dist_pval
+    anova_centroid_pval_perm[,perm_label]=apply(dist_array,1,function(x){tryCatch(cal_betadisper_pval(x,label = cur_phenotype_ind,disper_type = "centroid",div_method="anova"), error = function(e) {NA} )}) 
+    print(perm_label)
   }
   
 }
+
+if(!is.na(ind_covariate_flag)){
+  saveRDS(pval_ob,paste0("../Data_PRJNA434002/8.Result/",dist_method,"_",fit_method,"_pval/p",perm_label,perm_method,"_",dist_method,"_",fit_method,"_",F_method,"_pval_",ind_covariate_flag,"_",pre_tag,"_sim_",cluster_tag,"_",file_tag,".rds"))
+  saveRDS(pval_perm,paste0("../Data_PRJNA434002/8.Result/",dist_method,"_",fit_method,"_pval/p",perm_label,perm_method,"_",dist_method,"_",fit_method,"_",F_method,"_perm_pval_",ind_covariate_flag,"_",pre_tag,"_sim_",cluster_tag,"_",file_tag,".rds"))
   
+  saveRDS(anova_centroid_pval_ob,paste0("../Data_PRJNA434002/8.Result/",dist_method,"_",fit_method,"_pval/p",perm_label,perm_method,"_",dist_method,"_",fit_method,"_",F_method,"_anova_centroid_pval_",ind_covariate_flag,"_",pre_tag,"_sim_",cluster_tag,"_",file_tag,".rds"))
+  saveRDS(anova_centroid_pval_perm,paste0("../Data_PRJNA434002/8.Result/",dist_method,"_",fit_method,"_pval/p",perm_label,perm_method,"_",dist_method,"_",fit_method,"_",F_method,"_perm_anova_centroid_pval_",ind_covariate_flag,"_",pre_tag,"_sim_",cluster_tag,"_",file_tag,".rds"))
+}
+if(is.na(ind_covariate_flag)){
+  saveRDS(pval_ob,paste0("../Data_PRJNA434002/8.Result/",dist_method,"_",fit_method,"_pval/p",perm_label,perm_method,"_",dist_method,"_",fit_method,"_",F_method,"_pval_",pre_tag,"_sim_",cluster_tag,"_",file_tag,".rds"))
+  saveRDS(pval_perm,paste0("../Data_PRJNA434002/8.Result/",dist_method,"_",fit_method,"_pval/p",perm_label,perm_method,"_",dist_method,"_",fit_method,"_",F_method,"_perm_pval_",pre_tag,"_sim_",cluster_tag,"_",file_tag,".rds"))
+  
+  saveRDS(anova_centroid_pval_ob,paste0("../Data_PRJNA434002/8.Result/",dist_method,"_",fit_method,"_pval/p",perm_label,perm_method,"_",dist_method,"_",fit_method,"_",F_method,"_anova_centroid_pval_",pre_tag,"_sim_",cluster_tag,"_",file_tag,".rds"))
+  saveRDS(anova_centroid_pval_perm,paste0("../Data_PRJNA434002/8.Result/",dist_method,"_",fit_method,"_pval/p",perm_label,perm_method,"_",dist_method,"_",fit_method,"_",F_method,"_perm_anova_centroid_pval_",pre_tag,"_sim_",cluster_tag,"_",file_tag,".rds"))
+}
+
 sessionInfo()
 q(save="no")
   
