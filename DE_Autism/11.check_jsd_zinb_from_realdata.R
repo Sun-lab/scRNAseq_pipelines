@@ -436,7 +436,24 @@ anova_centroid_pval_m=matrix(ncol=20,nrow=dim(dist_array)[1])
 tukey_median_pval_m=matrix(ncol=20,nrow=dim(dist_array)[1])
 anova_median_pval_m=matrix(ncol=20,nrow=dim(dist_array)[1])
 
-pdf(paste0("~/Desktop/11.check_simulation_",dist_method,"_",fit_method,"_",F_method,"_",pre_tag,"_sim_",cluster_tag,"_",file_tag,".pdf"),height = 25,width = 25)
+pdf(paste0("~/Desktop/11.check_simulation_",dist_method,"_",fit_method,"_",F_method,"_",pre_tag,"_sim_",cluster_tag,"_",file_tag,".pdf"),height = 15,width = 25)
+
+
+res=matrix(ncol=3,nrow=0)
+for(ig in 1:3000){
+  dist_matrix=dist_array[ig,,]
+  for(i in 1:(nrow(dist_matrix)-1)){
+    for(j in (i+1):nrow(dist_matrix)){
+      dist_range=dist_matrix[i,-c(i,j)]-dist_matrix[j,-c(i,j)]
+      dist_diff=abs(max(dist_range,na.rm = TRUE)-min(dist_range,na.rm = TRUE))
+      if(dist_diff<0.00001){
+        res=rbind(res,c(ig,i,j))
+      }
+    }
+  }
+}
+tie_table=table(res[,1])
+
 
 for(i_s in 1:20){
   dist_pval=NA
@@ -447,142 +464,50 @@ for(i_s in 1:20){
   
   set.seed(i_s)
   # part I homogenies
-  cur_phenotype_ind=phenotype_ind[sample.int(length(phenotype_ind),length(phenotype_ind))]
-  dist_res=cal_permanova_pval2(dist_array,cur_phenotype_ind,perm_num.min =1000)
+  cur_phenotype=phenotype[sample.int(length(phenotype),length(phenotype))]
+  dist_res=cal_permanova_pval2(dist_array,cur_phenotype,perm_num.min =1000)
   dist_pval=dist_res$pval
   
+  #part II ties
 
   
+  if(sum(abs(0.5-dist_pval)<0.1)>500){
   
-  
-  #part II ties
-  res=matrix(ncol=3,nrow=0)
-  for(ig in 1:3000){
-    dist_matrix=dist_array[ig,,]
-    for(i in 1:(nrow(dist_matrix)-1)){
-      for(j in (i+1):nrow(dist_matrix)){
-        dist_range=dist_matrix[i,-c(i,j)]-dist_matrix[j,-c(i,j)]
-        dist_diff=abs(max(dist_range,na.rm = TRUE)-min(dist_range,na.rm = TRUE))
-        if(dist_diff<0.00001){
-          res=rbind(res,c(ig,i,j))
-        }
-      }
-    }
-  }
-  tie_table=table(res[,1])
-  
-  
-  if(sum(dist_pval<0.1)>500){
-  
-  print(i)
+  print(i_s)
   
   # pval=matrix(ncol=1,nrow=3000)
   # for(i in 1:3000){
   #   print(i)
-  #   pval[i]=cal_betadisper_pval(dist_array[i,,],label = cur_phenotype_ind,disper_type = "centroid",div_method="TukeyHSD")
+  #   pval[i]=cal_betadisper_pval(dist_array[i,,],label = cur_phenotype,disper_type = "centroid",div_method="TukeyHSD")
   # }
-  tukey_centroid_pval=apply(dist_array,1,function(x){tryCatch(cal_betadisper_pval(x,label = cur_phenotype_ind,disper_type = "centroid",div_method="TukeyHSD"), error = function(e) {NA} )})
-  anova_centroid_pval=apply(dist_array,1,function(x){tryCatch(cal_betadisper_pval(x,label = cur_phenotype_ind,disper_type = "centroid",div_method="anova"), error = function(e) {NA} )})
-  tukey_median_pval=apply(dist_array,1,function(x){tryCatch(cal_betadisper_pval(x,label = cur_phenotype_ind,disper_type = "median",div_method="TukeyHSD"), error = function(e) {NA} )})
-  anova_median_pval=apply(dist_array,1,function(x){tryCatch(cal_betadisper_pval(x,label = cur_phenotype_ind,disper_type = "median",div_method="anova"), error = function(e) {NA} )}) 
+  tukey_centroid_pval=apply(dist_array,1,function(x){tryCatch(cal_betadisper_pval(x,label = cur_phenotype,disper_type = "centroid",div_method="TukeyHSD"), error = function(e) {NA} )})
+  anova_centroid_pval=apply(dist_array,1,function(x){tryCatch(cal_betadisper_pval(x,label = cur_phenotype,disper_type = "centroid",div_method="anova"), error = function(e) {NA} )})
+  tukey_median_pval=apply(dist_array,1,function(x){tryCatch(cal_betadisper_pval(x,label = cur_phenotype,disper_type = "median",div_method="TukeyHSD"), error = function(e) {NA} )})
+  anova_median_pval=apply(dist_array,1,function(x){tryCatch(cal_betadisper_pval(x,label = cur_phenotype,disper_type = "median",div_method="anova"), error = function(e) {NA} )}) 
   
   
-  op=par(mfrow = c(6, 5))
-  tryCatch({hist(dist_pval[mean_index==1],main="pval of mean-DE genes,dist method",xlab="p-values",breaks = 20)}, error = function(e) {NA} )
-  tryCatch({hist(dist_pval[var_index==1],main="pval of var-DE genes,dist method",xlab="p-values",breaks = 20)}, error = function(e) {NA} )
-  tryCatch({hist(dist_pval[disp_index==1],main="pval of disp-DE genes,dist method",xlab="p-values",breaks = 20)}, error = function(e) {NA} )
-  tryCatch({hist(dist_pval[mult_index==1],main="pval of mult-DE genes,dist method",xlab="p-values",breaks = 20)}, error = function(e) {NA} )
-  tryCatch({hist(dist_pval[mean_index==0 & var_index==0 & disp_index==0 & mult_index==0],main="pval of non-DE genes,dist method",xlab="p-values",breaks = 20)}, error = function(e) {NA} )
+  op=par(mfrow = c(3, 5))
+  tryCatch({hist(dist_pval,main="pval of dist method",xlab="p-values",breaks = 20)}, error = function(e) {NA} )
+  tryCatch({hist(tukey_centroid_pval,main="pval of tukey_centroid",xlab="p-values",breaks = 20)}, error = function(e) {NA} )
+  tryCatch({hist(anova_centroid_pval,main="pval of anova_centroid",xlab="p-values",breaks = 20)}, error = function(e) {NA} )
+  tryCatch({hist(tukey_median_pval,main="pval of tukey_median",xlab="p-values",breaks = 20)}, error = function(e) {NA} )
+  tryCatch({hist(anova_median_pval,main="pval of anova_median",xlab="p-values",breaks = 20)}, error = function(e) {NA} )
   
-  tryCatch({hist(tukey_centroid_pval[mean_index==1],main="pval of mean-DE genes,tukey_centroid",xlab="p-values",breaks = 20)}, error = function(e) {NA} )
-  tryCatch({hist(tukey_centroid_pval[var_index==1],main="pval of var-DE genes,tukey_centroid",xlab="p-values",breaks = 20)}, error = function(e) {NA} )
-  tryCatch({hist(tukey_centroid_pval[disp_index==1],main="pval of disp-DE genes,tukey_centroid",xlab="p-values",breaks = 20)}, error = function(e) {NA} )
-  tryCatch({hist(tukey_centroid_pval[mult_index==1],main="pval of mult-DE genes,tukey_centroid",xlab="p-values",breaks = 20)}, error = function(e) {NA} )
-  tryCatch({hist(tukey_centroid_pval[mean_index==0 & var_index==0 & disp_index==0 & mult_index==0],main="pval of non-DE genes,tukey_centroid",xlab="p-values",breaks = 20)}, error = function(e) {NA} )
+  tryCatch({plot(dist_pval,tukey_centroid_pval,cex=.2, main=paste0("dist_pval vs tukey_centroid, cor |0.5-p| ",round(cor(abs(0.5-dist_pval),tukey_centroid_pval,use="complete.obs"),3)))}, error = function(e) {NA} )
+  tryCatch({plot(dist_pval,anova_centroid_pval,cex=.2, main=paste0("dist_pval vs anova_centroid, cor |0.5-p| ",round(cor(abs(0.5-dist_pval),anova_centroid_pval,use="complete.obs"),3)))}, error = function(e) {NA} )
+  tryCatch({plot(dist_pval,tukey_median_pval,cex=.2, main=paste0("dist_pval vs tukey_median, cor |0.5-p| ",round(cor(abs(0.5-dist_pval),tukey_median_pval,use="complete.obs"),3)))}, error = function(e) {NA} )
+  tryCatch({plot(dist_pval,anova_median_pval,cex=.2, main=paste0("dist_pval vs anova_median, cor |0.5-p| ",round(cor(abs(0.5-dist_pval),anova_median_pval,use="complete.obs"),3)))}, error = function(e) {NA} )
+ 
+
+  tryCatch({hist(dist_pval,main="pval of dist method",xlab="p-values",breaks = 20)}, error = function(e) {NA} )
   
-  tryCatch({hist(anova_centroid_pval[mean_index==1],main="pval of mean-DE genes,anova_centroid",xlab="p-values",breaks = 20)}, error = function(e) {NA} )
-  tryCatch({hist(anova_centroid_pval[var_index==1],main="pval of var-DE genes,anova_centroid",xlab="p-values",breaks = 20)}, error = function(e) {NA} )
-  tryCatch({hist(anova_centroid_pval[disp_index==1],main="pval of disp-DE genes,anova_centroid",xlab="p-values",breaks = 20)}, error = function(e) {NA} )
-  tryCatch({hist(anova_centroid_pval[mult_index==1],main="pval of mult-DE genes,anova_centroid",xlab="p-values",breaks = 20)}, error = function(e) {NA} )
-  tryCatch({hist(anova_centroid_pval[mean_index==0 & var_index==0 & disp_index==0 & mult_index==0],main="pval of non-DE genes,anova_centroid",xlab="p-values",breaks = 20)}, error = function(e) {NA} )
+  tryCatch({hist(dist_pval[anova_median_pval<=0.05],main="pval of anova_median_pval<=0.05",xlab="p-values",breaks = 20)}, error = function(e) {NA} )
   
-  tryCatch({hist(tukey_median_pval[mean_index==1],main="pval of mean-DE genes,tukey_median",xlab="p-values",breaks = 20)}, error = function(e) {NA} )
-  tryCatch({hist(tukey_median_pval[var_index==1],main="pval of var-DE genes,tukey_median",xlab="p-values",breaks = 20)}, error = function(e) {NA} )
-  tryCatch({hist(tukey_median_pval[disp_index==1],main="pval of disp-DE genes,tukey_median",xlab="p-values",breaks = 20)}, error = function(e) {NA} )
-  tryCatch({hist(tukey_median_pval[mult_index==1],main="pval of mult-DE genes,tukey_median",xlab="p-values",breaks = 20)}, error = function(e) {NA} )
-  tryCatch({hist(tukey_median_pval[mean_index==0 & var_index==0 & disp_index==0 & mult_index==0],main="pval of non-DE genes,tukey_median",xlab="p-values",breaks = 20)}, error = function(e) {NA} )
+  tryCatch({hist(dist_pval[anova_median_pval>0.05],main="pval of anova_median_pval>0.05",xlab="p-values",breaks = 20)}, error = function(e) {NA} )
   
-  tryCatch({hist(anova_median_pval[mean_index==1],main="pval of mean-DE genes,anova_median",xlab="p-values",breaks = 20)}, error = function(e) {NA} )
-  tryCatch({hist(anova_median_pval[var_index==1],main="pval of var-DE genes,anova_median",xlab="p-values",breaks = 20)}, error = function(e) {NA} )
-  tryCatch({hist(anova_median_pval[disp_index==1],main="pval of disp-DE genes,anova_median",xlab="p-values",breaks = 20)}, error = function(e) {NA} )
-  tryCatch({hist(anova_median_pval[mult_index==1],main="pval of mult-DE genes,anova_median",xlab="p-values",breaks = 20)}, error = function(e) {NA} )
-  tryCatch({hist(anova_median_pval[mean_index==0 & var_index==0 & disp_index==0 & mult_index==0],main="pval of non-DE genes,anova_median",xlab="p-values",breaks = 20)}, error = function(e) {NA} )
-  
-  
-  
-  
-  
-  tryCatch({plot(dist_pval[mean_index==1],tukey_centroid_pval[mean_index==1],cex=.2, main=paste0("dist_pval vs tukey_centroid,mean-DE genes, cor ",round(cor(dist_pval[mean_index==1],tukey_centroid_pval[mean_index==1],use="complete.obs"),3)))}, error = function(e) {NA} )
-  tryCatch({plot(dist_pval[var_index==1],tukey_centroid_pval[var_index==1],cex=.2, main=paste0("dist_pval vs tukey_centroid,var-DE genes, cor ",round(cor(dist_pval[var_index==1],tukey_centroid_pval[var_index==1],use="complete.obs"),3)))}, error = function(e) {NA} )
-  tryCatch({plot(dist_pval[disp_index==1],tukey_centroid_pval[disp_index==1],cex=.2, main=paste0("dist_pval vs tukey_centroid,disp-DE genes, cor ",round(cor(dist_pval[disp_index==1],tukey_centroid_pval[disp_index==1],use="complete.obs"),3)))}, error = function(e) {NA} )
-  tryCatch({plot(dist_pval[mult_index==1],tukey_centroid_pval[mult_index==1],cex=.2, main=paste0("dist_pval vs tukey_centroid,mult-DE genes, cor ",round(cor(dist_pval[mult_index==1],tukey_centroid_pval[mult_index==1],use="complete.obs"),3)))}, error = function(e) {NA} )
-  tryCatch({plot(dist_pval[mean_index==0 & var_index==0 & disp_index==0 & mult_index==0],tukey_centroid_pval[mean_index==0 & var_index==0 & disp_index==0 & mult_index==0],cex=.2, main=paste0("dist_pval vs tukey_centroid,non-DE genes, cor ",round(cor(dist_pval[mean_index==0 & var_index==0 & disp_index==0 & mult_index==0],tukey_centroid_pval[mean_index==0 & var_index==0 & disp_index==0 & mult_index==0],use="complete.obs"),3)))}, error = function(e) {NA} )
-  
-  tryCatch({plot(dist_pval[mean_index==1],anova_centroid_pval[mean_index==1],cex=.2, main=paste0("dist_pval vs anova_centroid,mean-DE genes, cor ",round(cor(dist_pval[mean_index==1],anova_centroid_pval[mean_index==1],use="complete.obs"),3)))}, error = function(e) {NA} )
-  tryCatch({plot(dist_pval[var_index==1],anova_centroid_pval[var_index==1],cex=.2, main=paste0("dist_pval vs anova_centroid,var-DE genes, cor ",round(cor(dist_pval[var_index==1],anova_centroid_pval[var_index==1],use="complete.obs"),3)))}, error = function(e) {NA} )
-  tryCatch({plot(dist_pval[disp_index==1],anova_centroid_pval[disp_index==1],cex=.2, main=paste0("dist_pval vs anova_centroid,disp-DE genes, cor ",round(cor(dist_pval[disp_index==1],anova_centroid_pval[disp_index==1],use="complete.obs"),3)))}, error = function(e) {NA} )
-  tryCatch({plot(dist_pval[mult_index==1],anova_centroid_pval[mult_index==1],cex=.2, main=paste0("dist_pval vs anova_centroid,mult-DE genes, cor ",round(cor(dist_pval[mult_index==1],anova_centroid_pval[mult_index==1],use="complete.obs"),3)))}, error = function(e) {NA} )
-  tryCatch({plot(dist_pval[mean_index==0 & var_index==0 & disp_index==0 & mult_index==0],anova_centroid_pval[mean_index==0 & var_index==0 & disp_index==0 & mult_index==0],cex=.2, main=paste0("dist_pval vs anova_centroid,non-DE genes, cor ",round(cor(dist_pval[mean_index==0 & var_index==0 & disp_index==0 & mult_index==0],anova_centroid_pval[mean_index==0 & var_index==0 & disp_index==0 & mult_index==0],use="complete.obs"),3)))}, error = function(e) {NA} )
-  
-  
-  tryCatch({plot(dist_pval[mean_index==1],tukey_median_pval[mean_index==1],cex=.2, main=paste0("dist_pval vs tukey_median,mean-DE genes, cor ",round(cor(dist_pval[mean_index==1],tukey_median_pval[mean_index==1],use="complete.obs"),3)))}, error = function(e) {NA} )
-  tryCatch({plot(dist_pval[var_index==1],tukey_median_pval[var_index==1],cex=.2, main=paste0("dist_pval vs tukey_median,var-DE genes, cor ",round(cor(dist_pval[var_index==1],tukey_median_pval[var_index==1],use="complete.obs"),3)))}, error = function(e) {NA} )
-  tryCatch({plot(dist_pval[disp_index==1],tukey_median_pval[disp_index==1],cex=.2, main=paste0("dist_pval vs tukey_median,disp-DE genes, cor ",round(cor(dist_pval[disp_index==1],tukey_median_pval[disp_index==1],use="complete.obs"),3)))}, error = function(e) {NA} )
-  tryCatch({plot(dist_pval[mult_index==1],tukey_median_pval[mult_index==1],cex=.2, main=paste0("dist_pval vs tukey_median,mult-DE genes, cor ",round(cor(dist_pval[mult_index==1],tukey_median_pval[mult_index==1],use="complete.obs"),3)))}, error = function(e) {NA} )
-  tryCatch({plot(dist_pval[mean_index==0 & var_index==0 & disp_index==0 & mult_index==0],tukey_median_pval[mean_index==0 & var_index==0 & disp_index==0 & mult_index==0],cex=.2, main=paste0("dist_pval vs tukey_median,non-DE genes, cor ",round(cor(dist_pval[mean_index==0 & var_index==0 & disp_index==0 & mult_index==0],tukey_median_pval[mean_index==0 & var_index==0 & disp_index==0 & mult_index==0],use="complete.obs"),3)))}, error = function(e) {NA} )
-  
-  tryCatch({plot(dist_pval[mean_index==1],anova_median_pval[mean_index==1],cex=.2, main=paste0("dist_pval vs anova_median,mean-DE genes, cor ",round(cor(dist_pval[mean_index==1],anova_median_pval[mean_index==1],use="complete.obs"),3)))}, error = function(e) {NA} )
-  tryCatch({plot(dist_pval[var_index==1],anova_median_pval[var_index==1],cex=.2, main=paste0("dist_pval vs anova_median,var-DE genes, cor ",round(cor(dist_pval[var_index==1],anova_median_pval[var_index==1],use="complete.obs"),3)))}, error = function(e) {NA} )
-  tryCatch({plot(dist_pval[disp_index==1],anova_median_pval[disp_index==1],cex=.2, main=paste0("dist_pval vs anova_median,disp-DE genes, cor ",round(cor(dist_pval[disp_index==1],anova_median_pval[disp_index==1],use="complete.obs"),3)))}, error = function(e) {NA} )
-  tryCatch({plot(dist_pval[mult_index==1],anova_median_pval[mult_index==1],cex=.2, main=paste0("dist_pval vs anova_median,mult-DE genes, cor ",round(cor(dist_pval[mult_index==1],anova_median_pval[mult_index==1],use="complete.obs"),3)))}, error = function(e) {NA} )
-  tryCatch({plot(dist_pval[mean_index==0 & var_index==0 & disp_index==0 & mult_index==0],anova_median_pval[mean_index==0 & var_index==0 & disp_index==0 & mult_index==0],cex=.2, main=paste0("dist_pval vs anova_median,non-DE genes, cor ",round(cor(dist_pval[mean_index==0 & var_index==0 & disp_index==0 & mult_index==0],anova_median_pval[mean_index==0 & var_index==0 & disp_index==0 & mult_index==0],use="complete.obs"),3)))}, error = function(e) {NA} )
-  par(op)
-  
-  #Part excusion
-  op=par(mfrow = c(5, 5))
-  tryCatch({hist(dist_pval[mean_index==1],main="pval of mean-DE genes,dist method",xlab="p-values",breaks = 20)}, error = function(e) {NA} )
-  tryCatch({hist(dist_pval[var_index==1],main="pval of var-DE genes,dist method",xlab="p-values",breaks = 20)}, error = function(e) {NA} )
-  tryCatch({hist(dist_pval[disp_index==1],main="pval of disp-DE genes,dist method",xlab="p-values",breaks = 20)}, error = function(e) {NA} )
-  tryCatch({hist(dist_pval[mult_index==1],main="pval of mult-DE genes,dist method",xlab="p-values",breaks = 20)}, error = function(e) {NA} )
-  tryCatch({hist(dist_pval[mean_index==0 & var_index==0 & disp_index==0 & mult_index==0],main="pval of non-DE genes,dist method",xlab="p-values",breaks = 20)}, error = function(e) {NA} )
-  
-  tryCatch({hist(dist_pval[anova_median_pval<=0.05 & mean_index==1],main="pval of mean-DE genes,anova_median_pval<=0.05",xlab="p-values",breaks = 20)}, error = function(e) {NA} )
-  tryCatch({hist(dist_pval[anova_median_pval<=0.05 & var_index==1],main="pval of var-DE genes,anova_median_pval<=0.05",xlab="p-values",breaks = 20)}, error = function(e) {NA} )
-  tryCatch({hist(dist_pval[anova_median_pval<=0.05 & disp_index==1],main="pval of disp-DE genes,anova_median_pval<=0.05",xlab="p-values",breaks = 20)}, error = function(e) {NA} )
-  tryCatch({hist(dist_pval[anova_median_pval<=0.05 & mult_index==1],main="pval of mult-DE genes,anova_median_pval<=0.05",xlab="p-values",breaks = 20)}, error = function(e) {NA} )
-  tryCatch({hist(dist_pval[anova_median_pval<=0.05 & mean_index==0 & var_index==0 & disp_index==0 & mult_index==0],main="pval of non-DE genes,anova_median_pval<=0.05",xlab="p-values",breaks = 20)}, error = function(e) {NA} )
-  
-  
-  tryCatch({hist(dist_pval[anova_median_pval>0.05 & mean_index==1],main="pval of mean-DE genes,anova_median_pval>0.05",xlab="p-values",breaks = 20)}, error = function(e) {NA} )
-  tryCatch({hist(dist_pval[anova_median_pval>0.05 & var_index==1],main="pval of var-DE genes,anova_median_pval>0.05",xlab="p-values",breaks = 20)}, error = function(e) {NA} )
-  tryCatch({hist(dist_pval[anova_median_pval>0.05 & disp_index==1],main="pval of disp-DE genes,anova_median_pval>0.05",xlab="p-values",breaks = 20)}, error = function(e) {NA} )
-  tryCatch({hist(dist_pval[anova_median_pval>0.05 & mult_index==1],main="pval of mult-DE genes,anova_median_pval>0.05",xlab="p-values",breaks = 20)}, error = function(e) {NA} )
-  tryCatch({hist(dist_pval[anova_median_pval>0.05 & mean_index==0 & var_index==0 & disp_index==0 & mult_index==0],main="pval of non-DE genes,anova_median_pval>0.05",xlab="p-values",breaks = 20)}, error = function(e) {NA} )
-  
-  
-  
-  
-  tryCatch({hist(dist_pval[unique(c(as.numeric(names(tie_table[tie_table>2])),which(mean_index==1)))],main="pval of mean-DE genes,tie>2",xlab="p-values",breaks = 20)}, error = function(e) {NA} )
-  tryCatch({hist(dist_pval[unique(c(as.numeric(names(tie_table[tie_table>2])),which(var_index==1)))],main="pval of var-DE genes,tie>2",xlab="p-values",breaks = 20)}, error = function(e) {NA} )
-  tryCatch({hist(dist_pval[unique(c(as.numeric(names(tie_table[tie_table>2])),which(disp_index==1)))],main="pval of disp-DE genes,tie>2",xlab="p-values",breaks = 20)}, error = function(e) {NA} )
-  tryCatch({hist(dist_pval[unique(c(as.numeric(names(tie_table[tie_table>2])),which(mult_index==1)))],main="pval of mult-DE genes,tie>2",xlab="p-values",breaks = 20)}, error = function(e) {NA} )
-  tryCatch({hist(dist_pval[unique(c(as.numeric(names(tie_table[tie_table>2])),which( mean_index==0 & var_index==0 & disp_index==0 & mult_index==0)))],main="pval of non-DE genes,tie>2",xlab="p-values",breaks = 20)}, error = function(e) {NA} )
-  
-  tryCatch({hist(dist_pval[-unique(c(as.numeric(names(tie_table[tie_table>2])),which(mean_index==0)))],main="pval of mean-DE genes,tie<=2",xlab="p-values",breaks = 20)}, error = function(e) {NA} )
-  tryCatch({hist(dist_pval[-unique(c(as.numeric(names(tie_table[tie_table>2])),which(var_index==0)))],main="pval of var-DE genes,tie<=2",xlab="p-values",breaks = 20)}, error = function(e) {NA} )
-  tryCatch({hist(dist_pval[-unique(c(as.numeric(names(tie_table[tie_table>2])),which(disp_index==0)))],main="pval of disp-DE genes,tie<=2",xlab="p-values",breaks = 20)}, error = function(e) {NA} )
-  tryCatch({hist(dist_pval[-unique(c(as.numeric(names(tie_table[tie_table>2])),which(mult_index==0)))],main="pval of mult-DE genes,tie<=2",xlab="p-values",breaks = 20)}, error = function(e) {NA} )
-  tryCatch({hist(dist_pval[-unique(c(as.numeric(names(tie_table[tie_table>2])),which(mean_index==1 | var_index==1 | disp_index==1 | mult_index==1)))],main="pval of non-DE genes,tie<=2",xlab="p-values",breaks = 20)}, error = function(e) {NA} )
+  tryCatch({hist(dist_pval[as.numeric(names(tie_table[tie_table>2]))],main="pval of tie>2",xlab="p-values",breaks = 20)}, error = function(e) {NA} )
+
+  tryCatch({hist(dist_pval[-as.numeric(names(tie_table[tie_table>2]))],main="pval of tie<=2",xlab="p-values",breaks = 20)}, error = function(e) {NA} )
   par(op)
   
   dist_pval_m[,i_s]=dist_pval
@@ -594,12 +519,5 @@ for(i_s in 1:20){
 }
 dev.off()
 
-
-op=par(mfrow = c(2, 3))
-hist(dist_pval)
-hist(dist_pval[as.numeric(names(tie_table[tie_table>2]))])
-hist(dist_pval[-as.numeric(names(tie_table[tie_table>2]))])
-hist(dist_pval[-which(anova_median_pval<0.05) ])
-hist(dist_pval[which(anova_median_pval<0.05) ])
 
 

@@ -7,7 +7,7 @@ setwd("/Volumes/SpecialData/fh_data/Data_PRJNA434002/")
 
 perm_label=1
 perm_method=""
-param_tag="mean"
+param_tag="disp"
 
 r_mean=1.2
 r_var=1.2

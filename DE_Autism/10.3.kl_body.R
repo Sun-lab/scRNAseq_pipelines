@@ -20,7 +20,7 @@ cell_thres=5 #
 perm_num=500
 covariate_flag=NA #c(NA, "quantile99")
 tol=0.2
-perm_label_seq=0:20
+perm_label_seq=0:10
 
 t_sim_matrix=readRDS(paste0("../Data_PRJNA434002/10.Result/sim_matrix_",r_mean,"_",r_var,"_",r_disp,"_",r_change_prop,"_",file_tag,".rds"))
 t_sim_param=readRDS(paste0("../Data_PRJNA434002/10.Result/sim_param_",r_mean,"_",r_var,"_",r_disp,"_",r_change_prop,"_",file_tag,".rds"))
@@ -284,16 +284,20 @@ for(perm_label in perm_label_seq){
 }
 
 
-saveRDS(pval_perm,paste0("../Data_PRJNA434002/10.Result/",dist_method,"_",fit_method,"_pval/p",perm_label,perm_method,"_",dist_method,"_",fit_method,"_perm_pval_",r_mean,"_",r_var,"_",r_disp,"_",r_change_prop,"_",file_tag,"_",(2*n),"_",ncell,".rds"))
 
-
-
-saveRDS(perm_tukey_centroid_pval,paste0("../Data_PRJNA434002/10.Result/tukey_centroid_pval/p",perm_label,perm_method,"_",dist_method,"_",fit_method,"_perm_tukey_centroid_pval_",r_mean,"_",r_var,"_",r_disp,"_",r_change_prop,"_",file_tag,"_",(2*n),"_",ncell,".rds"))
-saveRDS(perm_anova_centroid_pval,paste0("../Data_PRJNA434002/10.Result/anova_centroid_pval/p",perm_label,perm_method,"_",dist_method,"_",fit_method,"_perm_anova_centroid_pval_",r_mean,"_",r_var,"_",r_disp,"_",r_change_prop,"_",file_tag,"_",(2*n),"_",ncell,".rds"))
-saveRDS(perm_tukey_median_pval,paste0("../Data_PRJNA434002/10.Result/tukey_median_pval/p",perm_label,perm_method,"_",dist_method,"_",fit_method,"_perm_tukey_median_pval_",r_mean,"_",r_var,"_",r_disp,"_",r_change_prop,"_",file_tag,"_",(2*n),"_",ncell,".rds"))
-saveRDS(perm_anova_median_pval,paste0("../Data_PRJNA434002/10.Result/anova_median_pval/p",perm_label,perm_method,"_",dist_method,"_",fit_method,"_perm_anova_median_pval_",r_mean,"_",r_var,"_",r_disp,"_",r_change_prop,"_",file_tag,"_",(2*n),"_",ncell,".rds"))
-
-
+if(perm_label>0){
+  saveRDS(pval_perm,paste0("../Data_PRJNA434002/10.Result/",dist_method,"_",fit_method,"_pval/p",perm_label,perm_method,"_",dist_method,"_",fit_method,"_perm_pval_",r_mean,"_",r_var,"_",r_disp,"_",r_change_prop,"_",file_tag,"_",(2*n),"_",ncell,".rds"))
+  
+  
+  
+  saveRDS(perm_tukey_centroid_pval,paste0("../Data_PRJNA434002/10.Result/tukey_centroid_pval/p",perm_label,perm_method,"_",dist_method,"_",fit_method,"_perm_tukey_centroid_pval_",r_mean,"_",r_var,"_",r_disp,"_",r_change_prop,"_",file_tag,"_",(2*n),"_",ncell,".rds"))
+  saveRDS(perm_anova_centroid_pval,paste0("../Data_PRJNA434002/10.Result/anova_centroid_pval/p",perm_label,perm_method,"_",dist_method,"_",fit_method,"_perm_anova_centroid_pval_",r_mean,"_",r_var,"_",r_disp,"_",r_change_prop,"_",file_tag,"_",(2*n),"_",ncell,".rds"))
+  saveRDS(perm_tukey_median_pval,paste0("../Data_PRJNA434002/10.Result/tukey_median_pval/p",perm_label,perm_method,"_",dist_method,"_",fit_method,"_perm_tukey_median_pval_",r_mean,"_",r_var,"_",r_disp,"_",r_change_prop,"_",file_tag,"_",(2*n),"_",ncell,".rds"))
+  saveRDS(perm_anova_median_pval,paste0("../Data_PRJNA434002/10.Result/anova_median_pval/p",perm_label,perm_method,"_",dist_method,"_",fit_method,"_perm_anova_median_pval_",r_mean,"_",r_var,"_",r_disp,"_",r_change_prop,"_",file_tag,"_",(2*n),"_",ncell,".rds"))
+  
+  
+  
+}
 
 
 
