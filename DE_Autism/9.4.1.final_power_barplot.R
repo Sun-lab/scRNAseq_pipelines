@@ -12,10 +12,10 @@ fit_method_seq=c("empirical","nbzinb")
 F_method_seq=c("p","ps")
 
 
-file_tag_seq="5k"
-pre_tag_seq="scvi"
+file_tag_seq=c("5k","3k10")
+pre_tag_seq=c("scvi","dca")
 
-perm_label_seq=c(0,1)
+perm_label_seq=0:5
 ind_covariate_flag=NA
 
 perm_method=""
@@ -28,6 +28,10 @@ cal_power=function(x,threshold){
 #ks test: compared with uniform(0,1) distribution
 cal_ks=function(x,method="two.sided"){
   return(ks.test(1:length(x)/length(x),x,alternative = method)$p.value)
+}
+
+cal_range=function(x,threshold1=0,threshold2=1){
+  return(sum(x<=threshold2 & x>=threshold1,na.rm = TRUE)/length(x))
 }
 ###############################################
 power_array=array(dim=c(
@@ -44,6 +48,10 @@ power_array=array(dim=c(
     cluster_tag_seq,
     perm_label_seq,
     c("DESeq","MAST","jsd_empirical","klmean_empirical","jsd_zinb","klmean_zinb","jsd_direct","klmean_direct")))
+
+range005_array=power_array
+range095_array=power_array
+range46_array=power_array
 
 ks_array=power_array
 cor_nonexpres_ind_array=power_array
@@ -148,6 +156,49 @@ for(i_file in 1:length(file_tag_seq)){
           power_matrix[7]=tryCatch({cal_power(jsd_direct_pval,threshold = 0.05)}, error = function(e) {NA} )
           power_matrix[8]=tryCatch({cal_power(klmean_direct_pval,threshold = 0.05)}, error = function(e) {NA} )
           power_array[i_file,i_F,i_pre,i_cluster,i_perm_label,]=power_matrix
+          
+          #record range005
+          power_matrix=matrix(nrow=8,ncol=1)
+          names(power_matrix)=c("DESeq","MAST","jsd_empirical","klmean_empirical","jsd_zinb","klmean_zinb","jsd_direct","klmean_direct")
+          colnames(power_matrix)="pval"
+          power_matrix[1]=tryCatch({cal_range(deseq2_pval,0,0.05)}, error = function(e) {NA} )
+          power_matrix[2]=tryCatch({cal_range(MAST_pval,0,0.05)}, error = function(e) {NA} )
+          power_matrix[3]=tryCatch({cal_range(jsd_empirical_pval,0,0.05)}, error = function(e) {NA} )
+          power_matrix[4]=tryCatch({cal_range(klmean_empirical_pval,0,0.05)}, error = function(e) {NA} )
+          power_matrix[5]=tryCatch({cal_range(jsd_zinb_pval,0,0.05)}, error = function(e) {NA} )
+          power_matrix[6]=tryCatch({cal_range(klmean_zinb_pval,0,0.05)}, error = function(e) {NA} )
+          power_matrix[7]=tryCatch({cal_range(jsd_direct_pval,0,0.05)}, error = function(e) {NA} )
+          power_matrix[8]=tryCatch({cal_range(klmean_direct_pval,0,0.05)}, error = function(e) {NA} )
+          range005_array[i_file,i_F,i_pre,i_cluster,i_perm_label,]=power_matrix
+          
+          #record range095
+          power_matrix=matrix(nrow=8,ncol=1)
+          names(power_matrix)=c("DESeq","MAST","jsd_empirical","klmean_empirical","jsd_zinb","klmean_zinb","jsd_direct","klmean_direct")
+          colnames(power_matrix)="pval"
+          power_matrix[1]=tryCatch({cal_range(deseq2_pval,0.95,1)}, error = function(e) {NA} )
+          power_matrix[2]=tryCatch({cal_range(MAST_pval,0.95,1)}, error = function(e) {NA} )
+          power_matrix[3]=tryCatch({cal_range(jsd_empirical_pval,0.95,1)}, error = function(e) {NA} )
+          power_matrix[4]=tryCatch({cal_range(klmean_empirical_pval,0.95,1)}, error = function(e) {NA} )
+          power_matrix[5]=tryCatch({cal_range(jsd_zinb_pval,0.95,1)}, error = function(e) {NA} )
+          power_matrix[6]=tryCatch({cal_range(klmean_zinb_pval,0.95,1)}, error = function(e) {NA} )
+          power_matrix[7]=tryCatch({cal_range(jsd_direct_pval,0.95,1)}, error = function(e) {NA} )
+          power_matrix[8]=tryCatch({cal_range(klmean_direct_pval,0.95,1)}, error = function(e) {NA} )
+          range095_array[i_file,i_F,i_pre,i_cluster,i_perm_label,]=power_matrix
+          
+          #record range46
+          power_matrix=matrix(nrow=8,ncol=1)
+          names(power_matrix)=c("DESeq","MAST","jsd_empirical","klmean_empirical","jsd_zinb","klmean_zinb","jsd_direct","klmean_direct")
+          colnames(power_matrix)="pval"
+          power_matrix[1]=tryCatch({cal_range(deseq2_pval,0.4,0.6)}, error = function(e) {NA} )
+          power_matrix[2]=tryCatch({cal_range(MAST_pval,0.4,0.6)}, error = function(e) {NA} )
+          power_matrix[3]=tryCatch({cal_range(jsd_empirical_pval,0.4,0.6)}, error = function(e) {NA} )
+          power_matrix[4]=tryCatch({cal_range(klmean_empirical_pval,0.4,0.6)}, error = function(e) {NA} )
+          power_matrix[5]=tryCatch({cal_range(jsd_zinb_pval,0.4,0.6)}, error = function(e) {NA} )
+          power_matrix[6]=tryCatch({cal_range(klmean_zinb_pval,0.4,0.6)}, error = function(e) {NA} )
+          power_matrix[7]=tryCatch({cal_range(jsd_direct_pval,0.4,0.6)}, error = function(e) {NA} )
+          power_matrix[8]=tryCatch({cal_range(klmean_direct_pval,0.4,0.6)}, error = function(e) {NA} )
+          range46_array[i_file,i_F,i_pre,i_cluster,i_perm_label,]=power_matrix
+          
           
           #record ks test result
           ks_matrix=matrix(nrow=8,ncol=1)
@@ -318,6 +369,9 @@ for(i_file in 1:length(file_tag_seq)){
 
 saveRDS(pval_list,paste0("../Data_PRJNA434002/8.Result/final_pval_list.rds"))
 saveRDS(power_array,paste0("../Data_PRJNA434002/8.Result/final_power_array.rds"))
+saveRDS(range005_array,paste0("../Data_PRJNA434002/8.Result/final_range005_array.rds"))
+saveRDS(range095_array,paste0("../Data_PRJNA434002/8.Result/final_range095_array.rds"))
+saveRDS(range46_array,paste0("../Data_PRJNA434002/8.Result/final_range46_array.rds"))
 saveRDS(ks_array,paste0("../Data_PRJNA434002/8.Result/final_ks_array.rds"))
 saveRDS(cor_zerorate_ind_mean_array,paste0("../Data_PRJNA434002/8.Result/final_cor_zerorate_ind_mean_array.rds"))
 saveRDS(cor_nonexpres_ind_array,paste0("../Data_PRJNA434002/8.Result/final_cor_nonexpres_ind_array.rds"))
