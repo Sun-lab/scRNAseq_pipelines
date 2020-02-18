@@ -12,7 +12,8 @@
 
 # setwd("~/Desktop/fh/1.Testing_scRNAseq/")
 # setwd("/Users/mzhang24/Desktop/fh/1.Testing_scRNAseq/")
-setwd("/fh/fast/sun_w/mengqi/1.Testing_scRNAseq/")
+#setwd("/fh/fast/sun_w/mengqi/1.Testing_scRNAseq/")
+
 #perm_label=1
 #perm_method="b" #c("","b","bs","s") #b means balanced permutation #s means remove samples with limited cells.
 cell_thres=5 #
@@ -176,6 +177,8 @@ perm_anova_centroid_pval=matrix(ncol=(length(perm_label_seq)-1),nrow=dim(dist_ar
 perm_tukey_median_pval=matrix(ncol=(length(perm_label_seq)-1),nrow=dim(dist_array)[1])
 perm_anova_median_pval=matrix(ncol=(length(perm_label_seq)-1),nrow=dim(dist_array)[1])
 
+perm_order=matrix(ncol=(length(perm_label_seq)-1),nrow=length(phenotype))
+
 for(perm_label in perm_label_seq){
   #for(perm_method in c("","b")){
    perm_method="" 
@@ -190,7 +193,10 @@ for(perm_label in perm_label_seq){
     cur_phenotype=phenotype
     if(perm_label>0){
       if(length(grep("b",perm_method))==0){ #naive permutation
-        cur_phenotype=cur_phenotype[sample.int(length(cur_phenotype))]
+        cur_order=sample.int(length(cur_phenotype))
+        cur_phenotype=cur_phenotype[cur_order]
+        perm_order[,perm_label]=cur_order
+        
       }
       if(length(grep("b",perm_method))>0){ #balanced permutation
         n_exchange=n/2
@@ -287,7 +293,7 @@ for(perm_label in perm_label_seq){
 
 if(perm_label>0){
   saveRDS(pval_perm,paste0("../Data_PRJNA434002/10.Result/",dist_method,"_",fit_method,"_pval/p",perm_label,perm_method,"_",dist_method,"_",fit_method,"_perm_pval_",r_mean,"_",r_var,"_",r_disp,"_",r_change_prop,"_",file_tag,"_",(2*n),"_",ncell,".rds"))
-  
+  saveRDS(perm_order,paste0("../Data_PRJNA434002/10.Result/perm_order/p",perm_label,perm_method,"_",dist_method,"_",fit_method,"_perm_pval_",r_mean,"_",r_var,"_",r_disp,"_",r_change_prop,"_",file_tag,"_",(2*n),"_",ncell,".rds"))
   
   
   saveRDS(perm_tukey_centroid_pval,paste0("../Data_PRJNA434002/10.Result/tukey_centroid_pval/p",perm_label,perm_method,"_",dist_method,"_",fit_method,"_perm_tukey_centroid_pval_",r_mean,"_",r_var,"_",r_disp,"_",r_change_prop,"_",file_tag,"_",(2*n),"_",ncell,".rds"))
