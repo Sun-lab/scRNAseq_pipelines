@@ -10,7 +10,7 @@ setwd("/Volumes/SpecialData/fh_data/Data_PRJNA434002/")
 #seedtag=7638446 #Je*1.2_1.2_1.5_0.4_1_40_60*.R
 #seedtag=9917471 #Jz_1.2_1.2_1.5_0.4_1_40_80.R
 
-
+sim_folder="sim_v1"
 perm_label_seq=1:10
 perm_label=10
 perm_method=""
@@ -28,10 +28,10 @@ ncell=n_cell
 n=n_ind/2
 r_change_prop=r_mult
 
-mean_index=readRDS(paste0("../Data_PRJNA434002/10.Result/de_label/sim_de.mean_",r_mean,"_",r_var,"_",r_disp,"_",r_mult,"_",file_tag,".rds"))
-var_index=readRDS(paste0("../Data_PRJNA434002/10.Result/de_label/sim_de.var_",r_mean,"_",r_var,"_",r_disp,"_",r_mult,"_",file_tag,".rds"))
-disp_index=readRDS(paste0("../Data_PRJNA434002/10.Result/de_label/sim_de.disp_",r_mean,"_",r_var,"_",r_disp,"_",r_mult,"_",file_tag,".rds"))
-mult_index=readRDS(paste0("../Data_PRJNA434002/10.Result/de_label/sim_de.mult_",r_mean,"_",r_var,"_",r_disp,"_",r_mult,"_",file_tag,".rds"))
+mean_index=readRDS(paste0("../Data_PRJNA434002/10.Result/",sim_folder,"/de_label/sim_de.mean_",r_mean,"_",r_var,"_",r_disp,"_",r_mult,"_",file_tag,".rds"))
+var_index=readRDS(paste0("../Data_PRJNA434002/10.Result/",sim_folder,"/de_label/sim_de.var_",r_mean,"_",r_var,"_",r_disp,"_",r_mult,"_",file_tag,".rds"))
+disp_index=readRDS(paste0("../Data_PRJNA434002/10.Result/",sim_folder,"/de_label/sim_de.disp_",r_mean,"_",r_var,"_",r_disp,"_",r_mult,"_",file_tag,".rds"))
+mult_index=readRDS(paste0("../Data_PRJNA434002/10.Result/",sim_folder,"/de_label/sim_de.mult_",r_mean,"_",r_var,"_",r_disp,"_",r_mult,"_",file_tag,".rds"))
 
 dist_method="JSD"
 fit_method="zinb"
@@ -40,15 +40,15 @@ fit_method="zinb"
 
 
 for(cur_n_cell in (n_cell-30):n_cell){
-  cur_pval=readRDS(paste0("../Data_PRJNA434002/10.Result/",dist_method,"_",fit_method,"_pval/p10",perm_method,"_",dist_method,"_",fit_method,"_perm_pval_",r_mean,"_",r_var,"_",r_disp,"_",r_mult,"_",file_tag,"_",n_ind,"_",cur_n_cell,".rds"))
-  cur_pval=cur_pval[,perm_label]
+  cur_pval=readRDS(paste0("../Data_PRJNA434002/10.Result/",sim_folder,"/",dist_method,"_",fit_method,"_pval/p10",perm_method,"_",dist_method,"_",fit_method,"_perm_pval_",r_mean,"_",r_var,"_",r_disp,"_",r_mult,"_",file_tag,"_",n_ind,"_",cur_n_cell,".rds"))
+  #cur_pval=cur_pval[,perm_label]
 
   op=par(mfrow = c(3, 2))
-  tryCatch({hist(cur_pval[mean_index==1,1],main=paste0("pval of mean-DE genes ",dist_method,"_",fit_method," cell ",cur_n_cell," 1st perm"),xlab="p-values",breaks = 20)}, error = function(e) {NA} )
-  tryCatch({hist(cur_pval[var_index==1,1],main=paste0("pval of var-DE genes ",dist_method,"_",fit_method," cell ",cur_n_cell," 1st perm"),xlab="p-values",breaks = 20)}, error = function(e) {NA} )
-  tryCatch({hist(cur_pval[disp_index==1,1],main=paste0("pval of disp-DE genes ",dist_method,"_",fit_method," cell ",cur_n_cell," 1st perm"),xlab="p-values",breaks = 20)}, error = function(e) {NA} )
-  tryCatch({hist(cur_pval[mult_index==1,1],main=paste0("pval of mult-DE genes ",dist_method,"_",fit_method," cell ",cur_n_cell," 1st perm"),xlab="p-values",breaks = 20)}, error = function(e) {NA} )
-  tryCatch({hist(cur_pval[mean_index==0 & var_index==0 & disp_index==0 & mult_index==0,1],main=paste0("pval of non-DE genes ",dist_method,"_",fit_method," cell ",cur_n_cell," 1st perm"),xlab="p-values",breaks = 20)}, error = function(e) {NA} )
+  tryCatch({hist(cur_pval[mean_index==1,perm_label],main=paste0("pval of mean-DE genes ",dist_method,"_",fit_method," cell ",cur_n_cell," 1st perm"),xlab="p-values",breaks = 20)}, error = function(e) {NA} )
+  tryCatch({hist(cur_pval[var_index==1,perm_label],main=paste0("pval of var-DE genes ",dist_method,"_",fit_method," cell ",cur_n_cell," 1st perm"),xlab="p-values",breaks = 20)}, error = function(e) {NA} )
+  tryCatch({hist(cur_pval[disp_index==1,perm_label],main=paste0("pval of disp-DE genes ",dist_method,"_",fit_method," cell ",cur_n_cell," 1st perm"),xlab="p-values",breaks = 20)}, error = function(e) {NA} )
+  tryCatch({hist(cur_pval[mult_index==1,perm_label],main=paste0("pval of mult-DE genes ",dist_method,"_",fit_method," cell ",cur_n_cell," 1st perm"),xlab="p-values",breaks = 20)}, error = function(e) {NA} )
+  tryCatch({hist(cur_pval[mean_index==0 & var_index==0 & disp_index==0 & mult_index==0,perm_label],main=paste0("pval of non-DE genes ",dist_method,"_",fit_method," cell ",cur_n_cell," 1st perm"),xlab="p-values",breaks = 20)}, error = function(e) {NA} )
   par(op)
 
   # op=par(mfrow = c(3, 2))
@@ -83,19 +83,19 @@ for(cur_n_cell in (n_cell-30):n_cell){
 
 
 
-t_sim_matrix=readRDS(paste0("../Data_PRJNA434002/10.Result/sim_matrix_",r_mean,"_",r_var,"_",r_disp,"_",r_change_prop,"_",file_tag,".rds"))
-t_sim_param=readRDS(paste0("../Data_PRJNA434002/10.Result/sim_param_",r_mean,"_",r_var,"_",r_disp,"_",r_change_prop,"_",file_tag,".rds"))
-t_meta=readRDS(paste0("../Data_PRJNA434002/10.Result/sim_meta_",r_mean,"_",r_var,"_",r_disp,"_",r_change_prop,"_",file_tag,".rds"))
-read_depth=readRDS(paste0("../Data_PRJNA434002/10.Result/sim_ind/sim_ind_readdepth_",r_mean,"_",r_var,"_",r_disp,"_",r_change_prop,"_",file_tag,".rds"))
-phenotype_ind=readRDS(paste0("../Data_PRJNA434002/10.Result/sim_ind/sim_ind_phenotye_",r_mean,"_",r_var,"_",r_disp,"_",r_change_prop,"_",file_tag,".rds"))
-zero_rate_ind=readRDS(paste0("../Data_PRJNA434002/10.Result/sim_ind/sim_ind_zero_rate_",r_mean,"_",r_var,"_",r_disp,"_",r_change_prop,"_",file_tag,".rds"))
+t_sim_matrix=readRDS(paste0("../Data_PRJNA434002/10.Result/",sim_folder,"/sim_data/sim_matrix_",r_mean,"_",r_var,"_",r_disp,"_",r_change_prop,"_",file_tag,".rds"))
+t_sim_param=readRDS(paste0("../Data_PRJNA434002/10.Result/",sim_folder,"/sim_data/sim_param_",r_mean,"_",r_var,"_",r_disp,"_",r_change_prop,"_",file_tag,".rds"))
+t_meta=readRDS(paste0("../Data_PRJNA434002/10.Result/",sim_folder,"/sim_data/sim_meta_",r_mean,"_",r_var,"_",r_disp,"_",r_change_prop,"_",file_tag,".rds"))
+read_depth=readRDS(paste0("../Data_PRJNA434002/10.Result/",sim_folder,"/sim_ind/sim_ind_readdepth_",r_mean,"_",r_var,"_",r_disp,"_",r_change_prop,"_",file_tag,".rds"))
+phenotype_ind=readRDS(paste0("../Data_PRJNA434002/10.Result/",sim_folder,"/sim_ind/sim_ind_phenotye_",r_mean,"_",r_var,"_",r_disp,"_",r_change_prop,"_",file_tag,".rds"))
+zero_rate_ind=readRDS(paste0("../Data_PRJNA434002/10.Result/",sim_folder,"/sim_ind/sim_ind_zero_rate_",r_mean,"_",r_var,"_",r_disp,"_",r_change_prop,"_",file_tag,".rds"))
 
 perm_label=1
 cur_n_cell=79
-cur_pval=readRDS(paste0("../Data_PRJNA434002/10.Result/",dist_method,"_",fit_method,"_pval/p10",perm_method,"_",dist_method,"_",fit_method,"_perm_pval_",r_mean,"_",r_var,"_",r_disp,"_",r_mult,"_",file_tag,"_",n_ind,"_",cur_n_cell,".rds"))
+cur_pval=readRDS(paste0("../Data_PRJNA434002/10.Result/",sim_folder,"/",dist_method,"_",fit_method,"_pval/p10",perm_method,"_",dist_method,"_",fit_method,"_perm_pval_",r_mean,"_",r_var,"_",r_disp,"_",r_mult,"_",file_tag,"_",n_ind,"_",cur_n_cell,".rds"))
 cur_pval=cur_pval[,1]
-dist_array=readRDS(paste0("../Data_PRJNA434002/10.Result/dist_array/",dist_method,"_",fit_method,"_dist_array_",r_mean,"_",r_var,"_",r_disp,"_",r_change_prop,"_",file_tag,"_",(2*n),"_",cur_n_cell,".rds"))
-sim_matrix_bulk=readRDS(paste0("../Data_PRJNA434002/10.Result/sim_matrix_bulk_",r_mean,"_",r_var,"_",r_disp,"_",r_change_prop,"_",file_tag,".rds"))
+dist_array=readRDS(paste0("../Data_PRJNA434002/10.Result/",sim_folder,"/dist_array/",dist_method,"_",fit_method,"_dist_array_",r_mean,"_",r_var,"_",r_disp,"_",r_change_prop,"_",file_tag,"_",(2*n),"_",cur_n_cell,".rds"))
+sim_matrix_bulk=readRDS(paste0("../Data_PRJNA434002/10.Result/",sim_folder,"/sim_data/sim_matrix_bulk_",r_mean,"_",r_var,"_",r_disp,"_",r_change_prop,"_",file_tag,".rds"))
 
 selected_index=1:20
 #selected_index=c(10,15,11,16,8) #jz disp 1.2 1.2 1.1 0.4 2 10 60

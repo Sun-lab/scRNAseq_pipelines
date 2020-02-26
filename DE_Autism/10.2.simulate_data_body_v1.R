@@ -1,5 +1,4 @@
 #this code used for the simulation
-#compared with version v1, it extend the number of individuals by estimating the mean and overdisp from the individual level mean and overdisp distribution.
 
 # Simulate scRNA-seq data using splatter
 # Using their default simulator for now. We can consider simulate 3000 genes in 40 individuals, with 20 cases vs. 20 controls. We can set DE for 300 genes in terms of mean expression difference, and another 300 genes DE in terms of variance difference. In the simulation, try to set the total read-depth across samples to be the same. 
@@ -85,15 +84,16 @@
 # ####### method5: Using ZINB method directly ##########
 
 ##### Start simulation from here #############
-#something from the head files please uncomment the following lines to run it separately.
+# #something from the head files please uncomment the following lines to run it separately.
 # file_tag=1
 # sim_method="zinb.naive" #splat.mean or splat.var--method 5, separate the mean and variance using splat
 #                         #splat.org--method 4, change the mean.shape and mean.rate originally
-
+# 
 # #r_mean/r_var should < 1+mean.shape
-# r_mean=1.2  #1.2,1.5,2,4,6
-# r_var=1.2 #1.2,1.5,2,4,6
-# r_change_prop=0.4 #c(0.1,0.2,0.4,0.6,0.8)
+#r_mean=1.5  #1.2,1.5,2,4,6
+#r_var=1.5 #1.2,1.5,2,4,6
+#r_disp=1.5 #1.2,1.5,2,4,6
+#r_change_prop=0.75 #c(0.1,0.2,0.4,0.6,0.8)
   
   
 #setwd("~/Desktop/fh/1.Testing_scRNAseq/")
@@ -102,16 +102,16 @@ setwd("/fh/fast/sun_w/mengqi/1.Testing_scRNAseq/")
 #setwd("/Volumes/SpecialData/fh_data/Data_PRJNA434002/")
 
 library("emdbook")
-sim_folder="sim_v4"
 
 nGeneMean=300
 nGeneVar=300
+nGeneDisp=300
 nGeneMult=300
-nGeneBlank=2100
-nGeneTotal=nGeneMean+nGeneVar+nGeneMult+nGeneBlank
-ncase=50   #!!!!!!!!Different from Wei codes, this is inside the body.
-nctrl=50   #!!!!!!!!Different from Wei codes, this is inside the body.
-ncell=200
+nGeneBlank=1800
+nGeneTotal=nGeneMean+nGeneVar+nGeneMult+nGeneDisp+nGeneBlank
+ncase=20   #!!!!!!!!Different from Wei codes, this is inside the body.
+nctrl=20   #!!!!!!!!Different from Wei codes, this is inside the body.
+ncell=100
 nall=ncase+nctrl
 
 HET=0 #0/1 label: if HET==0, generate case cells from completely case condition
@@ -119,9 +119,9 @@ HET=0 #0/1 label: if HET==0, generate case cells from completely case condition
 
 i_mean=1:nGeneMean
 i_var=(nGeneMean+1):(nGeneMean+nGeneVar)
-
-i_mult=(nGeneMean+nGeneVar+1):(nGeneMean+nGeneVar+nGeneMult)
-i_blank=(nGeneMean+nGeneVar+nGeneMult+1):nGeneTotal
+i_disp=(nGeneMean+nGeneVar+1):(nGeneMean+nGeneVar+nGeneDisp)
+i_mult=(nGeneMean+nGeneVar+nGeneDisp+1):(nGeneMean+nGeneVar++nGeneDisp+nGeneMult)
+i_blank=(nGeneMean+nGeneVar+nGeneDisp+nGeneMult+1):nGeneTotal
 
 case_modify_flag=rbinom(nGeneTotal,1,0.5)
 i_case_modify=which(case_modify_flag==1) #randomlized settings, switching cases and control samples to make sure the library sizes the same
@@ -249,156 +249,99 @@ cal_nbzinb_param_multimodality_enlarge=function(mu=NA,size,drop,change_proportio
   size3=m^2/(m^2/size + t^2/size + t^2)
   return(size3)
 }
-# ############ Simulation Data Preparation ###############################
-
+# ############ Simulation data with Method 5 ###############################
 
 #generate the data by ZINB, based on given parameters...
-input_file_tag="3k" 
+input_file_tag="3k10"
+t_mean = read.table(paste0("../Data_PRJNA434002/res_dca_rawM",input_file_tag,"/mean_signif4.tsv.gz"), 
+                    sep = "\t", header = TRUE)
 
-if(!file.exists(paste0("../Data_PRJNA434002/dca_PFC_all/",input_file_tag,"_sample_log_mean.rds"))){
-  #cov_matrix=readRDS(paste0("../Data_PRJNA434002/dca_PFC_all/",input_file_tag,"_cov_matrix.rds"))
-  t_mean=readRDS(paste0("../Data_PRJNA434002/dca_PFC_all/",input_file_tag,"_mean.rds"))
-  t_disp=readRDS(paste0("../Data_PRJNA434002/dca_PFC_all/",input_file_tag,"_dispersion.rds"))
-  t_drop=readRDS(paste0("../Data_PRJNA434002/dca_PFC_all/",input_file_tag,"_dropout.rds"))
-  
-  dim(t_mean)
-  t_mean[1:2,1:5]
-  
-  dim(t_disp)
-  t_disp[1:2,1:5]
-  
-  dim(t_drop)
-  t_drop[1:2,1:5]
-  
-  ############### collect sample information ###################
-  
-  col_info   = strsplit(colnames(t_mean), split="_")
-  sample_ids = sapply(col_info, function(x)x[2])
-  table(sample_ids)
-  
-  tapply_mean <- function(x){tapply(x, sample_ids, function(x)return(mean(x,na.rm = TRUE)))}
-  tapply_median <- function(x){tapply(x, sample_ids, function(x)return(median(x,na.rm = TRUE)))}
-  tapply_sd <- function(x){tapply(x, sample_ids, function(x)return(sd(x,na.rm = TRUE)))}
-  
-  mean_mean = t(apply(t_mean, 1, tapply_mean))
-  mid_mean = t(apply(t_mean, 1, tapply_median))
-  mid_disp = t(apply(t_disp, 1, tapply_median))
-  mid_drop = t(apply(t_drop, 1, tapply_median))
-  sample_log_mean_sd = t(apply(t_mean, 1, function(x)tapply_sd(log(as.numeric(x)))))
-  
-  sample_log_mean=log(mid_mean)
-  sample_log_disp=log(mid_disp)
-  sample_logit_drop=log(mid_drop)/(1-mid_drop)
-  
-  
-  
-  dim(sample_log_mean)
-  dim(sample_log_disp)
-  dim(sample_logit_drop)
-  dim(sample_log_mean_sd)
-  
-  sample_log_mean[1:2,1:5]
-  sample_log_mean_sd[1:2,1:5]
-  
-  # the sd within an individual, across cells is large, 
-  # probably becaue the cells are from different cell types
-  # so we reduce them by a factor of 10 here. 
-  summary(apply(sample_log_mean, 1, sd))
-  summary(apply(sample_log_mean_sd,1,mean))
-  
-  sample_log_mean_sd = sample_log_mean_sd/10
-  
-  
-  #simulate individual level parameters from correlated mutinormal distribution
-  # sample_data=cbind(c(sample_log_mean),c(sample_log_disp),c(sample_logit_drop))
-  # sample_data_mean=apply(sample_data,2,mean)
-  # 
-  # cov_matrix=matrix(NA,3,3)
-  # for(i in 1:3){
-  #   for(j in 1:3){
-  #     cov_matrix[i,j]=cov(sample_data[,i],sample_data[,j])
-  #   }
-  # }
-  
-  dim(sample_log_mean)
-  dim(sample_log_disp)
-  dim(sample_logit_drop)
-  dim(sample_log_mean_sd)
-  
-  saveRDS(sample_log_mean,paste0("../Data_PRJNA434002/dca_PFC_all/",input_file_tag,"_sample_log_mean.rds"))
-  saveRDS(sample_log_disp,paste0("../Data_PRJNA434002/dca_PFC_all/",input_file_tag,"_sample_log_disp.rds"))
-  saveRDS(sample_logit_drop,paste0("../Data_PRJNA434002/dca_PFC_all/",input_file_tag,"_sample_logit_drop.rds"))
-  saveRDS(sample_log_mean_sd,paste0("../Data_PRJNA434002/dca_PFC_all/",input_file_tag,"_sample_log_mean_sd.rds"))
-}
-###########################
+t_disp = read.table(paste0("../Data_PRJNA434002/res_dca_rawM",input_file_tag,"/dispersion_signif4.tsv.gz"),
+                    sep = "\t", header = TRUE)
 
-sample_log_mean=readRDS(paste0("../Data_PRJNA434002/dca_PFC_all/",input_file_tag,"_sample_log_mean.rds"))
-sample_log_disp=readRDS(paste0("../Data_PRJNA434002/dca_PFC_all/",input_file_tag,"_sample_log_disp.rds"))
-sample_logit_drop=readRDS(paste0("../Data_PRJNA434002/dca_PFC_all/",input_file_tag,"_sample_logit_drop.rds"))
-sample_log_mean_sd=readRDS(paste0("../Data_PRJNA434002/dca_PFC_all/",input_file_tag,"_sample_log_mean_sd.rds"))
+t_drop = read.table(paste0("../Data_PRJNA434002/res_dca_rawM",input_file_tag,"/dropout_signif4.tsv.gz"),
+                    sep = "\t", header = TRUE)
 
+dim(t_mean)
+t_mean[1:2,1:5]
 
+dim(t_disp)
+t_disp[1:2,1:5]
 
-require(MASS)
-sample_ctrl=array(dim=c(nGeneTotal,nall,4),dimnames=list(paste0("gene", 1:nGeneTotal),paste0("ind", 1:nall),c("mean","dispersion","dropout","mean_sd")))
+dim(t_drop)
+t_drop[1:2,1:5]
 
-ind_strength=0.5 #from 0 to 1, use this to adjust individual mean expression strength in the simulation.
-for(ig in 1:nGeneTotal){
-  sample_data=cbind(c(sample_log_mean[ig,]),c(sample_log_disp[ig,]),c(sample_logit_drop[ig,]),c(sample_log_mean_sd[ig,]))
-  
-  sample_data_reg=apply(sample_data,2,mean)
-  sample_data2=sample_data*ind_strength+matrix(rep(sample_data_reg,each=nrow(sample_data)),nrow=nrow(sample_data))*(1-ind_strength)
-  
-  sample_data_mean=apply(sample_data2,2,function(x)mean(x,na.rm = TRUE))
-  
-  cov_matrix=matrix(NA,4,4)
-  for(i in 1:4){
-    for(j in 1:4){
-      cov_matrix[i,j]=cov(sample_data[,i],sample_data[,j])
-    }
-  }
-  sample_ctrl[ig,,]=exp(mvrnorm(nall, mu = sample_data_mean, Sigma = cov_matrix,empirical = TRUE))
-}
+############### collect sample information ###################
 
+col_info   = strsplit(names(t_mean), split="_")
+sample_ids = sapply(col_info, function(x){paste(x[-1], collapse="_")})
+table(sample_ids)
 
-sample_ctrl[,,3]=sample_ctrl[,,3]/(1+sample_ctrl[,,3])
+tapply_mean <- function(x){tapply(x, sample_ids, mean)}
+tapply_sd <- function(x){tapply(x, sample_ids, sd)}
 
-sample_mean=sample_ctrl[,,1]
-sample_disp=sample_ctrl[,,2]
-sample_drop=sample_ctrl[,,3]
-sample_mean_sd=sample_ctrl[,,4]
+sample_log_mean = t(apply(log(t_mean), 1, tapply_mean))
+sample_disp = t(apply(t_disp, 1, tapply_mean))
+sample_drop = t(apply(t_drop, 1, tapply_mean))
 
+sample_log_mean_sd = t(apply(log(t_mean), 1, tapply_sd))
+
+dim(sample_log_mean)
+dim(sample_disp)
+dim(sample_drop)
+dim(sample_log_mean_sd)
+
+sample_log_mean[1:2,1:5]
+sample_log_mean_sd[1:2,1:5]
+
+# the sd within an individual, across cells is large, 
+# probably becaue the cells are from different cell types
+# so we reduce them by a factor of 10 here. 
+summary(apply(sample_log_mean, 1, sd))
+summary(apply(sample_log_mean_sd,1,mean))
+
+sample_log_mean_sd = sample_log_mean_sd/10
 
 ###################### simulation based on real data ######################
 
-random_idx_gene = sample.int(nrow(sample_mean))
-random_idx_sam  = sample.int(ncol(sample_mean))
+# extract information from the data
+# We use the gene specific medians of each parameter.
+# and simulate parameters assuming log-normal or logic-normal distribution.
 
-sample_mean = sample_mean[random_idx_gene, random_idx_sam]
+# randomlize the orders of genes and samples, and take 40 samples
+# set.seed(2019)
+
+random_idx_gene = sample.int(nrow(sample_log_mean))
+random_idx_sam  = sample.int(ncol(sample_log_mean))[1:nall]
+
+sample_log_mean = sample_log_mean[random_idx_gene, random_idx_sam]
 sample_drop = sample_drop[random_idx_gene, random_idx_sam]
 sample_disp = sample_disp[random_idx_gene, random_idx_sam]
 
-sample_mean_sd = sample_mean_sd[random_idx_gene, random_idx_sam]
+sample_log_mean_sd = sample_log_mean_sd[random_idx_gene, random_idx_sam]
 
-dim(sample_mean)
+dim(sample_log_mean)
 dim(sample_drop)
 dim(sample_disp)
 
-dim(sample_mean_sd)
+dim(sample_log_mean_sd)
 
 #################  calculate parameters for the case data #################
 
 # sample gene index for genes differential expressed by mean or variance.
-special_index = sample.int(nGeneTotal, (nGeneMean + nGeneVar +nGeneMult))
+special_index = sample.int(nGeneTotal, (nGeneMean + nGeneVar +nGeneDisp+nGeneMult))
 mean_index    = as.numeric(special_index[i_mean])
 var_index     = as.numeric(special_index[i_var])
+disp_index     = as.numeric(special_index[i_disp])
 mult_index     = as.numeric(special_index[i_mult])
 # label and save the DE index information.
 de.mean = rep(0, nGeneTotal)
 de.var  = rep(0, nGeneTotal)
+de.disp  = rep(0, nGeneTotal)
 de.mult  = rep(0, nGeneTotal)
 de.mean[mean_index] = 1
 de.var[var_index]   = 1
+de.disp[disp_index]   = 1
 de.mult[mult_index]   = 1
 # To make sure all parameters are non-negative, we do some transformation
 r_mean2 = r_mean
@@ -419,6 +362,9 @@ if (r_var < 1) {
 # x proportion of genes by fold r_m and (1-x) proportion of genes by 
 # fold of 1/r_m, so that x(1 - r_m) = (1-x)(1/r_m - 1) 
 # x (1 - r_m + 1/r_m -1) = (1/r_m -1) => x = 1/(1 + r_m) 
+
+
+sample_mean = exp(sample_log_mean)
 
 sample_mean_ctrls = sample_mean[,1:nctrl]
 sample_disp_ctrls = sample_disp[,1:nctrl]
@@ -476,6 +422,23 @@ for(j in var_index){
   }
 }
 
+
+for(j in disp_index){
+  cur_param=c(NA,NA) #initializaiton
+  if(case_modify_flag[j]==1){
+    for(i in 1:ncol(sample_disp_cases)){
+      theta_ji = sample_disp_cases[j,i]
+      sample_disp_cases[j,i]=theta_ji*r_disp
+    }
+  }
+  if(case_modify_flag[j]==0){
+    for(i in 1:ncol(sample_disp_ctrls)){
+      theta_ji = sample_disp_ctrls[j,i]
+      sample_disp_ctrls[j,i]=theta_ji*r_disp
+    }
+  }
+}
+
 for(j in mult_index){
   cur_param=c(NA,NA) #initializaiton
   if(case_modify_flag[j]==1){
@@ -483,10 +446,8 @@ for(j in mult_index){
       mu_ji    = sample_mean_cases[j,i]
       theta_ji = sample_disp_cases[j,i]
       drop_ji  = sample_drop_cases[j,i]
-      sample_mean_cases[j,i]=sample_mean_cases[j,i]/(1-r_change_prop)
       sample_disp_cases[j,i]=cal_nbzinb_param_multimodality_enlarge(mu=mu_ji,size=theta_ji,drop=drop_ji,
                                                                    change_proportion=r_change_prop)
-      
     }
   }
   if(case_modify_flag[j]==0){
@@ -494,7 +455,6 @@ for(j in mult_index){
       mu_ji    = sample_mean_ctrls[j,i]
       theta_ji = sample_disp_ctrls[j,i]
       drop_ji  = sample_drop_ctrls[j,i]
-      sample_mean_ctrls[j,i]=sample_mean_ctrls[j,i]/(1-r_change_prop)
       sample_disp_ctrls[j,i]=cal_nbzinb_param_multimodality_enlarge(mu=mu_ji,size=theta_ji,drop=drop_ji,
                                                                    change_proportion=r_change_prop)
     }
@@ -506,16 +466,16 @@ for(j in mult_index){
 summary(colSums(sample_mean))
 summary(colSums(sample_mean_cases))
 
-#ratio.adjust = median(colSums(sample_mean_cases))/median(colSums(sample_mean))
-#sample_mean_cases = sample_mean_cases/ratio.adjust
+ratio.adjust = median(colSums(sample_mean_cases))/median(colSums(sample_mean))
+sample_mean_cases = sample_mean_cases/ratio.adjust
 
 # scatter plot 
-pdf(paste0("../Data_PRJNA434002/10.Result/",sim_folder,"/check_simulation/check_simulation_scatter_",r_mean,"_",r_var,"_",r_change_prop,"_",file_tag,".pdf"), 
-    width = 8, height = 6)
-par(mfrow = c(3, 4), pty = "s")
+pdf(paste0("../Data_PRJNA434002/10.Result/sim_v1/check_simulation/check_simulation_scatter_",r_mean,"_",r_var,"_",r_disp,"_",r_change_prop,"_",file_tag,".pdf"), 
+    width = 9, height = 6)
+par(mfrow = c(3, 5), pty = "s")
 
-plot(log10(apply(sample_mean_ctrls[de.mean + de.var + de.mult == 0,], 1, mean)),
-     log10(apply(sample_mean_cases[de.mean + de.var + de.mult == 0,], 1, mean)),
+plot(log10(apply(sample_mean_ctrls[de.mean + de.var + de.disp + de.mult == 0,], 1, mean)),
+     log10(apply(sample_mean_cases[de.mean + de.var + de.disp + de.mult == 0,], 1, mean)),
      cex = .2, xlab = "control cells", ylab = "case cells",
      main = "log10 mean, non-DE genes")
 abline(0, 1, col = "red")
@@ -532,14 +492,20 @@ plot(log10(apply(sample_mean_ctrls[de.var== 1,], 1, mean)),
      main = "log10 mean, Var-DE genes")
 abline(0, 1, col = "red")
 
+plot(log10(apply(sample_mean_ctrls[de.disp== 1,], 1, mean)),
+     log10(apply(sample_mean_cases[de.disp== 1,], 1, mean)),
+     cex = .2, xlab = "control cells", ylab = "case cells",
+     main = "log10 mean, DISP-DE genes")
+abline(0, 1, col = "red")
+
 plot(log10(apply(sample_mean_ctrls[de.mult== 1,], 1, mean)),
      log10(apply(sample_mean_cases[de.mult== 1,], 1, mean)),
      cex = .2, xlab = "control cells", ylab = "case cells",
      main = "log10 mean, MULT-DE genes")
 abline(0, 1, col = "red")
 
-plot(log10(apply(sample_disp_ctrls[de.mean + de.var + de.mult == 0,], 1, mean)),
-     log10(apply(sample_disp_cases[de.mean + de.var + de.mult == 0,], 1, mean)),
+plot(log10(apply(sample_disp_ctrls[de.mean + de.var + de.disp + de.mult == 0,], 1, mean)),
+     log10(apply(sample_disp_cases[de.mean + de.var + de.disp + de.mult == 0,], 1, mean)),
      cex = .2, xlab = "control cells", ylab = "case cells",
      main = "log10 disp, non-DE genes")
 abline(0, 1, col = "red")
@@ -556,14 +522,20 @@ plot(log10(apply(sample_disp_ctrls[de.var== 1,], 1, mean)),
      main = "log10 mean, Var-DE genes")
 abline(0, 1, col = "red")
 
+plot(log10(apply(sample_disp_ctrls[de.disp== 1,], 1, mean)),
+     log10(apply(sample_disp_cases[de.disp== 1,], 1, mean)),
+     cex = .2, xlab = "control cells", ylab = "case cells",
+     main = "log10 mean, DISP-DE genes")
+abline(0, 1, col = "red")
+
 plot(log10(apply(sample_disp_ctrls[de.mult== 1,], 1, mean)),
      log10(apply(sample_disp_cases[de.mult== 1,], 1, mean)),
      cex = .2, xlab = "control cells", ylab = "case cells",
      main = "log10 mean, MULT-DE genes")
 abline(0, 1, col = "red")
 
-plot(log10(apply(sample_mean_ctrls[de.mean + de.var + de.mult == 0,], 1, var)),
-     log10(apply(sample_mean_cases[de.mean + de.var + de.mult == 0,], 1, var)),
+plot(log10(apply(sample_mean_ctrls[de.mean + de.var + de.disp + de.mult == 0,], 1, var)),
+     log10(apply(sample_mean_cases[de.mean + de.var + de.disp + de.mult == 0,], 1, var)),
      cex = .2, xlab = "control cells", ylab = "case cells",
      main = "log10 var, non-DE genes")
 abline(0, 1, col = "red")
@@ -578,6 +550,12 @@ plot(log10(apply(sample_mean_ctrls[de.var== 1,], 1, var)),
      log10(apply(sample_mean_cases[de.var== 1,], 1, var)),
      cex = .2, xlab = "control cells", ylab = "case cells",
      main = "log10 var, Var-DE genes")
+abline(0, 1, col = "red")
+
+plot(log10(apply(sample_mean_ctrls[de.disp== 1,], 1, var)),
+     log10(apply(sample_mean_cases[de.disp== 1,], 1, var)),
+     cex = .2, xlab = "control cells", ylab = "case cells",
+     main = "log10 var, DISP-DE genes")
 abline(0, 1, col = "red")
 
 plot(log10(apply(sample_mean_ctrls[de.mult== 1,], 1, var)),
@@ -602,40 +580,39 @@ for(i in 1:nall){
         disp_i = sample_disp_cases[,i-nctrl]
         drop_i = sample_drop_cases[,i-nctrl]
         mean_i[de.mult & case_modify_flag]=mean_i[de.mult & case_modify_flag]+
-          mean_i[de.mult & case_modify_flag]*(2*(r_change_prop)/(1-r_change_prop))*rbinom(sum(de.mult & case_modify_flag),1,0.5)
+          mean_i[de.mult & case_modify_flag]*((r_change_prop)/(1-r_change_prop))*rbinom(sum(de.mult & case_modify_flag),1,0.5)
       }else{
         mean_i = sample_mean_ctrls[,i]
         disp_i = sample_disp_ctrls[,i]
         drop_i = sample_drop_ctrls[,i]
         mean_i[de.mult & !case_modify_flag]=mean_i[de.mult & !case_modify_flag]+
-          mean_i[de.mult & !case_modify_flag]*(2*(r_change_prop)/(1-r_change_prop))*rbinom(sum(de.mult & !case_modify_flag),1,0.5)
+          mean_i[de.mult & !case_modify_flag]*((r_change_prop)/(1-r_change_prop))*rbinom(sum(de.mult & !case_modify_flag),1,0.5)
       }
     }
-    if(!HET){
+    else{
       if(i > nctrl){
         mean_i = sample_mean_cases[,i-nctrl]
         disp_i = sample_disp_cases[,i-nctrl]
         drop_i = sample_drop_cases[,i-nctrl]
         mean_i[de.mult & case_modify_flag]=mean_i[de.mult & case_modify_flag]+
-          mean_i[de.mult & case_modify_flag]*(2*(r_change_prop)/(1-r_change_prop))*rbinom(sum(de.mult & case_modify_flag),1,0.5)
+          mean_i[de.mult & case_modify_flag]*((r_change_prop)/(1-r_change_prop))*rbinom(sum(de.mult & case_modify_flag),1,0.5)
       }else{
         mean_i = sample_mean_ctrls[,i]
         disp_i = sample_disp_ctrls[,i]
         drop_i = sample_drop_ctrls[,i]
         mean_i[de.mult & !case_modify_flag]=mean_i[de.mult & !case_modify_flag]+
-          mean_i[de.mult & !case_modify_flag]*(2*(r_change_prop)/(1-r_change_prop))*rbinom(sum(de.mult & !case_modify_flag),1,0.5)
+          mean_i[de.mult & !case_modify_flag]*((r_change_prop)/(1-r_change_prop))*rbinom(sum(de.mult & !case_modify_flag),1,0.5)
       }
     }
     
-    #sample_mean_k = exp(rnorm(nGeneTotal, log(mean_i), sample_log_mean_sd[,i]))
-    sample_mean_k = exp(rnorm(nGeneTotal, log(mean_i), log(sample_mean_sd[,i])))
+    sample_mean_k = exp(rnorm(nGeneTotal, log(mean_i), sample_log_mean_sd[,i]))
+    
     for (ig in 1:nGeneTotal) {
       sim_matrix[ig,idx_i[k]] = emdbook::rzinbinom(1, sample_mean_k[ig], 
                                                    disp_i[ig], drop_i[ig])
       sim_param[ig,idx_i[k],]=c(sample_mean_k[ig], disp_i[ig], drop_i[ig])
     }
   }
-  print(i)
 }
 date()
 
@@ -652,8 +629,8 @@ phenotype = c(rep(0, nctrl * ncell), rep(1, ncase * ncell))
 individual = paste0("ind", c(rep(1:nall, each = ncell)))
 
 #Count info for matrix
-cell_id = paste0("cell", 1:(nall*ncell))
-gene_id = paste0("gene", 1:nGeneTotal)
+cell_id = paste0("cell", 1:ncol(sim_matrix))
+gene_id = paste0("gene", 1:nrow(sim_matrix))
 
 rownames(sim_matrix) = gene_id
 colnames(sim_matrix) = cell_id
@@ -669,7 +646,7 @@ meta = data.frame(cell_id, individual, phenotype, cellsum, CDR,
 dim(meta)
 meta[1:2,]
 
-pdf(paste0("../Data_PRJNA434002/10.Result/",sim_folder,"/check_covariates/check_covariates_",r_mean,"_",r_var,"_",r_change_prop,"_",file_tag,".pdf"), 
+pdf(paste0("../Data_PRJNA434002/10.Result/sim_v1/check_covariates/check_covariates_",r_mean,"_",r_var,"_",r_disp,"_",r_change_prop,"_",file_tag,".pdf"), 
     width=6, height=3)
 par(mfrow=c(1,2), mar=c(5,4,1,1), bty="n")
 boxplot(meta$cellsum ~ meta$phenotype, xlab="group", ylab="read-depth")
@@ -719,23 +696,19 @@ tapply(read_depth, phenotype_ind, summary)
 
 
 #almost no need to adjust library size.
-saveRDS(de.mean,paste0("../Data_PRJNA434002/10.Result/",sim_folder,"/de_label/sim_de.mean_",r_mean,"_",r_var,"_",r_change_prop,"_",file_tag,".rds"))
-saveRDS(de.var,paste0("../Data_PRJNA434002/10.Result/",sim_folder,"/de_label/sim_de.var_",r_mean,"_",r_var,"_",r_change_prop,"_",file_tag,".rds"))
-saveRDS(de.mult,paste0("../Data_PRJNA434002/10.Result/",sim_folder,"/de_label/sim_de.mult_",r_mean,"_",r_var,"_",r_change_prop,"_",file_tag,".rds"))
+saveRDS(de.mean,paste0("../Data_PRJNA434002/10.Result/sim_v1/de_label/sim_de.mean_",r_mean,"_",r_var,"_",r_disp,"_",r_change_prop,"_",file_tag,".rds"))
+saveRDS(de.var,paste0("../Data_PRJNA434002/10.Result/sim_v1/de_label/sim_de.var_",r_mean,"_",r_var,"_",r_disp,"_",r_change_prop,"_",file_tag,".rds"))
+saveRDS(de.disp,paste0("../Data_PRJNA434002/10.Result/sim_v1/de_label/sim_de.disp_",r_mean,"_",r_var,"_",r_disp,"_",r_change_prop,"_",file_tag,".rds"))
+saveRDS(de.mult,paste0("../Data_PRJNA434002/10.Result/sim_v1/de_label/sim_de.mult_",r_mean,"_",r_var,"_",r_disp,"_",r_change_prop,"_",file_tag,".rds"))
 
-saveRDS(read_depth,paste0("../Data_PRJNA434002/10.Result/",sim_folder,"/sim_ind/sim_ind_readdepth_",r_mean,"_",r_var,"_",r_change_prop,"_",file_tag,".rds"))
-saveRDS(phenotype_ind,paste0("../Data_PRJNA434002/10.Result/",sim_folder,"/sim_ind/sim_ind_phenotye_",r_mean,"_",r_var,"_",r_change_prop,"_",file_tag,".rds"))
-saveRDS(zero_rate_ind,paste0("../Data_PRJNA434002/10.Result/",sim_folder,"/sim_ind/sim_ind_zero_rate_",r_mean,"_",r_var,"_",r_change_prop,"_",file_tag,".rds"))
+saveRDS(read_depth,paste0("../Data_PRJNA434002/10.Result/sim_v1/sim_ind/sim_ind_readdepth_",r_mean,"_",r_var,"_",r_disp,"_",r_change_prop,"_",file_tag,".rds"))
+saveRDS(phenotype_ind,paste0("../Data_PRJNA434002/10.Result/sim_v1/sim_ind/sim_ind_phenotye_",r_mean,"_",r_var,"_",r_disp,"_",r_change_prop,"_",file_tag,".rds"))
+saveRDS(zero_rate_ind,paste0("../Data_PRJNA434002/10.Result/sim_v1/sim_ind/sim_ind_zero_rate_",r_mean,"_",r_var,"_",r_disp,"_",r_change_prop,"_",file_tag,".rds"))
 
-saveRDS(sim_param,paste0("../Data_PRJNA434002/10.Result/",sim_folder,"/sim_data/sim_param_",r_mean,"_",r_var,"_",r_change_prop,"_",file_tag,".rds"))
-saveRDS(sim_matrix,paste0("../Data_PRJNA434002/10.Result/",sim_folder,"/sim_data/sim_matrix_",r_mean,"_",r_var,"_",r_change_prop,"_",file_tag,".rds"))
-saveRDS(meta,paste0("../Data_PRJNA434002/10.Result/",sim_folder,"/sim_data/sim_meta_",r_mean,"_",r_var,"_",r_change_prop,"_",file_tag,".rds"))
-saveRDS(sim_matrix_bulk,paste0("../Data_PRJNA434002/10.Result/",sim_folder,"/sim_data/sim_matrix_bulk_",r_mean,"_",r_var,"_",r_change_prop,"_",file_tag,".rds"))
-
-
-
-
-
+saveRDS(sim_param,paste0("../Data_PRJNA434002/10.Result/sim_v1/sim_data/sim_param_",r_mean,"_",r_var,"_",r_disp,"_",r_change_prop,"_",file_tag,".rds"))
+saveRDS(sim_matrix,paste0("../Data_PRJNA434002/10.Result/sim_v1/sim_data/sim_matrix_",r_mean,"_",r_var,"_",r_disp,"_",r_change_prop,"_",file_tag,".rds"))
+saveRDS(meta,paste0("../Data_PRJNA434002/10.Result/sim_v1/sim_data/sim_meta_",r_mean,"_",r_var,"_",r_disp,"_",r_change_prop,"_",file_tag,".rds"))
+saveRDS(sim_matrix_bulk,paste0("../Data_PRJNA434002/10.Result/sim_v1/sim_data/sim_matrix_bulk_",r_mean,"_",r_var,"_",r_disp,"_",r_change_prop,"_",file_tag,".rds"))
 
 
 

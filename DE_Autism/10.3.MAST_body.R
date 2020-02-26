@@ -5,20 +5,20 @@
 # file_tag=1
 # r_mean=1.5
 # r_var=1.5
-# r_disp=1.5
-# r_change_prop=0.75
+# r_change_prop=0.6
 # 
 # setwd("~/Desktop/fh/1.Testing_scRNAseq/")
 #setwd("/Users/mzhang24/Desktop/fh/1.Testing_scRNAseq/")
 setwd("/fh/fast/sun_w/mengqi/1.Testing_scRNAseq/")
-perm_label=1
+perm_label=0
 perm_method="" #c("","b") 
+sim_folder="sim_v5"
 
-n_seq=c(20,15,10,5)
-ncell_seq=c(100,80,60,40,20)
+n_seq=c(50,30,20,10,5)
+ncell_seq=c(200,100,50,20)
 
-sim_matrix=readRDS(paste0("../Data_PRJNA434002/10.Result/sim_matrix_",r_mean,"_",r_var,"_",r_disp,"_",r_change_prop,"_",file_tag,".rds"))
-t_meta=readRDS(paste0("../Data_PRJNA434002/10.Result/sim_meta_",r_mean,"_",r_var,"_",r_disp,"_",r_change_prop,"_",file_tag,".rds"))
+sim_matrix=readRDS(paste0("../Data_PRJNA434002/10.Result/",sim_folder,"/sim_data/sim_matrix_",r_mean,"_",r_var,"_",r_change_prop,"_",file_tag,".rds"))
+t_meta=readRDS(paste0("../Data_PRJNA434002/10.Result/",sim_folder,"/sim_data/sim_meta_",r_mean,"_",r_var,"_",r_change_prop,"_",file_tag,".rds"))
 
 ######################Other method comparison: MAST #################################
 print("start MAST calculation: Part II: ZINB KLmean and JSD")
@@ -52,10 +52,10 @@ sim_matrix_log[1:10, 1:10]
 for(ncell in ncell_seq){
   for(n in n_seq){
     #set labels
-    selected_index=sample.int(20,n)
+    selected_index=sample.int(max(n_seq),n)
     total_cell_index=matrix(ncol=1,nrow=0)
-    for(i_s in c(selected_index,(20+selected_index))){
-      cell_index=(100*i_s-ncell+1):(100*i_s)
+    for(i_s in c(selected_index,(max(n_seq)+selected_index))){
+      cell_index=(max(ncell_seq)*i_s-ncell+1):(max(ncell_seq)*i_s)
       total_cell_index=c(total_cell_index,cell_index)
     }
     
@@ -145,8 +145,8 @@ for(ncell in ncell_seq){
     print(paste0("print system details, ncell= ",ncell,", n= ",n, ", after all"))
     print(date())
     print(gc())
-    tryCatch(saveRDS(MAST_pval0,paste0("../Data_PRJNA434002/10.Result/MAST_pval/p",perm_label,perm_method,"_MAST_pval0_",r_mean,"_",r_var,"_",r_disp,"_",r_change_prop,"_",file_tag,"_",(2*n),"_",ncell,".rds")), error = function(e) {NA} )
-    tryCatch(saveRDS(MAST_pval1,paste0("../Data_PRJNA434002/10.Result/MAST_pval/p",perm_label,perm_method,"_MAST_pval1_",r_mean,"_",r_var,"_",r_disp,"_",r_change_prop,"_",file_tag,"_",(2*n),"_",ncell,".rds")), error = function(e) {NA} )
+    tryCatch(saveRDS(MAST_pval0,paste0("../Data_PRJNA434002/10.Result/",sim_folder,"/MAST_pval/p",perm_label,perm_method,"_MAST_pval0_",r_mean,"_",r_var,"_",r_change_prop,"_",file_tag,"_",(2*n),"_",ncell,".rds")), error = function(e) {NA} )
+    tryCatch(saveRDS(MAST_pval1,paste0("../Data_PRJNA434002/10.Result/",sim_folder,"/MAST_pval/p",perm_label,perm_method,"_MAST_pval1_",r_mean,"_",r_var,"_",r_change_prop,"_",file_tag,"_",(2*n),"_",ncell,".rds")), error = function(e) {NA} )
     print(c(n,ncell))
   }
 }

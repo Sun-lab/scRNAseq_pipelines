@@ -93,6 +93,7 @@
 # #r_mean/r_var should < 1+mean.shape
 # r_mean=1.2  #1.2,1.5,2,4,6
 # r_var=1.2 #1.2,1.5,2,4,6
+# r_disp=1.2 #1.2,1.5,2,4,6
 # r_change_prop=0.4 #c(0.1,0.2,0.4,0.6,0.8)
   
   
@@ -102,15 +103,15 @@ setwd("/fh/fast/sun_w/mengqi/1.Testing_scRNAseq/")
 #setwd("/Volumes/SpecialData/fh_data/Data_PRJNA434002/")
 
 library("emdbook")
-sim_folder="sim_v4"
+sim_folder="sim_v5"
 
 nGeneMean=300
 nGeneVar=300
 nGeneMult=300
 nGeneBlank=2100
 nGeneTotal=nGeneMean+nGeneVar+nGeneMult+nGeneBlank
-ncase=50   #!!!!!!!!Different from Wei codes, this is inside the body.
-nctrl=50   #!!!!!!!!Different from Wei codes, this is inside the body.
+ncase=100   #!!!!!!!!Different from Wei codes, this is inside the body.
+nctrl=100   #!!!!!!!!Different from Wei codes, this is inside the body.
 ncell=200
 nall=ncase+nctrl
 
@@ -119,7 +120,6 @@ HET=0 #0/1 label: if HET==0, generate case cells from completely case condition
 
 i_mean=1:nGeneMean
 i_var=(nGeneMean+1):(nGeneMean+nGeneVar)
-
 i_mult=(nGeneMean+nGeneVar+1):(nGeneMean+nGeneVar+nGeneMult)
 i_blank=(nGeneMean+nGeneVar+nGeneMult+1):nGeneTotal
 
@@ -127,9 +127,9 @@ case_modify_flag=rbinom(nGeneTotal,1,0.5)
 i_case_modify=which(case_modify_flag==1) #randomlized settings, switching cases and control samples to make sure the library sizes the same
 
 
-#first control, then case
-i_ctrl=1:(nctrl*ncell)
-i_case=(nctrl*ncell+1):((ncase+nctrl)*ncell)
+#first case, then ctrl
+i_case=1:(ncase*ncell)
+i_ctrl=(ncase*ncell+1):(nall*ncell)
 
 ##############functions#################
 
@@ -144,6 +144,7 @@ calc_nb_param=function(mu,theta,r_m=1,r_v=1){
   theta2=theta*mu*r_m/(mu*r_v*r_m+(r_v*r_m-1)*theta)
   return(c(mu2,theta2))
 }
+
 
 
 #require:  r_m/r_v <1+mu/theta
@@ -247,7 +248,7 @@ cal_nbzinb_param_multimodality_enlarge=function(mu=NA,size,drop,change_proportio
   t=mean3-mean2
   m=mean3
   size3=m^2/(m^2/size + t^2/size + t^2)
-  return(size3)
+  return(c(size3))
 }
 # ############ Simulation Data Preparation ###############################
 
@@ -270,6 +271,8 @@ if(!file.exists(paste0("../Data_PRJNA434002/dca_PFC_all/",input_file_tag,"_sampl
   dim(t_drop)
   t_drop[1:2,1:5]
   
+  
+  
   ############### collect sample information ###################
   
   col_info   = strsplit(colnames(t_mean), split="_")
@@ -280,7 +283,6 @@ if(!file.exists(paste0("../Data_PRJNA434002/dca_PFC_all/",input_file_tag,"_sampl
   tapply_median <- function(x){tapply(x, sample_ids, function(x)return(median(x,na.rm = TRUE)))}
   tapply_sd <- function(x){tapply(x, sample_ids, function(x)return(sd(x,na.rm = TRUE)))}
   
-  mean_mean = t(apply(t_mean, 1, tapply_mean))
   mid_mean = t(apply(t_mean, 1, tapply_median))
   mid_disp = t(apply(t_disp, 1, tapply_median))
   mid_drop = t(apply(t_drop, 1, tapply_median))
@@ -360,31 +362,17 @@ for(ig in 1:nGeneTotal){
   sample_ctrl[ig,,]=exp(mvrnorm(nall, mu = sample_data_mean, Sigma = cov_matrix,empirical = TRUE))
 }
 
-
 sample_ctrl[,,3]=sample_ctrl[,,3]/(1+sample_ctrl[,,3])
 
-sample_mean=sample_ctrl[,,1]
-sample_disp=sample_ctrl[,,2]
-sample_drop=sample_ctrl[,,3]
-sample_mean_sd=sample_ctrl[,,4]
+
 
 
 ###################### simulation based on real data ######################
 
-random_idx_gene = sample.int(nrow(sample_mean))
-random_idx_sam  = sample.int(ncol(sample_mean))
+random_idx_gene = sample.int(nGeneTotal)
+random_idx_sam  = sample.int(nall)
 
-sample_mean = sample_mean[random_idx_gene, random_idx_sam]
-sample_drop = sample_drop[random_idx_gene, random_idx_sam]
-sample_disp = sample_disp[random_idx_gene, random_idx_sam]
-
-sample_mean_sd = sample_mean_sd[random_idx_gene, random_idx_sam]
-
-dim(sample_mean)
-dim(sample_drop)
-dim(sample_disp)
-
-dim(sample_mean_sd)
+sample_ctrl=sample_ctrl[random_idx_gene, random_idx_sam,]
 
 #################  calculate parameters for the case data #################
 
@@ -420,168 +408,129 @@ if (r_var < 1) {
 # fold of 1/r_m, so that x(1 - r_m) = (1-x)(1/r_m - 1) 
 # x (1 - r_m + 1/r_m -1) = (1/r_m -1) => x = 1/(1 + r_m) 
 
-sample_mean_ctrls = sample_mean[,1:nctrl]
-sample_disp_ctrls = sample_disp[,1:nctrl]
-sample_drop_ctrls = sample_drop[,1:nctrl]
-sample_mean_cases = sample_mean[,(nctrl+1):nall]
-sample_disp_cases = sample_disp[,(nctrl+1):nall]
-sample_drop_cases = sample_drop[,(nctrl+1):nall]
 
+sample_param_case=sample_ctrl[,1:ncase,] #gene x ind x (mean,overdispersion, droupout)
+sample_param_ctrl=sample_ctrl[,(ncase+1):nall,]
+temp=NA
 
-for(j in mean_index){
-  cur_param=c(NA,NA) #initializaiton
-  if(case_modify_flag[j]==1){
-    for(i in 1:ncol(sample_disp_cases)){
-      mu_ji    = sample_mean_cases[j,i]
-      theta_ji = sample_disp_cases[j,i]
-      drop_ji  = sample_drop_cases[j,i]
-      cur_param = calc_zinb_param(mu=mu_ji,theta=theta_ji,drop=drop_ji,r_m=r_mean2,r_v=1)
-      sample_mean_cases[j,i]=cur_param[1]
-      sample_disp_cases[j,i]=cur_param[2]
-    }
+for(i in mean_index){
+  for(j in 1:ncase){
+    x=sample_ctrl[i,j,]
+    sample_param_case[i,j,1:2]=calc_zinb_param(mu=x[1],theta=x[2],drop=x[3],r_m=r_mean2,r_v=1)
   }
-  if(case_modify_flag[j]==0){
-    for(i in 1:ncol(sample_disp_ctrls)){
-      mu_ji    = sample_mean_ctrls[j,i]
-      theta_ji = sample_disp_ctrls[j,i]
-      drop_ji  = sample_drop_ctrls[j,i]
-      cur_param = calc_zinb_param(mu=mu_ji,theta=theta_ji,drop=drop_ji,r_m=r_mean2,r_v=1)
-      sample_mean_ctrls[j,i]=cur_param[1]
-      sample_disp_ctrls[j,i]=cur_param[2]
-    }
+}
+for(i in var_index){
+  for(j in 1:ncase){
+    x=sample_ctrl[i,j,]
+    sample_param_case[i,j,1:2]=calc_zinb_param(mu=x[1],theta=x[2],drop=x[3],r_m=1,r_v=r_var2)
   }
 }
 
-for(j in var_index){
-  cur_param=c(NA,NA) #initializaiton
-  if(case_modify_flag[j]==1){
-    for(i in 1:ncol(sample_disp_cases)){
-      mu_ji    = sample_mean_cases[j,i]
-      theta_ji = sample_disp_cases[j,i]
-      drop_ji  = sample_drop_cases[j,i]
-      cur_param = calc_zinb_param(mu=mu_ji,theta=theta_ji,drop=drop_ji,r_m=1,r_v=r_var2)
-      sample_mean_cases[j,i]=cur_param[1]
-      sample_disp_cases[j,i]=cur_param[2]
-    }
-  }
-  if(case_modify_flag[j]==0){
-    for(i in 1:ncol(sample_disp_ctrls)){
-      mu_ji    = sample_mean_ctrls[j,i]
-      theta_ji = sample_disp_ctrls[j,i]
-      drop_ji  = sample_drop_ctrls[j,i]
-      cur_param = calc_zinb_param(mu=mu_ji,theta=theta_ji,drop=drop_ji,r_m=1, r_v=r_var2)
-      sample_mean_ctrls[j,i]=cur_param[1]
-      sample_disp_ctrls[j,i]=cur_param[2]
-    }
+for(i in mult_index){
+  for(j in 1:ncase){
+    sample_param_ctrl[i,j,2]=cal_nbzinb_param_multimodality_enlarge(mu=sample_param_ctrl[i,j,1]*(1-r_change_prop),
+                                                                    size=sample_param_ctrl[i,j,2],
+                                                                    drop=sample_param_ctrl[i,j,3],
+                                                                    change_proportion=r_change_prop)
+    sample_param_case[i,j,1]=sample_param_case[i,j,1]+sample_param_case[i,j,1]*2*(0.5-rbinom(1,1,0.5))*(r_change_prop)
   }
 }
 
-for(j in mult_index){
-  cur_param=c(NA,NA) #initializaiton
-  if(case_modify_flag[j]==1){
-    for(i in 1:ncol(sample_disp_cases)){
-      mu_ji    = sample_mean_cases[j,i]
-      theta_ji = sample_disp_cases[j,i]
-      drop_ji  = sample_drop_cases[j,i]
-      sample_mean_cases[j,i]=sample_mean_cases[j,i]/(1-r_change_prop)
-      sample_disp_cases[j,i]=cal_nbzinb_param_multimodality_enlarge(mu=mu_ji,size=theta_ji,drop=drop_ji,
-                                                                   change_proportion=r_change_prop)
-      
-    }
-  }
-  if(case_modify_flag[j]==0){
-    for(i in 1:ncol(sample_disp_ctrls)){
-      mu_ji    = sample_mean_ctrls[j,i]
-      theta_ji = sample_disp_ctrls[j,i]
-      drop_ji  = sample_drop_ctrls[j,i]
-      sample_mean_ctrls[j,i]=sample_mean_ctrls[j,i]/(1-r_change_prop)
-      sample_disp_ctrls[j,i]=cal_nbzinb_param_multimodality_enlarge(mu=mu_ji,size=theta_ji,drop=drop_ji,
-                                                                   change_proportion=r_change_prop)
-    }
-  }
-}
+
+temp=sample_param_case[i_case_modify,,]
+sample_param_case[i_case_modify,,]=sample_param_ctrl[i_case_modify,,]
+sample_param_ctrl[i_case_modify,,]=temp
+
+
 #################  check the parameters  ###################
 
 # check the total read depth
-summary(colSums(sample_mean))
-summary(colSums(sample_mean_cases))
-
-#ratio.adjust = median(colSums(sample_mean_cases))/median(colSums(sample_mean))
+#summary(colSums(sample_mean))
+#summary(colSums(sample_mean_cases))
+#ratio.adjust = median(colSums(sample_param_case[,,1]))/median(colSums(sample_mean))
 #sample_mean_cases = sample_mean_cases/ratio.adjust
+
+quantile(colSums(sample_param_case[mean_index,,1]))
+quantile(colSums(sample_param_ctrl[mean_index,,1]))
+quantile(colSums(sample_param_case[var_index,,1]))
+quantile(colSums(sample_param_ctrl[var_index,,1]))
+quantile(colSums(sample_param_case[mult_index,,1]))
+quantile(colSums(sample_param_ctrl[mult_index,,1]))
 
 # scatter plot 
 pdf(paste0("../Data_PRJNA434002/10.Result/",sim_folder,"/check_simulation/check_simulation_scatter_",r_mean,"_",r_var,"_",r_change_prop,"_",file_tag,".pdf"), 
     width = 8, height = 6)
 par(mfrow = c(3, 4), pty = "s")
 
-plot(log10(apply(sample_mean_ctrls[de.mean + de.var + de.mult == 0,], 1, mean)),
-     log10(apply(sample_mean_cases[de.mean + de.var + de.mult == 0,], 1, mean)),
+plot(log10(apply(sample_param_ctrl[de.mean + de.var + de.mult == 0,,1], 1, mean)),
+     log10(apply(sample_param_case[de.mean + de.var + de.mult == 0,,1], 1, mean)),
      cex = .2, xlab = "control cells", ylab = "case cells",
      main = "log10 mean, non-DE genes")
 abline(0, 1, col = "red")
 
-plot(log10(apply(sample_mean_ctrls[de.mean== 1,], 1, mean)),
-     log10(apply(sample_mean_cases[de.mean== 1,], 1, mean)),
+plot(log10(apply(sample_param_ctrl[de.mean== 1,,1], 1, mean)),
+     log10(apply(sample_param_case[de.mean== 1,,1], 1, mean)),
      cex = .2, xlab = "control cells", ylab = "case cells",
      main = "log10 mean, Mean-DE genes")
 abline(0, 1, col = "red")
 
-plot(log10(apply(sample_mean_ctrls[de.var== 1,], 1, mean)),
-     log10(apply(sample_mean_cases[de.var== 1,], 1, mean)),
+plot(log10(apply(sample_param_ctrl[de.var== 1,,1], 1, mean)),
+     log10(apply(sample_param_case[de.var== 1,,1], 1, mean)),
      cex = .2, xlab = "control cells", ylab = "case cells",
      main = "log10 mean, Var-DE genes")
 abline(0, 1, col = "red")
 
-plot(log10(apply(sample_mean_ctrls[de.mult== 1,], 1, mean)),
-     log10(apply(sample_mean_cases[de.mult== 1,], 1, mean)),
+plot(log10(apply(sample_param_ctrl[de.mult== 1,,1], 1, mean)),
+     log10(apply(sample_param_case[de.mult== 1,,1], 1, mean)),
      cex = .2, xlab = "control cells", ylab = "case cells",
      main = "log10 mean, MULT-DE genes")
 abline(0, 1, col = "red")
 
-plot(log10(apply(sample_disp_ctrls[de.mean + de.var + de.mult == 0,], 1, mean)),
-     log10(apply(sample_disp_cases[de.mean + de.var + de.mult == 0,], 1, mean)),
+plot(log10(apply(sample_param_ctrl[de.mean + de.var + de.mult == 0,,2], 1, mean)),
+     log10(apply(sample_param_case[de.mean + de.var + de.mult == 0,,2], 1, mean)),
      cex = .2, xlab = "control cells", ylab = "case cells",
      main = "log10 disp, non-DE genes")
 abline(0, 1, col = "red")
 
-plot(log10(apply(sample_disp_ctrls[de.mean== 1,], 1, mean)),
-     log10(apply(sample_disp_cases[de.mean== 1,], 1, mean)),
+plot(log10(apply(sample_param_ctrl[de.mean== 1,,2], 1, mean)),
+     log10(apply(sample_param_case[de.mean== 1,,2], 1, mean)),
      cex = .2, xlab = "control cells", ylab = "case cells",
-     main = "log10 mean, Mean-DE genes")
+     main = "log10 disp, Mean-DE genes")
 abline(0, 1, col = "red")
 
-plot(log10(apply(sample_disp_ctrls[de.var== 1,], 1, mean)),
-     log10(apply(sample_disp_cases[de.var== 1,], 1, mean)),
+plot(log10(apply(sample_param_ctrl[de.var== 1,,2], 1, mean)),
+     log10(apply(sample_param_case[de.var== 1,,2], 1, mean)),
      cex = .2, xlab = "control cells", ylab = "case cells",
      main = "log10 mean, Var-DE genes")
 abline(0, 1, col = "red")
 
-plot(log10(apply(sample_disp_ctrls[de.mult== 1,], 1, mean)),
-     log10(apply(sample_disp_cases[de.mult== 1,], 1, mean)),
+plot(log10(apply(sample_param_ctrl[de.mult== 1,,2], 1, mean)),
+     log10(apply(sample_param_case[de.mult== 1,,2], 1, mean)),
      cex = .2, xlab = "control cells", ylab = "case cells",
      main = "log10 mean, MULT-DE genes")
 abline(0, 1, col = "red")
 
-plot(log10(apply(sample_mean_ctrls[de.mean + de.var + de.mult == 0,], 1, var)),
-     log10(apply(sample_mean_cases[de.mean + de.var + de.mult == 0,], 1, var)),
+plot(log10(apply(sample_param_ctrl[de.mean + de.var + de.mult == 0,,1], 1, var)),
+     log10(apply(sample_param_case[de.mean + de.var + de.mult == 0,,1], 1, var)),
      cex = .2, xlab = "control cells", ylab = "case cells",
      main = "log10 var, non-DE genes")
 abline(0, 1, col = "red")
 
-plot(log10(apply(sample_mean_ctrls[de.mean== 1,], 1, var)),
-     log10(apply(sample_mean_cases[de.mean== 1,], 1, var)),
+plot(log10(apply(sample_param_ctrl[de.mean== 1,,1], 1, var)),
+     log10(apply(sample_param_case[de.mean== 1,,1], 1, var)),
      cex = .2, xlab = "control cells", ylab = "case cells",
      main = "log10 var, Mean-DE genes")
 abline(0, 1, col = "red")
 
-plot(log10(apply(sample_mean_ctrls[de.var== 1,], 1, var)),
-     log10(apply(sample_mean_cases[de.var== 1,], 1, var)),
+plot(log10(apply(sample_param_ctrl[de.var== 1,,1], 1, var)),
+     log10(apply(sample_param_case[de.var== 1,,1], 1, var)),
      cex = .2, xlab = "control cells", ylab = "case cells",
      main = "log10 var, Var-DE genes")
 abline(0, 1, col = "red")
 
-plot(log10(apply(sample_mean_ctrls[de.mult== 1,], 1, var)),
-     log10(apply(sample_mean_cases[de.mult== 1,], 1, var)),
+
+plot(log10(apply(sample_param_ctrl[de.mult== 1,,1], 1, var)),
+     log10(apply(sample_param_case[de.mult== 1,,1], 1, var)),
      cex = .2, xlab = "control cells", ylab = "case cells",
      main = "log10 var, MULT-DE genes")
 abline(0, 1, col = "red")
@@ -597,38 +546,33 @@ for(i in 1:nall){
   idx_i = ((i-1)*ncell+1):(i*ncell)
   for(k in 1:ncell){
     if(HET){
-      if(i > nctrl && k > ncell/2 ){
-        mean_i = sample_mean_cases[,i-nctrl]
-        disp_i = sample_disp_cases[,i-nctrl]
-        drop_i = sample_drop_cases[,i-nctrl]
-        mean_i[de.mult & case_modify_flag]=mean_i[de.mult & case_modify_flag]+
-          mean_i[de.mult & case_modify_flag]*(2*(r_change_prop)/(1-r_change_prop))*rbinom(sum(de.mult & case_modify_flag),1,0.5)
+      if(i > ncase && k > ncell/2 ){
+        mean_i = sample_param_ctrl[,(i-ncase),1]
+        disp_i = sample_param_ctrl[,(i-ncase),2]
+        drop_i = sample_param_ctrl[,(i-ncase),3]
+        sample_mean_sd_i = sample_param_ctrl[,(i-ncase),4]
       }else{
-        mean_i = sample_mean_ctrls[,i]
-        disp_i = sample_disp_ctrls[,i]
-        drop_i = sample_drop_ctrls[,i]
-        mean_i[de.mult & !case_modify_flag]=mean_i[de.mult & !case_modify_flag]+
-          mean_i[de.mult & !case_modify_flag]*(2*(r_change_prop)/(1-r_change_prop))*rbinom(sum(de.mult & !case_modify_flag),1,0.5)
+        mean_i = sample_param_case[,i,1]
+        disp_i = sample_param_case[,i,2]
+        drop_i = sample_param_case[,i,3]
+        sample_mean_sd_i = sample_param_case[,i,4]
       }
     }
     if(!HET){
       if(i > nctrl){
-        mean_i = sample_mean_cases[,i-nctrl]
-        disp_i = sample_disp_cases[,i-nctrl]
-        drop_i = sample_drop_cases[,i-nctrl]
-        mean_i[de.mult & case_modify_flag]=mean_i[de.mult & case_modify_flag]+
-          mean_i[de.mult & case_modify_flag]*(2*(r_change_prop)/(1-r_change_prop))*rbinom(sum(de.mult & case_modify_flag),1,0.5)
+        mean_i = sample_param_ctrl[,(i-ncase),1]
+        disp_i = sample_param_ctrl[,(i-ncase),2]
+        drop_i = sample_param_ctrl[,(i-ncase),3]
+        sample_mean_sd_i = sample_param_ctrl[,(i-ncase),4]
       }else{
-        mean_i = sample_mean_ctrls[,i]
-        disp_i = sample_disp_ctrls[,i]
-        drop_i = sample_drop_ctrls[,i]
-        mean_i[de.mult & !case_modify_flag]=mean_i[de.mult & !case_modify_flag]+
-          mean_i[de.mult & !case_modify_flag]*(2*(r_change_prop)/(1-r_change_prop))*rbinom(sum(de.mult & !case_modify_flag),1,0.5)
+        mean_i = sample_param_case[,i,1]
+        disp_i = sample_param_case[,i,2]
+        drop_i = sample_param_case[,i,3]
+        sample_mean_sd_i = sample_param_case[,i,4]
       }
     }
     
-    #sample_mean_k = exp(rnorm(nGeneTotal, log(mean_i), sample_log_mean_sd[,i]))
-    sample_mean_k = exp(rnorm(nGeneTotal, log(mean_i), log(sample_mean_sd[,i])))
+    sample_mean_k = exp(rnorm(nGeneTotal, log(mean_i), log(sample_mean_sd_i)))
     for (ig in 1:nGeneTotal) {
       sim_matrix[ig,idx_i[k]] = emdbook::rzinbinom(1, sample_mean_k[ig], 
                                                    disp_i[ig], drop_i[ig])

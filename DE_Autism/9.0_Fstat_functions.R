@@ -270,7 +270,33 @@ calc_F_permanovaS2=function(dist_array,label_array,G_method=NA){ #G_method=c(NA,
 }
 
 
+#do balanced permutation. 
+#require case num < control num, and case num are expected to be equal or similar to control num
+#input label is an indicator vactor with 1 and 0
 
+#eg:
+#a_label=c(rep(1,10),rep(0,10))
+#balanced_perm(a_label)
+
+balanced_perm=function(label){
+  n_len=length(label)
+  
+  case_index=which(label==1)
+  ctrl_index=which(label==0)
+  
+  n_case=length(case_index)
+  n_ctrl=length(ctrl_index)
+  
+  n_exchange=n_case/2
+  n_exchange=floor(n_exchange)+(n_exchange-floor(n_exchange))*2*rbinom(1,1,0.5) #the number changed to other side
+  
+  switch_index_case=sample(case_index,n_exchange)
+  switch_index_ctrl=sample(ctrl_index,n_exchange)
+  total_index=c(switch_index_case,switch_index_ctrl)
+  label[total_index]=1-label[total_index]
+
+  label
+}
 
 
 
@@ -307,15 +333,26 @@ calc_F_permanovaS2=function(dist_array,label_array,G_method=NA){ #G_method=c(NA,
 # calc_F_permanovaS2(dist_array,label_array=R_array)
 
 
-cal_permanova_pval=function(dist_matrix,diagnose,zm=NA,Fstat_method="p",perm_num.min=500){
+cal_permanova_pval=function(dist_matrix,diagnose,zm=NA,Fstat_method="p",perm_num.min=500,perm_method=""){
   n=length(diagnose)
   if(Fstat_method=="p"){
     F_ob=calc_F_manova(dist_matrix,label=diagnose)
     F_perm=t(matrix(ncol=1,nrow=perm_num.min))
-    F_perm=apply(F_perm,2,function(x){
-      return(
-        calc_F_manova(dist_matrix,label=diagnose[sample.int(length(diagnose))])
-      )})
+    
+    if(length(grep("b",perm_method))>0){ #balanced permutation
+      F_perm=apply(F_perm,2,function(x){
+        return(
+          calc_F_manova(dist_matrix,label=balanced_perm(diagnose))
+        )})
+    }
+    
+    if(length(grep("b",perm_method))==0){ #normal permutation
+      F_perm=apply(F_perm,2,function(x){
+        return(
+          calc_F_manova(dist_matrix,label=diagnose[sample.int(length(diagnose))])
+        )})
+      }
+    
   }
   if(Fstat_method=="ps"){
     R_array=cal_residual_perm(zm,diagnose,perm_num = perm_num.min)
@@ -332,15 +369,28 @@ cal_permanova_pval=function(dist_matrix,diagnose,zm=NA,Fstat_method="p",perm_num
   return(res)
 }
 
-cal_permanova_pval2=function(dist_array,diagnose,zm=NA,Fstat_method="p",perm_num.min=500){
+cal_permanova_pval2=function(dist_array,diagnose,zm=NA,Fstat_method="p",perm_num.min=500,perm_method=""){
   n=length(diagnose)
   if(Fstat_method=="p"){
     F_ob=calc_F_manova2(dist_array,label=diagnose)
     F_perm=t(matrix(ncol=1,nrow=perm_num.min))
-    F_perm=apply(F_perm,2,function(x){
-      return(
-        calc_F_manova2(dist_array,label=diagnose[sample.int(length(diagnose))])
-      )})
+    
+    if(length(grep("b",perm_method))>0){ #balanced permutation
+      F_perm=apply(F_perm,2,function(x){
+        return(
+          calc_F_manova2(dist_array,label=balanced_perm(diagnose))
+        )})
+    }
+    
+    if(length(grep("b",perm_method))==0){ #normal permutation
+      F_perm=apply(F_perm,2,function(x){
+        return(
+          calc_F_manova2(dist_array,label=diagnose[sample.int(length(diagnose))])
+        )})
+    }
+    
+    
+
   }
   if(Fstat_method=="ps"){
     R_array=cal_residual_perm(zm,diagnose,perm_num = perm_num.min)

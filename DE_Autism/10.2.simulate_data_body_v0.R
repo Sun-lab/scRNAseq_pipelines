@@ -226,9 +226,9 @@ if(sim_method=="zinb.naive"){
   log_disp_sample=(log(as.numeric(mid_dispersion)))
   logit_drop_sample=(log(as.numeric(mid_dropout)/(1-as.numeric(mid_dropout))))
   
-  Pram_log_mean=rnorm(nGeneMean+nGeneVar+nGeneBlank,mean = (log_mean_sample),sd=sd(log_mean_sample))
-  Pram_log_disp=rnorm(nGeneMean+nGeneVar+nGeneBlank,mean = (log_disp_sample),sd=sd(log_disp_sample))
-  Pram_logit_drop=rnorm(nGeneMean+nGeneVar+nGeneBlank,mean = (logit_drop_sample),sd=sd(logit_drop_sample))
+  #Pram_log_mean=rnorm(nGeneMean+nGeneVar+nGeneBlank,mean = (log_mean_sample),sd=sd(log_mean_sample))
+  #Pram_log_disp=rnorm(nGeneMean+nGeneVar+nGeneBlank,mean = (log_disp_sample),sd=sd(log_disp_sample))
+  #Pram_logit_drop=rnorm(nGeneMean+nGeneVar+nGeneBlank,mean = (logit_drop_sample),sd=sd(logit_drop_sample))
   
   sample_data=cbind(log_mean_sample,log_disp_sample,logit_drop_sample)
   sample_mean=apply(sample_data,2,mean)

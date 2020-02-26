@@ -5,19 +5,21 @@
 # r_var=1.5
 # r_disp=1.2
 # r_change_prop=0.6
-perm_label=1
-perm_method="b" #c("","b") 
+perm_label=0
+perm_method="" #c("","b") 
+sim_folder="sim_v5"
 
-n_seq=c(20,15,10,5)
-ncell_seq=c(100,80,60,40,20)
+n_seq=c(50,30,20,10,5)
+ncell_seq=c(200,100,50,20)
+
 #setwd("~/Desktop/fh/1.Testing_scRNAseq/")
 #setwd("/Users/mzhang24/Desktop/fh/1.Testing_scRNAseq/")
 setwd("/fh/fast/sun_w/mengqi/1.Testing_scRNAseq/")
 
 library("DESeq2")
 
-sim_matrix_bulk=readRDS(paste0("../Data_PRJNA434002/10.Result/sim_matrix_bulk_",r_mean,"_",r_var,"_",r_disp,"_",r_change_prop,"_",file_tag,".rds"))
-meta=readRDS(paste0("../Data_PRJNA434002/10.Result/sim_meta_",r_mean,"_",r_var,"_",r_disp,"_",r_change_prop,"_",file_tag,".rds"))
+sim_matrix_bulk=readRDS(paste0("../Data_PRJNA434002/10.Result/",sim_folder,"/sim_matrix_bulk_",r_mean,"_",r_var,"_",r_change_prop,"_",file_tag,".rds"))
+meta=readRDS(paste0("../Data_PRJNA434002/10.Result/",sim_folder,"/sim_meta_",r_mean,"_",r_var,"_",r_change_prop,"_",file_tag,".rds"))
 
 
 # We calculate bulk information by summing up raw counts of
@@ -34,9 +36,9 @@ cur_info$phenotype = as.factor(cur_info$phenotype)
 
 
 for(n in n_seq){
-  selected_index=sample.int(20,n)
-  sub_sim_matrix_bulk=sim_matrix_bulk[,c(selected_index,(20+selected_index))]
-  sub_cur_info=cur_info[c(selected_index,(20+selected_index)),]
+  selected_index=sample.int(max(n_seq),n)
+  sub_sim_matrix_bulk=sim_matrix_bulk[,c(selected_index,(max(n_seq)+selected_index))]
+  sub_cur_info=cur_info[c(selected_index,(max(n_seq)+selected_index)),]
   
   if(perm_label>0){
     if(perm_method=="b"){
@@ -63,7 +65,7 @@ for(n in n_seq){
   # observed pvalue calculation
   dds = DESeq(dds)
   deseq_pval = results(dds)$pvalue
-  saveRDS(deseq_pval,paste0("../Data_PRJNA434002/10.Result/DESeq2_pval/p",perm_label,perm_method,"_DESeq2_pval_",r_mean,"_",r_var,"_",r_disp,"_",r_change_prop,"_",file_tag,"_",(2*n),".rds"))
+  saveRDS(deseq_pval,paste0("../Data_PRJNA434002/10.Result/",sim_folder,"/DESeq2_pval/p",perm_label,perm_method,"_DESeq2_pval_",r_mean,"_",r_var,"_",r_change_prop,"_",file_tag,"_",(2*n),".rds"))
 }
 
 
