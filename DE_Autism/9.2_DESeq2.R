@@ -8,7 +8,7 @@
 library("DESeq2")
 #perm_num=500
 covariate_flag=NA #c(NA, "quantile99")
-
+dataset_folder="MS"  #Data_PRJNA434002   MS
 
 #setwd("~/Desktop/fh/1.Testing_scRNAseq/")
 #setwd("/Users/mzhang24/Desktop/fh/1.Testing_scRNAseq/")
@@ -17,11 +17,15 @@ setwd("/fh/fast/sun_w/mengqi/1.Testing_scRNAseq/")
 ###########input###############
 #input diagnosis
 if(is.na(unlist(strsplit(file_tag,"k"))[2])){
-  tmeta=read.table("../Data_PRJNA434002/meta.tsv",header = TRUE, sep = "\t")
+  tmeta=read.table(paste0("../",dataset_folder,"/meta.tsv"),header = TRUE, sep = "\t")
 }
 if(!is.na(unlist(strsplit(file_tag,"k"))[2])){
-  tmeta=readRDS(paste0("../Data_PRJNA434002/meta",unlist(strsplit(file_tag,"k"))[2],".rds"))
+  tmeta=readRDS(paste0("../",dataset_folder,"/meta",unlist(strsplit(file_tag,"k"))[2],".rds"))
 }
+#name match for MS samples
+colnames(tmeta)[grep("cell_type",names(tmeta))]="cluster"
+colnames(tmeta)[grep("sample",names(tmeta))]="individual"
+
 total_individual=unique(tmeta$individual)
 cur_cluster=as.character(unique(tmeta$cluster)[cluster_tag])
 meta=tmeta[tmeta$cluster==cur_cluster,]
@@ -30,10 +34,10 @@ cur_individual=unique(meta$individual)
 
 #input counts
 if(!is.na(covariate_flag)){
-  sim_data=readRDS(paste0("../Data_PRJNA434002/7.Result/sim_ind_",covariate_flag,"_",pre_tag,"_sim_",cluster_tag,"_",file_tag,".rds"))
+  sim_data=readRDS(paste0("../",dataset_folder,"/7.Result/sim_ind_",covariate_flag,"_",pre_tag,"_sim_",cluster_tag,"_",file_tag,".rds"))
 }
 if(is.na(covariate_flag)){
-  sim_data=readRDS(paste0("../Data_PRJNA434002/7.Result/sim_ind_",pre_tag,"_sim_",cluster_tag,"_",file_tag,".rds"))
+  sim_data=readRDS(paste0("../",dataset_folder,"/7.Result/sim_ind_",pre_tag,"_sim_",cluster_tag,"_",file_tag,".rds"))
 }
 
 
@@ -67,15 +71,15 @@ for(i_ind in 1:length(cur_individual)){
   sim_matrix_bulk[,i_ind]=apply(cur_ind_m,1,function(x){return(sum(as.numeric(x),na.rm = TRUE))})
 }
 
-saveRDS(cell_num,paste0("../Data_PRJNA434002/7.Result/sim_ind_cellnum_",pre_tag,"_sim_",cluster_tag,"_",file_tag,".rds"))
-saveRDS(read_depth,paste0("../Data_PRJNA434002/7.Result/sim_ind_readdepth_",pre_tag,"_sim_",cluster_tag,"_",file_tag,".rds"))
-saveRDS(zero_rate_ind,paste0("../Data_PRJNA434002/7.Result/sim_ind_zero_rate_",pre_tag,"_sim_",cluster_tag,"_",file_tag,".rds"))
-saveRDS(sim_matrix_bulk,paste0("../Data_PRJNA434002/7.Result/sim_matrix_bulk_",pre_tag,"_sim_",cluster_tag,"_",file_tag,".rds"))
+saveRDS(cell_num,paste0("../",dataset_folder,"/7.Result/sim_ind_cellnum_",pre_tag,"_sim_",cluster_tag,"_",file_tag,".rds"))
+saveRDS(read_depth,paste0("../",dataset_folder,"/7.Result/sim_ind_readdepth_",pre_tag,"_sim_",cluster_tag,"_",file_tag,".rds"))
+saveRDS(zero_rate_ind,paste0("../",dataset_folder,"/7.Result/sim_ind_zero_rate_",pre_tag,"_sim_",cluster_tag,"_",file_tag,".rds"))
+saveRDS(sim_matrix_bulk,paste0("../",dataset_folder,"/7.Result/sim_matrix_bulk_",pre_tag,"_sim_",cluster_tag,"_",file_tag,".rds"))
 
 zero_rate=apply(sim_data==0,1,function(x){return(sum(as.numeric(x),na.rm = TRUE))})/(length(sim_data[1,,]))
 read_count_total=apply(sim_matrix_bulk,1,function(x){return(sum(as.numeric(x),na.rm = TRUE))})
-saveRDS(zero_rate,paste0("../Data_PRJNA434002/7.Result/sim_gene_zero_rate_",pre_tag,"_sim_",cluster_tag,"_",file_tag,".rds"))
-saveRDS(read_count_total,paste0("../Data_PRJNA434002/7.Result/sim_gene_read_count_total_",pre_tag,"_sim_",cluster_tag,"_",file_tag,".rds"))
+saveRDS(zero_rate,paste0("../",dataset_folder,"/7.Result/sim_gene_zero_rate_",pre_tag,"_sim_",cluster_tag,"_",file_tag,".rds"))
+saveRDS(read_count_total,paste0("../",dataset_folder,"/7.Result/sim_gene_read_count_total_",pre_tag,"_sim_",cluster_tag,"_",file_tag,".rds"))
 
 cur_info=meta[,c("individual","diagnosis")]
 cur_info=unique(cur_info)
@@ -85,7 +89,7 @@ rownames(cur_info)=cur_info$individual
 print("start DESeq2 calculation")
 
 if(perm_label>0){
-  perm_order=readRDS(paste0("../Data_PRJNA434002/7.Result/ind_perm_order.rds"))
+  perm_order=readRDS(paste0("../",dataset_folder,"/7.Result/ind_perm_order.rds"))
   perm_order=as.numeric(perm_order[,perm_label])
   total_individual_ref=total_individual[perm_order]
   perm_order=match(total_individual_ref,cur_info$individual)
@@ -100,7 +104,7 @@ dds=DESeqDataSetFromMatrix(countData = sim_matrix_bulk,
 dds=DESeq(dds)
 de_ob_pval=results(dds)$pvalue
 
-saveRDS(de_ob_pval,paste0("../Data_PRJNA434002/8.Result/DESeq2_pval/p",perm_label,"_DESeq2_ob_pval_",pre_tag,"_sim_",cluster_tag,"_",file_tag,".rds"))
+saveRDS(de_ob_pval,paste0("../",dataset_folder,"/8.Result/DESeq2_pval/p",perm_label,"_DESeq2_ob_pval_",pre_tag,"_sim_",cluster_tag,"_",file_tag,".rds"))
 
 
 sessionInfo()

@@ -10,7 +10,8 @@ library("emdbook")
 #file_tag="3k10"
 #pre_tag="dca" #c("dca","scvi")
 
-
+fit_tag="nb" # ""(zinb) or "nb"
+dataset_folder="MS"  #Data_PRJNA434002   MS
 
 #setwd("~/Desktop/fh/1.Testing_scRNAseq/")
 #setwd("/Users/mzhang24/Desktop/fh/1.Testing_scRNAseq/")
@@ -21,30 +22,32 @@ setwd("/fh/fast/sun_w/mengqi/1.Testing_scRNAseq/")
 source("./Command/8.0_kl_divergence_functions.R")
 ###########input###############
 if(pre_tag=="dca"){
-  t_mean=read.table(paste0("/fh/scratch/delete90/sun_w/mengqi/Data_PRJNA434002/res_dca_rawM",file_tag,"/mean.tsv"),stringsAsFactors = FALSE)
-  t_dispersion=read.table(paste0("/fh/scratch/delete90/sun_w/mengqi/Data_PRJNA434002/res_dca_rawM",file_tag,"/dispersion.tsv"),stringsAsFactors = FALSE,row.names = 1)
-  t_dropout=read.table(paste0("/fh/scratch/delete90/sun_w/mengqi/Data_PRJNA434002/res_dca_rawM",file_tag,"/dropout.tsv"),stringsAsFactors = FALSE,row.names = 1)
+  t_mean=read.table(paste0("/fh/scratch/delete90/sun_w/mengqi/",dataset_folder,"/res_dca_rawM",file_tag,"/mean.tsv"),stringsAsFactors = FALSE)
+  t_dispersion=read.table(paste0("/fh/scratch/delete90/sun_w/mengqi/",dataset_folder,"/res_dca_rawM",file_tag,"/dispersion.tsv"),stringsAsFactors = FALSE,row.names = 1)
+  t_dropout=read.table(paste0("/fh/scratch/delete90/sun_w/mengqi/",dataset_folder,"/res_dca_rawM",file_tag,"/dropout.tsv"),stringsAsFactors = FALSE,row.names = 1)
 }
 if(pre_tag=="scvi"){
-  t_mean=t(read.table(paste0("/fh/scratch/delete90/sun_w/mengqi/Data_PRJNA434002/scvi_",file_tag,"/scvi_imputed_values_",file_tag,".txt"),stringsAsFactors = FALSE,sep=",")) 
-  t_dispersion=t(read.table(paste0("/fh/scratch/delete90/sun_w/mengqi/Data_PRJNA434002/scvi_",file_tag,"/scvi_lnDispersion_",file_tag,".txt"),stringsAsFactors = FALSE,sep=",")) #originaly in log scale
-  t_dropout=t(read.table(paste0("/fh/scratch/delete90/sun_w/mengqi/Data_PRJNA434002/scvi_",file_tag,"/scvi_dropout_rate_",file_tag,".txt"),stringsAsFactors = FALSE,sep=",")) #originaly in logit scale
+  t_mean=t(read.table(paste0("/fh/scratch/delete90/sun_w/mengqi/",dataset_folder,"/scvi_",file_tag,"/scvi_imputed_values_",file_tag,".txt"),stringsAsFactors = FALSE,sep=",")) 
+  t_dispersion=t(read.table(paste0("/fh/scratch/delete90/sun_w/mengqi/",dataset_folder,"/scvi_",file_tag,"/scvi_lnDispersion_",file_tag,".txt"),stringsAsFactors = FALSE,sep=",")) #originaly in log scale
+  t_dropout=t(read.table(paste0("/fh/scratch/delete90/sun_w/mengqi/",dataset_folder,"/scvi_",file_tag,"/scvi_dropout_rate_",file_tag,".txt"),stringsAsFactors = FALSE,sep=",")) #originaly in logit scale
   t_dispersion=exp(t_dispersion)
   t_dispersion=matrix(rep(t_dispersion,times=ncol(t_mean)),nrow=length(t_dispersion),ncol=ncol(t_mean))
   t_dropout=exp(t_dropout)/(1+exp(t_dropout))
 }
 if(is.na(unlist(strsplit(file_tag,"k"))[2])){
-  tmeta=read.table("/fh/scratch/delete90/sun_w/mengqi/Data_PRJNA434002/meta.tsv",header = TRUE, sep = "\t")
+  tmeta=read.table(paste0("/fh/scratch/delete90/sun_w/mengqi/",dataset_folder,"/meta.tsv"),header = TRUE, sep = "\t")
 }
 if(!is.na(unlist(strsplit(file_tag,"k"))[2])){
-  tmeta=readRDS(paste0("/fh/scratch/delete90/sun_w/mengqi/Data_PRJNA434002/meta",unlist(strsplit(file_tag,"k"))[2],".rds"))
+  tmeta=readRDS(paste0("/fh/scratch/delete90/sun_w/mengqi/",dataset_folder,"/meta",unlist(strsplit(file_tag,"k"))[2],".rds"))
 }
-
+#name match for MS samples
+colnames(tmeta)[grep("cell_type",names(tmeta))]="cluster"
+colnames(tmeta)[grep("sample",names(tmeta))]="individual"
 
 
 
 #adjust t_mean with total read depth per 1000 counts.
-read_depth=readRDS(paste0("../Data_PRJNA434002/rawM_read_depth_per_1Kcell_ind.rds"))
+read_depth=readRDS(paste0("../",dataset_folder,"/rawM_read_depth_per_1Kcell_ind.rds"))
 
 #Ajust option: adjust means with read depth
 #read_depth_median=median(read_depth)
@@ -77,8 +80,12 @@ jsd_direct_array=array(dim=c(nrow(sub_mean),length(cur_individual),length(cur_in
                 dimnames = list(rownames(sub_mean),cur_individual,cur_individual))
 
 for(i_g in 1:nrow(sub_mean)){
-  
-  cell_param=cbind(sub_mean[i_g,], sub_dispersion[i_g,], sub_dropout[i_g,])
+  if(fit_tag==""){
+    cell_param=cbind(sub_mean[i_g,], sub_dispersion[i_g,], sub_dropout[i_g,])
+  }
+  if(fit_tag=="nb"){
+    cell_param=cbind(sub_mean[i_g,], sub_dispersion[i_g,], 0)
+  }
   klmean_direct_array[i_g,,]=tryCatch(mean_KL_dens2(vector_triple=cell_param,cell_ind_label=meta$individual,alter="mean"), error = function(e) {NA} )
   jsd_direct_array[i_g,,]=tryCatch(mean_KL_dens2(vector_triple=cell_param,cell_ind_label=meta$individual,alter="JSD"), error = function(e) {NA} )
   print(i_g)
@@ -90,8 +97,8 @@ for(i_g in 1:nrow(sub_mean)){
 print("calculation end")
 
 
-saveRDS(klmean_direct_array,paste0("../Data_PRJNA434002/8.Result/klmean_direct_array_",pre_tag,"_sim_",cluster_tag,"_",file_tag,".rds"))
-saveRDS(jsd_direct_array,paste0("../Data_PRJNA434002/8.Result/jsd_direct_array_",pre_tag,"_sim_",cluster_tag,"_",file_tag,".rds"))
+saveRDS(klmean_direct_array,paste0("../",dataset_folder,"/8.Result/klmean_direct_array_",fit_tag,pre_tag,"_sim_",cluster_tag,"_",file_tag,".rds"))
+saveRDS(jsd_direct_array,paste0("../",dataset_folder,"/8.Result/jsd_direct_array_",fit_tag,pre_tag,"_sim_",cluster_tag,"_",file_tag,".rds"))
 
 
 sessionInfo()

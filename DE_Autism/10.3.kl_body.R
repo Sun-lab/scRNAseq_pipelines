@@ -1,14 +1,14 @@
 #this code care with the results of simulation data, and calculate the KL
 
-# dist_method="JSD"        #c("mean","JSD")
-# fit_method="empirical"   #c("empirical","zinb")
 # file_tag=1
-# r_mean=1.5
-# r_var=1.5
-# r_disp=1.5
-# r_change_prop=0.4
-# n=5      #c(20,15,10,5)
-# ncell=20 #c(100,80,60,40,20) +10,5,3
+# dist_method="JSD"
+# fit_method="empirical"
+# r_mean=1.2
+# r_var=1.1
+# r_change_prop=0.2
+# dp_minor_prop=0.2
+# n=30
+# ncell=20
 
 # setwd("~/Desktop/fh/1.Testing_scRNAseq/")
 # setwd("/Users/mzhang24/Desktop/fh/1.Testing_scRNAseq/")
@@ -23,14 +23,27 @@ covariate_flag=NA #c(NA, "quantile99")
 tol=10
 perm_label_seq=0:10
 sim_folder="sim_v5"
+pre_tag="dca" #c("" "dca")
+fit_tag="nb" #c("" "nb") 
+
+
 
 if(sim_folder=="sim_v3" && fit_method=="direct"){
   q(save="no")
 }
 
-t_sim_matrix=readRDS(paste0("../Data_PRJNA434002/10.Result/",sim_folder,"/sim_data/sim_matrix_",r_mean,"_",r_var,"_",r_change_prop,"_",file_tag,".rds"))
-t_sim_param=readRDS(paste0("../Data_PRJNA434002/10.Result/",sim_folder,"/sim_data/sim_param_",r_mean,"_",r_var,"_",r_change_prop,"_",file_tag,".rds"))
-t_meta=readRDS(paste0("../Data_PRJNA434002/10.Result/",sim_folder,"/sim_data/sim_meta_",r_mean,"_",r_var,"_",r_change_prop,"_",file_tag,".rds"))
+t_meta=readRDS(paste0("../Data_PRJNA434002/10.Result/",sim_folder,"/sim_data/sim_meta_",r_mean,"_",r_var,"_",r_change_prop,"_",dp_minor_prop,"_",file_tag,".rds"))
+if(pre_tag==""){
+  t_sim_matrix=readRDS(paste0("../Data_PRJNA434002/10.Result/",sim_folder,"/sim_data/sim_matrix_",r_mean,"_",r_var,"_",r_change_prop,"_",dp_minor_prop,"_",file_tag,".rds"))
+  t_sim_param=readRDS(paste0("../Data_PRJNA434002/10.Result/",sim_folder,"/sim_data/sim_param_",r_mean,"_",r_var,"_",r_change_prop,"_",dp_minor_prop,"_",file_tag,".rds"))
+
+}
+
+if(pre_tag=="dca"){
+  t_sim_matrix=readRDS(paste0("../Data_PRJNA434002/10.Result/",sim_folder,"/dca_data/sim_ind_",fit_tag,r_mean,"_",r_var,"_",r_change_prop,"_",dp_minor_prop,"_",file_tag,".rds")) #actually sim_data, with dim= n_gene, n_cell, sim_n
+  t_sim_param=readRDS(paste0("../Data_PRJNA434002/10.Result/",sim_folder,"/dca_data/sim_param_",fit_tag,r_mean,"_",r_var,"_",r_change_prop,"_",dp_minor_prop,"_",file_tag,".rds"))
+}
+
 
 
 ##############functions#################
@@ -52,7 +65,13 @@ for(i_s in c(selected_index,(50+selected_index))){
 }
 
 #calculation
-sim_matrix=t_sim_matrix[,total_cell_index]
+if(pre_tag==""){
+  sim_matrix=t_sim_matrix[,total_cell_index]
+}
+if(pre_tag=="dca"){
+  sim_matrix=t_sim_matrix[,total_cell_index,]
+}
+
 meta=t_meta[total_cell_index,]
 
 if(sim_folder!="sim_v3"){
@@ -65,118 +84,175 @@ if(sim_folder!="sim_v3"){
 cur_individual=unique(meta$individual)
 phenotype=meta$phenotype[match(cur_individual,meta$individual)]
 
-if(file.exists(paste0("../Data_PRJNA434002/10.Result/",sim_folder,"/dist_array/",dist_method,"_",fit_method,"_dist_array_",r_mean,"_",r_var,"_",r_change_prop,"_",file_tag,"_",(2*n),"_",ncell,".rds"))){
-  dist_array=readRDS(paste0("../Data_PRJNA434002/10.Result/",sim_folder,"/dist_array/",dist_method,"_",fit_method,"_dist_array_",r_mean,"_",r_var,"_",r_change_prop,"_",file_tag,"_",(2*n),"_",ncell,".rds"))
+
+if(file.exists(paste0("../Data_PRJNA434002/10.Result/",sim_folder,"/dist_array/",dist_method,"_",fit_method,"_dist_array_",pre_tag,fit_tag,r_mean,"_",r_var,"_",r_change_prop,"_",dp_minor_prop,"_",file_tag,"_",(2*n),"_",ncell,".rds"))){
+  dist_array=readRDS(paste0("../Data_PRJNA434002/10.Result/",sim_folder,"/dist_array/",dist_method,"_",fit_method,"_dist_array_",pre_tag,fit_tag,r_mean,"_",r_var,"_",r_change_prop,"_",dp_minor_prop,"_",file_tag,"_",(2*n),"_",ncell,".rds"))
 }
 
-if(!file.exists(paste0("../Data_PRJNA434002/10.Result/",sim_folder,"/dist_array/",dist_method,"_",fit_method,"_dist_array_",r_mean,"_",r_var,"_",r_change_prop,"_",file_tag,"_",(2*n),"_",ncell,".rds"))){
-  if(fit_method=="zinb"){
-    if(!is.na(covariate_flag)){
-      #logsum_count=log(apply(sim_matrix,2,sum))
-      quantile99=log(apply(sim_matrix,2,function(x)return(quantile(x,0.99)+1)))
-      covariate=as.matrix(quantile99)
-      pdf(paste0("../Data_PRJNA434002/10.Result/",sim_folder,"/hist_sim_ind/hist_sim_ind_raw_",covariate_flag,"_",r_mean,"_",r_var,"_",r_change_prop,"_",file_tag,"_",(2*n),"_",ncell,".pdf"),height = 4,width = 6)
-    }
-    if(is.na(covariate_flag)){
-      pdf(paste0("../Data_PRJNA434002/10.Result/",sim_folder,"/hist_sim_ind/hist_sim_ind_raw_",r_mean,"_",r_var,"_",r_change_prop,"_",file_tag,"_",(2*n),"_",ncell,".pdf"),height = 4,width = 6)
-    }
-    sim_fit=array(dim=c(nrow(sim_matrix),length(cur_individual),3),
-                  dimnames = list(rownames(sim_matrix),cur_individual,c("logmean","dispersion","dropout_rate")))
-    
-    for(i_g in 1:nrow(sim_matrix)){
-      for(i_ind in 1:length(cur_individual)){
-        cur_ind=cur_individual[i_ind]
-        #fit org
-        cur_org_ind=sim_matrix[i_g,meta$individual==cur_ind]
-        
-        if(!is.na(covariate_flag)){
-          cur_covariate=covariate[meta$individual==cur_ind,]
-          sim_fit[i_g,i_ind,]=fit_nbzinb(cur_org_ind,cur_covariate)
-        }
-        if(is.na(covariate_flag)){
-          sim_fit[i_g,i_ind,]=fit_nbzinb(cur_org_ind)
-        }
-        
-        if(i_g<=10 & i_ind<=5){
-          cur_org_ind=data.frame(cur_org_ind)
-          colnames(cur_org_ind)="raw_count"
-          ggplot(cur_org_ind, aes(x=raw_count),stat="count") + geom_histogram(fill="lightblue")+
-            labs(title=paste0("Histogram of rawcount, ",rownames(sim_matrix)[i_g]," of ",cur_ind),x="Count", y = "Frequency")
-          #+theme_classic()
-        }
-        
+if(!file.exists(paste0("../Data_PRJNA434002/10.Result/",sim_folder,"/dist_array/",dist_method,"_",fit_method,"_dist_array_",pre_tag,fit_tag,r_mean,"_",r_var,"_",r_change_prop,"_",dp_minor_prop,"_",file_tag,"_",(2*n),"_",ncell,".rds"))){
+  if(pre_tag==""){
+    if(fit_method=="zinb"){
+      if(!is.na(covariate_flag)){
+        #logsum_count=log(apply(sim_matrix,2,sum))
+        quantile99=log(apply(sim_matrix,2,function(x)return(quantile(x,0.99)+1)))
+        covariate=as.matrix(quantile99)
+        pdf(paste0("../Data_PRJNA434002/10.Result/",sim_folder,"/hist_sim_ind/hist_sim_ind_raw_",covariate_flag,"_",pre_tag,fit_tag,r_mean,"_",r_var,"_",r_change_prop,"_",dp_minor_prop,"_",file_tag,"_",(2*n),"_",ncell,".pdf"),height = 4,width = 6)
       }
-      if(i_g%%100==0){
-        print(c("ind fit",i_g))
+      if(is.na(covariate_flag)){
+        pdf(paste0("../Data_PRJNA434002/10.Result/",sim_folder,"/hist_sim_ind/hist_sim_ind_raw_",pre_tag,fit_tag,r_mean,"_",r_var,"_",r_change_prop,"_",dp_minor_prop,"_",file_tag,"_",(2*n),"_",ncell,".pdf"),height = 4,width = 6)
       }
-    }
-    dev.off()
-    
-    sim_fit[,,1]=exp(sim_fit[,,1]) #change the log mean to mean!!!
-    saveRDS(sim_fit,paste0("../Data_PRJNA434002/10.Result/",sim_folder,"/sim_data/",dist_method,"_",fit_method,"_sim_fit_",r_mean,"_",r_var,"_",r_change_prop,"_",file_tag,"_",(2*n),"_",ncell,".rds"))
-  }
-  
-  
-  ###################JSD and KL calculation: Refer section 8 #######################
-  ###################calculation t#################################
-  print(paste0("start calculation: ",fit_method,"_",dist_method))
-  
-  if(fit_method=="empirical"){
-    dist_array=array(dim=c(nrow(sim_matrix),length(cur_individual),length(cur_individual)),
-                     dimnames = list(rownames(sim_matrix),cur_individual,cur_individual))
-    for(i_g in 1:nrow(sim_matrix)){
-      cur_sim=sim_matrix[i_g,]
-      for(i_ind_a in 1:length(cur_individual)){
-        for(i_ind_b in 1:length(cur_individual)){
-          cur_ind_a=cur_individual[i_ind_a]
-          cur_ind_b=cur_individual[i_ind_b]
-          #fit sim
-          cur_sim_ind_a=as.numeric(cur_sim[meta$individual==cur_ind_a])
-          cur_sim_ind_b=as.numeric(cur_sim[meta$individual==cur_ind_b])
-          
-          dist_array[i_g,i_ind_a,i_ind_b]=tryCatch(mean_KL_dens(cur_sim_ind_a,cur_sim_ind_b,alter=dist_method,fit_model=fit_method), error = function(e) {NA} )
-        }
-      }
-      if(i_g%%100==0){
-        print(i_g)
-      }
+      sim_fit=array(dim=c(nrow(sim_matrix),length(cur_individual),3),
+                    dimnames = list(rownames(sim_matrix),cur_individual,c("logmean","dispersion","dropout_rate")))
       
-    }
-  }
-  if(fit_method=="zinb"){
-    dist_array=array(dim=c(nrow(sim_fit),length(cur_individual),length(cur_individual)),
-                     dimnames = list(rownames(sim_fit),cur_individual,cur_individual))
-    for(i_g in 1:nrow(sim_fit)){
-      cur_fit=sim_fit[i_g,,]
-      for(i_ind_a in 1:length(cur_individual)){
-        for(i_ind_b in 1:length(cur_individual)){
-          cur_a=cur_fit[i_ind_a,]
-          cur_b=cur_fit[i_ind_b,]
-          #kl and jsd
-          dist_array[i_g,i_ind_a,i_ind_b]=tryCatch(mean_KL_dens(cur_a,cur_b,alter=dist_method,zinb.quantile=0.975,fit_model=fit_method), error = function(e) {NA} )
+      for(i_g in 1:nrow(sim_matrix)){
+        for(i_ind in 1:length(cur_individual)){
+          cur_ind=cur_individual[i_ind]
+          #fit org
+          cur_org_ind=sim_matrix[i_g,meta$individual==cur_ind]
+          
+          if(!is.na(covariate_flag)){
+            cur_covariate=covariate[meta$individual==cur_ind,]
+            sim_fit[i_g,i_ind,]=fit_nbzinb(cur_org_ind,cur_covariate)
+          }
+          if(is.na(covariate_flag)){
+            sim_fit[i_g,i_ind,]=fit_nbzinb(cur_org_ind)
+          }
+          
+          if(i_g<=10 & i_ind<=5){
+            cur_org_ind=data.frame(cur_org_ind)
+            colnames(cur_org_ind)="raw_count"
+            ggplot(cur_org_ind, aes(x=raw_count),stat="count") + geom_histogram(fill="lightblue")+
+              labs(title=paste0("Histogram of rawcount, ",rownames(sim_matrix)[i_g]," of ",cur_ind),x="Count", y = "Frequency")
+            #+theme_classic()
+          }
+          
+        }
+        if(i_g%%100==0){
+          print(c("ind fit",i_g))
         }
       }
-      if(i_g%%100==0){
-        print(i_g)
-      }
+      dev.off()
+      
+      sim_fit[,,1]=exp(sim_fit[,,1]) #change the log mean to mean!!!
+      saveRDS(sim_fit,paste0("../Data_PRJNA434002/10.Result/",sim_folder,"/sim_data/",dist_method,"_",fit_method,"_sim_fit_",pre_tag,fit_tag,r_mean,"_",r_var,"_",r_change_prop,"_",dp_minor_prop,"_",file_tag,"_",(2*n),"_",ncell,".rds"))
     }
-  }
-  
-  if(fit_method=="direct"){
+    
+    ###################calculation t#################################
+    print(paste0("start calculation: ",fit_method,"_",dist_method))
+    
     dist_array=array(dim=c(nrow(sim_matrix),length(cur_individual),length(cur_individual)),
                      dimnames = list(rownames(sim_matrix),cur_individual,cur_individual))
     
-    for(i_g in 1:nrow(sim_matrix)){
-      cell_param=sim_param[i_g,,]
-      dist_array[i_g,,]=tryCatch(mean_KL_dens2(vector_triple=cell_param,cell_ind_label=meta$individual,alter=dist_method), error = function(e) {NA} )
-      if(i_g%%100==0){
-        print(i_g)
+    if(fit_method=="empirical"){
+      for(i_g in 1:nrow(sim_matrix)){
+        cur_sim=sim_matrix[i_g,]
+        for(i_ind_a in 1:length(cur_individual)){
+          for(i_ind_b in 1:length(cur_individual)){
+            cur_ind_a=cur_individual[i_ind_a]
+            cur_ind_b=cur_individual[i_ind_b]
+            #fit sim
+            cur_sim_ind_a=as.numeric(cur_sim[meta$individual==cur_ind_a])
+            cur_sim_ind_b=as.numeric(cur_sim[meta$individual==cur_ind_b])
+            
+            dist_array[i_g,i_ind_a,i_ind_b]=tryCatch(mean_KL_dens(cur_sim_ind_a,cur_sim_ind_b,alter=dist_method,fit_model=fit_method), error = function(e) {NA} )
+          }
+        }
+        if(i_g%%100==0){
+          print(i_g)
+        }
+        
+      }
+    }
+    if(fit_method=="zinb"){
+      for(i_g in 1:nrow(sim_fit)){
+        cur_fit=sim_fit[i_g,,]
+        for(i_ind_a in 1:length(cur_individual)){
+          for(i_ind_b in 1:length(cur_individual)){
+            cur_a=cur_fit[i_ind_a,]
+            cur_b=cur_fit[i_ind_b,]
+            #kl and jsd
+            dist_array[i_g,i_ind_a,i_ind_b]=tryCatch(mean_KL_dens(cur_a,cur_b,alter=dist_method,zinb.quantile=0.975,fit_model=fit_method), error = function(e) {NA} )
+          }
+        }
+        if(i_g%%100==0){
+          print(i_g)
+        }
+      }
+    }
+    
+    if(fit_method=="direct"){
+      for(i_g in 1:nrow(sim_matrix)){
+        cell_param=sim_param[i_g,,]
+        dist_array[i_g,,]=tryCatch(mean_KL_dens2(vector_triple=cell_param,cell_ind_label=meta$individual,alter=dist_method), error = function(e) {NA} )
+        if(i_g%%100==0){
+          print(i_g)
+        }
       }
     }
   }
+  if(pre_tag=="dca"){
+    if(fit_method=="zinb"){
+      sim_fit=readRDS(paste0("../Data_PRJNA434002/10.Result/",sim_folder,"/dca_data/fit_ind_",fit_tag,r_mean,"_",r_var,"_",r_change_prop,"_",dp_minor_prop,"_",file_tag,".rds"))
+    }
+    
+    ###################JSD and KL calculation: Refer section 8 #######################
+    print(paste0("start calculation: ",fit_method,"_",dist_method))
+    dist_array=array(dim=c(nrow(sim_matrix),length(cur_individual),length(cur_individual)),
+                     dimnames = list(rownames(sim_matrix),cur_individual,cur_individual))
+    
+    if(fit_method=="empirical"){
+      for(i_g in 1:nrow(sim_matrix)){
+        cur_sim=sim_matrix[i_g,,]
+        for(i_ind_a in 1:length(cur_individual)){
+          for(i_ind_b in 1:length(cur_individual)){
+            cur_ind_a=cur_individual[i_ind_a]
+            cur_ind_b=cur_individual[i_ind_b]
+            #fit sim
+            cur_sim_ind_a=as.numeric(cur_sim[meta$individual==cur_ind_a,])
+            cur_sim_ind_b=as.numeric(cur_sim[meta$individual==cur_ind_b,])
+            
+            dist_array[i_g,i_ind_a,i_ind_b]=tryCatch(mean_KL_dens(cur_sim_ind_a,cur_sim_ind_b,alter=dist_method,fit_model=fit_method), error = function(e) {NA} )
+          }
+        }
+        if(i_g%%100==0){
+          print(i_g)
+        }
+      }
+    }
+    if(fit_method=="zinb"){
+      for(i_g in 1:nrow(sim_fit)){
+        cur_fit=sim_fit[i_g,,]
+        for(i_ind_a in 1:length(cur_individual)){
+          for(i_ind_b in 1:length(cur_individual)){
+            cur_a=cur_fit[i_ind_a,]
+            cur_b=cur_fit[i_ind_b,]
+            #kl and jsd
+            dist_array[i_g,i_ind_a,i_ind_b]=tryCatch(mean_KL_dens(cur_a,cur_b,alter=dist_method,zinb.quantile=0.975,fit_model=fit_method), error = function(e) {NA} )
+          }
+        }
+        if(i_g%%100==0){
+          print(i_g)
+        }
+      }
+    }
+    
+    if(fit_method=="direct"){
+      for(i_g in 1:nrow(sim_matrix)){
+        cell_param=sim_param[i_g,,]
+        dist_array[i_g,,]=tryCatch(mean_KL_dens2(vector_triple=cell_param,cell_ind_label=meta$individual,alter=dist_method), error = function(e) {NA} )
+        if(i_g%%100==0){
+          print(i_g)
+        }
+      }
+    }
+    
+    
+    saveRDS(dist_array,paste0("../Data_PRJNA434002/10.Result/",sim_folder,"/dist_array/",dist_method,"_",fit_method,"_dist_array_",pre_tag,fit_tag,r_mean,"_",r_var,"_",r_change_prop,"_",dp_minor_prop,"_",file_tag,"_",(2*n),"_",ncell,".rds"))
+  }
   
-  saveRDS(dist_array,paste0("../Data_PRJNA434002/10.Result/",sim_folder,"/dist_array/",dist_method,"_",fit_method,"_dist_array_",r_mean,"_",r_var,"_",r_change_prop,"_",file_tag,"_",(2*n),"_",ncell,".rds"))
 }
+
+
 
 
 ###################Fstat calculation: Refer section 9 #######################
@@ -232,7 +308,7 @@ for(perm_label in perm_label_seq){
     
     
     
-    # png(paste0("../Data_PRJNA434002/10.Result/",sim_folder,"/fig_Fstat/p",perm_label,perm_method,"_",dist_method,"_",fit_method,"_",r_mean,"_",r_var,"_",r_change_prop,"_",file_tag,"_",(2*n),"_",ncell,"_Fperm.png"),height = 900,width = 1800,type="cairo")
+    # png(paste0("../Data_PRJNA434002/10.Result/",sim_folder,"/fig_Fstat/p",perm_label,perm_method,"_",dist_method,"_",fit_method,"_",pre_tag,fit_tag,r_mean,"_",r_var,"_",r_change_prop,"_",dp_minor_prop,"_",file_tag,"_",(2*n),"_",ncell,"_Fperm.png"),height = 900,width = 1800,type="cairo")
     # op=par(mfrow = c(2, 4))
     # pval_order=order(dist_pval)[c(1:4,100,200,300,400)]
     # for(iplot in pval_order){
@@ -242,7 +318,7 @@ for(perm_label in perm_label_seq){
     # par(op)
     # dev.off()
     # 
-    # png(paste0("../Data_PRJNA434002/10.Result/",sim_folder,"/fig_Fstat/p",perm_label,perm_method,"_",dist_method,"_",fit_method,"_",r_mean,"_",r_var,"_",r_change_prop,"_",file_tag,"_",(2*n),"_",ncell,"_Fob.png"),height = 600,width = 1200,type="cairo")
+    # png(paste0("../Data_PRJNA434002/10.Result/",sim_folder,"/fig_Fstat/p",perm_label,perm_method,"_",dist_method,"_",fit_method,"_",pre_tag,fit_tag,r_mean,"_",r_var,"_",r_change_prop,"_",dp_minor_prop,"_",file_tag,"_",(2*n),"_",ncell,"_Fob.png"),height = 600,width = 1200,type="cairo")
     # hist(F_ob0,main=paste0("Fstat distr of gene, Fob"),breaks=50)
     # dev.off()
     # 
@@ -271,7 +347,7 @@ for(perm_label in perm_label_seq){
     
     #dist_pval=apply(dist_array,1,function(x){tryCatch(return(cal_permanova_pval(x,cur_phenotype)), error = function(e) {NA} )})
     if(perm_label==0){
-      saveRDS(dist_pval,paste0("../Data_PRJNA434002/10.Result/",sim_folder,"/",dist_method,"_",fit_method,"_pval/p",perm_label,perm_method,"_",dist_method,"_",fit_method,"_raw_pval_",r_mean,"_",r_var,"_",r_change_prop,"_",file_tag,"_",(2*n),"_",ncell,".rds"))
+      saveRDS(dist_pval,paste0("../Data_PRJNA434002/10.Result/",sim_folder,"/",dist_method,"_",fit_method,"_pval/p",perm_label,perm_method,"_",dist_method,"_",fit_method,"_raw_pval_",pre_tag,fit_tag,r_mean,"_",r_var,"_",r_change_prop,"_",dp_minor_prop,"_",file_tag,"_",(2*n),"_",ncell,".rds"))
       
       
       # #########start pre analysis calculation #########################
@@ -279,10 +355,10 @@ for(perm_label in perm_label_seq){
       # anova_centroid_pval=apply(dist_array,1,function(x){tryCatch(cal_betadisper_pval(x,label = cur_phenotype_ind,disper_type = "centroid",div_method="anova"), error = function(e) {NA} )}) 
       # tukey_median_pval=apply(dist_array,1,function(x){tryCatch(cal_betadisper_pval(x,label = cur_phenotype_ind,disper_type = "median",div_method="TukeyHSD"), error = function(e) {NA} )})
       # anova_median_pval=apply(dist_array,1,function(x){tryCatch(cal_betadisper_pval(x,label = cur_phenotype_ind,disper_type = "median",div_method="anova"), error = function(e) {NA} )}) 
-      # saveRDS(tukey_centroid_pval,paste0("../Data_PRJNA434002/10.Result/",sim_folder,"/tukey_centroid_pval/p",perm_label,perm_method,"_",dist_method,"_",fit_method,"_tukey_centroid_pval_",r_mean,"_",r_var,"_",r_change_prop,"_",file_tag,"_",(2*n),"_",ncell,".rds"))
-      # saveRDS(anova_centroid_pval,paste0("../Data_PRJNA434002/10.Result/",sim_folder,"/anova_centroid_pval/p",perm_label,perm_method,"_",dist_method,"_",fit_method,"_anova_centroid_pval_",r_mean,"_",r_var,"_",r_change_prop,"_",file_tag,"_",(2*n),"_",ncell,".rds"))
-      # saveRDS(tukey_median_pval,paste0("../Data_PRJNA434002/10.Result/",sim_folder,"/tukey_median_pval/p",perm_label,perm_method,"_",dist_method,"_",fit_method,"_tukey_median_pval_",r_mean,"_",r_var,"_",r_change_prop,"_",file_tag,"_",(2*n),"_",ncell,".rds"))
-      # saveRDS(anova_median_pval,paste0("../Data_PRJNA434002/10.Result/",sim_folder,"/anova_median_pval/p",perm_label,perm_method,"_",dist_method,"_",fit_method,"_anova_median_pval_",r_mean,"_",r_var,"_",r_change_prop,"_",file_tag,"_",(2*n),"_",ncell,".rds"))
+      # saveRDS(tukey_centroid_pval,paste0("../Data_PRJNA434002/10.Result/",sim_folder,"/tukey_centroid_pval/p",perm_label,perm_method,"_",dist_method,"_",fit_method,"_tukey_centroid_pval_",pre_tag,fit_tag,r_mean,"_",r_var,"_",r_change_prop,"_",dp_minor_prop,"_",file_tag,"_",(2*n),"_",ncell,".rds"))
+      # saveRDS(anova_centroid_pval,paste0("../Data_PRJNA434002/10.Result/",sim_folder,"/anova_centroid_pval/p",perm_label,perm_method,"_",dist_method,"_",fit_method,"_anova_centroid_pval_",pre_tag,fit_tag,r_mean,"_",r_var,"_",r_change_prop,"_",dp_minor_prop,"_",file_tag,"_",(2*n),"_",ncell,".rds"))
+      # saveRDS(tukey_median_pval,paste0("../Data_PRJNA434002/10.Result/",sim_folder,"/tukey_median_pval/p",perm_label,perm_method,"_",dist_method,"_",fit_method,"_tukey_median_pval_",pre_tag,fit_tag,r_mean,"_",r_var,"_",r_change_prop,"_",dp_minor_prop,"_",file_tag,"_",(2*n),"_",ncell,".rds"))
+      # saveRDS(anova_median_pval,paste0("../Data_PRJNA434002/10.Result/",sim_folder,"/anova_median_pval/p",perm_label,perm_method,"_",dist_method,"_",fit_method,"_anova_median_pval_",pre_tag,fit_tag,r_mean,"_",r_var,"_",r_change_prop,"_",dp_minor_prop,"_",file_tag,"_",(2*n),"_",ncell,".rds"))
       
     }
     
@@ -301,14 +377,14 @@ for(perm_label in perm_label_seq){
 
 
 if(perm_label>0){
-  saveRDS(pval_perm,paste0("../Data_PRJNA434002/10.Result/",sim_folder,"/",dist_method,"_",fit_method,"_pval/p",perm_label,perm_method,"_",dist_method,"_",fit_method,"_perm_pval_",r_mean,"_",r_var,"_",r_change_prop,"_",file_tag,"_",(2*n),"_",ncell,".rds"))
-  saveRDS(perm_order,paste0("../Data_PRJNA434002/10.Result/",sim_folder,"/perm_order/p",perm_label,perm_method,"_",dist_method,"_",fit_method,"_perm_pval_",r_mean,"_",r_var,"_",r_change_prop,"_",file_tag,"_",(2*n),"_",ncell,".rds"))
+  saveRDS(pval_perm,paste0("../Data_PRJNA434002/10.Result/",sim_folder,"/",dist_method,"_",fit_method,"_pval/p",perm_label,perm_method,"_",dist_method,"_",fit_method,"_perm_pval_",pre_tag,fit_tag,r_mean,"_",r_var,"_",r_change_prop,"_",dp_minor_prop,"_",file_tag,"_",(2*n),"_",ncell,".rds"))
+  saveRDS(perm_order,paste0("../Data_PRJNA434002/10.Result/",sim_folder,"/perm_order/p",perm_label,perm_method,"_",dist_method,"_",fit_method,"_perm_pval_",pre_tag,fit_tag,r_mean,"_",r_var,"_",r_change_prop,"_",dp_minor_prop,"_",file_tag,"_",(2*n),"_",ncell,".rds"))
   
   # 
-  # saveRDS(perm_tukey_centroid_pval,paste0("../Data_PRJNA434002/10.Result/",sim_folder,"/tukey_centroid_pval/p",perm_label,perm_method,"_",dist_method,"_",fit_method,"_perm_tukey_centroid_pval_",r_mean,"_",r_var,"_",r_change_prop,"_",file_tag,"_",(2*n),"_",ncell,".rds"))
-  # saveRDS(perm_anova_centroid_pval,paste0("../Data_PRJNA434002/10.Result/",sim_folder,"/anova_centroid_pval/p",perm_label,perm_method,"_",dist_method,"_",fit_method,"_perm_anova_centroid_pval_",r_mean,"_",r_var,"_",r_change_prop,"_",file_tag,"_",(2*n),"_",ncell,".rds"))
-  # saveRDS(perm_tukey_median_pval,paste0("../Data_PRJNA434002/10.Result/",sim_folder,"/tukey_median_pval/p",perm_label,perm_method,"_",dist_method,"_",fit_method,"_perm_tukey_median_pval_",r_mean,"_",r_var,"_",r_change_prop,"_",file_tag,"_",(2*n),"_",ncell,".rds"))
-  # saveRDS(perm_anova_median_pval,paste0("../Data_PRJNA434002/10.Result/",sim_folder,"/anova_median_pval/p",perm_label,perm_method,"_",dist_method,"_",fit_method,"_perm_anova_median_pval_",r_mean,"_",r_var,"_",r_change_prop,"_",file_tag,"_",(2*n),"_",ncell,".rds"))
+  # saveRDS(perm_tukey_centroid_pval,paste0("../Data_PRJNA434002/10.Result/",sim_folder,"/tukey_centroid_pval/p",perm_label,perm_method,"_",dist_method,"_",fit_method,"_perm_tukey_centroid_pval_",pre_tag,fit_tag,r_mean,"_",r_var,"_",r_change_prop,"_",dp_minor_prop,"_",file_tag,"_",(2*n),"_",ncell,".rds"))
+  # saveRDS(perm_anova_centroid_pval,paste0("../Data_PRJNA434002/10.Result/",sim_folder,"/anova_centroid_pval/p",perm_label,perm_method,"_",dist_method,"_",fit_method,"_perm_anova_centroid_pval_",pre_tag,fit_tag,r_mean,"_",r_var,"_",r_change_prop,"_",dp_minor_prop,"_",file_tag,"_",(2*n),"_",ncell,".rds"))
+  # saveRDS(perm_tukey_median_pval,paste0("../Data_PRJNA434002/10.Result/",sim_folder,"/tukey_median_pval/p",perm_label,perm_method,"_",dist_method,"_",fit_method,"_perm_tukey_median_pval_",pre_tag,fit_tag,r_mean,"_",r_var,"_",r_change_prop,"_",dp_minor_prop,"_",file_tag,"_",(2*n),"_",ncell,".rds"))
+  # saveRDS(perm_anova_median_pval,paste0("../Data_PRJNA434002/10.Result/",sim_folder,"/anova_median_pval/p",perm_label,perm_method,"_",dist_method,"_",fit_method,"_perm_anova_median_pval_",pre_tag,fit_tag,r_mean,"_",r_var,"_",r_change_prop,"_",dp_minor_prop,"_",file_tag,"_",(2*n),"_",ncell,".rds"))
   
   
   

@@ -12,6 +12,7 @@ perm_label=1
 ind_covariate_flag="ind" 
 perm_num=500
 tol=0.2
+dataset_folder="MS"  #Data_PRJNA434002   MS
 #setwd("~/Desktop/fh/1.Testing_scRNAseq/")
 #setwd("/Users/mzhang24/Desktop/fh/1.Testing_scRNAseq/")
 setwd("/fh/fast/sun_w/mengqi/1.Testing_scRNAseq/")
@@ -23,11 +24,15 @@ source("./Command/9.0_Fstat_functions.R")
 
 #input phenotype
 if(is.na(unlist(strsplit(file_tag,"k"))[2])){
-  tmeta=meta=read.table("../Data_PRJNA434002/meta.tsv",header = TRUE, sep = "\t")
+  tmeta=read.table(paste0("../",dataset_folder,"/meta.tsv"),header = TRUE, sep = "\t")
 }
 if(!is.na(unlist(strsplit(file_tag,"k"))[2])){
-  tmeta=readRDS(paste0("../Data_PRJNA434002/meta",unlist(strsplit(file_tag,"k"))[2],".rds"))
+  tmeta=readRDS(paste0("../",dataset_folder,"/meta",unlist(strsplit(file_tag,"k"))[2],".rds"))
 }
+#name match for MS samples
+colnames(tmeta)[grep("cell_type",names(tmeta))]="cluster"
+colnames(tmeta)[grep("sample",names(tmeta))]="individual"
+
 total_individual=unique(tmeta$individual)
 cur_cluster=as.character(unique(tmeta$cluster)[cluster_tag])
 meta=tmeta[tmeta$cluster==cur_cluster,]
@@ -39,11 +44,11 @@ phenotype[which(meta$diagnosis[match(cur_individual,meta$individual)]=="Control"
 print("start calculation: Part I: Empirical KLmean and JSD")
 
 #set input
-dist_array=readRDS(paste0("../Data_PRJNA434002/8.Result/",dist_method,"_",fit_method,"_array_rawcount_",cluster_tag,"_",file_tag,".rds"))
+dist_array=readRDS(paste0("../",dataset_folder,"/8.Result/",dist_method,"_",fit_method,"_array_rawcount_",cluster_tag,"_",file_tag,".rds"))
 
 #set perm
 if(perm_label>0){
-  perm_order=readRDS(paste0("../Data_PRJNA434002/7.Result/ind_perm_order.rds"))
+  perm_order=readRDS(paste0("../",dataset_folder,"/7.Result/ind_perm_order.rds"))
   perm_order=as.numeric(perm_order[,perm_label])
   total_individual_ref=total_individual[perm_order]
   perm_order=match(total_individual_ref,cur_individual)
@@ -57,7 +62,7 @@ if(is.na(ind_covariate_flag)){
 }
 if(ind_covariate_flag=="ind"){
   #read depth
-  read_depth=readRDS(paste0("../Data_PRJNA434002/rawM",file_tag,"_read_depth_per_1Kcell_ind.rds"))
+  read_depth=readRDS(paste0("../",dataset_folder,"/rawM",file_tag,"_read_depth_per_1Kcell_ind.rds"))
   read_depth=read_depth[match(cur_individual,rownames(read_depth)),]
   #
   cur_covariate=meta[match(cur_individual,meta$individual),c("age","sex","Capbatch","Seqbatch")]
@@ -103,11 +108,11 @@ if(length(second_index)>0){
 
 
 if(!is.na(ind_covariate_flag)){
-  saveRDS(dist_pval,paste0("../Data_PRJNA434002/8.Result/kl_pval/p",perm_label,"_",dist_method,"_",fit_method,"_",F_method,"_pval_",ind_covariate_flag,"_rawcount_",cluster_tag,"_",file_tag,".rds"))
+  saveRDS(dist_pval,paste0("../",dataset_folder,"/8.Result/kl_pval/p",perm_label,"_",dist_method,"_",fit_method,"_",F_method,"_pval_",ind_covariate_flag,"_rawcount_",cluster_tag,"_",file_tag,".rds"))
   
 }
 if(is.na(ind_covariate_flag)){
-  saveRDS(dist_pval,paste0("../Data_PRJNA434002/8.Result/kl_pval/p",perm_label,"_",dist_method,"_",fit_method,"_",F_method,"_pval_rawcount_",cluster_tag,"_",file_tag,".rds"))
+  saveRDS(dist_pval,paste0("../",dataset_folder,"/8.Result/kl_pval/p",perm_label,"_",dist_method,"_",fit_method,"_",F_method,"_pval_rawcount_",cluster_tag,"_",file_tag,".rds"))
 }
 
 
@@ -169,10 +174,10 @@ for(i2 in second_index){
 
 
 if(!is.na(ind_covariate_flag)){
-  saveRDS(dist_pval,paste0("../Data_PRJNA434002/8.Result/kl_pval/p",perm_label,"_",dist_method,"_",fit_method,"_",F_method,"_pval_",ind_covariate_flag,"_rawcount_",cluster_tag,"_",file_tag,".rds"))
+  saveRDS(dist_pval,paste0("../",dataset_folder,"/8.Result/kl_pval/p",perm_label,"_",dist_method,"_",fit_method,"_",F_method,"_pval_",ind_covariate_flag,"_rawcount_",cluster_tag,"_",file_tag,".rds"))
 }
 if(is.na(ind_covariate_flag)){
-  saveRDS(dist_pval,paste0("../Data_PRJNA434002/8.Result/kl_pval/p",perm_label,"_",dist_method,"_",fit_method,"_",F_method,"_pval_rawcount_",cluster_tag,"_",file_tag,".rds"))
+  saveRDS(dist_pval,paste0("../",dataset_folder,"/8.Result/kl_pval/p",perm_label,"_",dist_method,"_",fit_method,"_",F_method,"_pval_rawcount_",cluster_tag,"_",file_tag,".rds"))
 }
 
   

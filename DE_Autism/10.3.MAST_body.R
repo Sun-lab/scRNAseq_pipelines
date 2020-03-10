@@ -17,8 +17,8 @@ sim_folder="sim_v5"
 n_seq=c(50,30,20,10,5)
 ncell_seq=c(200,100,50,20)
 
-sim_matrix=readRDS(paste0("../Data_PRJNA434002/10.Result/",sim_folder,"/sim_data/sim_matrix_",r_mean,"_",r_var,"_",r_change_prop,"_",file_tag,".rds"))
-t_meta=readRDS(paste0("../Data_PRJNA434002/10.Result/",sim_folder,"/sim_data/sim_meta_",r_mean,"_",r_var,"_",r_change_prop,"_",file_tag,".rds"))
+sim_matrix=readRDS(paste0("../Data_PRJNA434002/10.Result/",sim_folder,"/sim_data/sim_matrix_",r_mean,"_",r_var,"_",r_change_prop,"_",dp_minor_prop,"_",file_tag,".rds"))
+t_meta=readRDS(paste0("../Data_PRJNA434002/10.Result/",sim_folder,"/sim_data/sim_meta_",r_mean,"_",r_var,"_",r_change_prop,"_",dp_minor_prop,"_",file_tag,".rds"))
 
 ######################Other method comparison: MAST #################################
 print("start MAST calculation: Part II: ZINB KLmean and JSD")
@@ -145,8 +145,8 @@ for(ncell in ncell_seq){
     print(paste0("print system details, ncell= ",ncell,", n= ",n, ", after all"))
     print(date())
     print(gc())
-    tryCatch(saveRDS(MAST_pval0,paste0("../Data_PRJNA434002/10.Result/",sim_folder,"/MAST_pval/p",perm_label,perm_method,"_MAST_pval0_",r_mean,"_",r_var,"_",r_change_prop,"_",file_tag,"_",(2*n),"_",ncell,".rds")), error = function(e) {NA} )
-    tryCatch(saveRDS(MAST_pval1,paste0("../Data_PRJNA434002/10.Result/",sim_folder,"/MAST_pval/p",perm_label,perm_method,"_MAST_pval1_",r_mean,"_",r_var,"_",r_change_prop,"_",file_tag,"_",(2*n),"_",ncell,".rds")), error = function(e) {NA} )
+    tryCatch(saveRDS(MAST_pval0,paste0("../Data_PRJNA434002/10.Result/",sim_folder,"/MAST_pval/p",perm_label,perm_method,"_MAST_pval0_",r_mean,"_",r_var,"_",r_change_prop,"_",dp_minor_prop,"_",file_tag,"_",(2*n),"_",ncell,".rds")), error = function(e) {NA} )
+    tryCatch(saveRDS(MAST_pval1,paste0("../Data_PRJNA434002/10.Result/",sim_folder,"/MAST_pval/p",perm_label,perm_method,"_MAST_pval1_",r_mean,"_",r_var,"_",r_change_prop,"_",dp_minor_prop,"_",file_tag,"_",(2*n),"_",ncell,".rds")), error = function(e) {NA} )
     print(c(n,ncell))
   }
 }

@@ -18,8 +18,8 @@ setwd("/fh/fast/sun_w/mengqi/1.Testing_scRNAseq/")
 
 library("DESeq2")
 
-sim_matrix_bulk=readRDS(paste0("../Data_PRJNA434002/10.Result/",sim_folder,"/sim_matrix_bulk_",r_mean,"_",r_var,"_",r_change_prop,"_",file_tag,".rds"))
-meta=readRDS(paste0("../Data_PRJNA434002/10.Result/",sim_folder,"/sim_meta_",r_mean,"_",r_var,"_",r_change_prop,"_",file_tag,".rds"))
+sim_matrix_bulk=readRDS(paste0("../Data_PRJNA434002/10.Result/",sim_folder,"/sim_data/sim_matrix_bulk_",r_mean,"_",r_var,"_",r_change_prop,"_",dp_minor_prop,"_",file_tag,".rds"))
+meta=readRDS(paste0("../Data_PRJNA434002/10.Result/",sim_folder,"/sim_data/sim_meta_",r_mean,"_",r_var,"_",r_change_prop,"_",dp_minor_prop,"_",file_tag,".rds"))
 
 
 # We calculate bulk information by summing up raw counts of
@@ -65,7 +65,7 @@ for(n in n_seq){
   # observed pvalue calculation
   dds = DESeq(dds)
   deseq_pval = results(dds)$pvalue
-  saveRDS(deseq_pval,paste0("../Data_PRJNA434002/10.Result/",sim_folder,"/DESeq2_pval/p",perm_label,perm_method,"_DESeq2_pval_",r_mean,"_",r_var,"_",r_change_prop,"_",file_tag,"_",(2*n),".rds"))
+  saveRDS(deseq_pval,paste0("../Data_PRJNA434002/10.Result/",sim_folder,"/DESeq2_pval/p",perm_label,perm_method,"_DESeq2_pval_",r_mean,"_",r_var,"_",r_change_prop,"_",dp_minor_prop,"_",file_tag,"_",(2*n),".rds"))
 }
 
 

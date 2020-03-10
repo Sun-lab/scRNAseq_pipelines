@@ -4,6 +4,7 @@ library("ggplot2")
 #cluster_tag=1
 #file_tag="3k10"
 covariate_flag=NA #c(NA, "quantile99")
+dataset_folder="MS"  #Data_PRJNA434002   MS
 
 ###########functions#############
 source("./Command/7.0_ZINB_fit_functions.R")
@@ -13,15 +14,18 @@ source("./Command/7.0_ZINB_fit_functions.R")
 setwd("/fh/fast/sun_w/mengqi/1.Testing_scRNAseq/")
 
 
-trawM=readRDS(paste0("../Data_PRJNA434002/rawM",file_tag,".rds"))
+trawM=readRDS(paste0("../",dataset_folder,"/rawM",file_tag,".rds"))
 
 if(is.na(unlist(strsplit(file_tag,"k"))[2])){
-  tmeta=meta=read.table("../Data_PRJNA434002/meta.tsv",header = TRUE, sep = "\t")
+  tmeta=read.table(paste0("../",dataset_folder,"/meta.tsv"),header = TRUE, sep = "\t")
 }
 if(!is.na(unlist(strsplit(file_tag,"k"))[2])){
-  tmeta=readRDS(paste0("../Data_PRJNA434002/meta",unlist(strsplit(file_tag,"k"))[2],".rds"))
+  tmeta=readRDS(paste0("../",dataset_folder,"/meta",unlist(strsplit(file_tag,"k"))[2],".rds"))
 }
 
+#name match for MS samples
+colnames(tmeta)[grep("cell_type",names(tmeta))]="cluster"
+colnames(tmeta)[grep("sample",names(tmeta))]="individual"
 ##########data processing############
 for(i_c in 1:17){
   cur_cluster=as.character(unique(tmeta$cluster)[i_c])
@@ -41,10 +45,10 @@ if(!is.na(covariate_flag)){
   #logsum_count=log(apply(rawM,2,sum))
   quantile99=log(apply(rawM,2,function(x)return(quantile(x,0.99)+1)))
   covariate=as.matrix(quantile99)
-  pdf(paste0("../Data_PRJNA434002/7.Result/hist_raw_",covariate_flag,"_",cluster_tag,"_",file_tag,".pdf"),height = 4,width = 6)
+  pdf(paste0("../",dataset_folder,"/7.Result/hist_raw_",covariate_flag,"_",cluster_tag,"_",file_tag,".pdf"),height = 4,width = 6)
 }
 if(is.na(covariate_flag)){
-  pdf(paste0("../Data_PRJNA434002/7.Result/hist_raw_",cluster_tag,"_",file_tag,".pdf"),height = 4,width = 6)
+  pdf(paste0("../",dataset_folder,"/7.Result/hist_raw_",cluster_tag,"_",file_tag,".pdf"),height = 4,width = 6)
 }
 
 fit_ind_org=array(dim=c(nrow(rawM),length(cur_individual),3),
@@ -82,10 +86,10 @@ for(i_g in 1:nrow(rawM)){
 dev.off()
 
 if(!is.na(covariate_flag)){
-  saveRDS(fit_ind_org,paste0("../Data_PRJNA434002/7.Result/fit_ind_rawM_",covariate_flag,"_",cluster_tag,"_",file_tag,".rds"))
+  saveRDS(fit_ind_org,paste0("../",dataset_folder,"/7.Result/fit_ind_rawM_",covariate_flag,"_",cluster_tag,"_",file_tag,".rds"))
 }
 if(is.na(covariate_flag)){
-  saveRDS(fit_ind_org,paste0("../Data_PRJNA434002/7.Result/fit_ind_rawM_",cluster_tag,"_",file_tag,".rds"))
+  saveRDS(fit_ind_org,paste0("../",dataset_folder,"/7.Result/fit_ind_rawM_",cluster_tag,"_",file_tag,".rds"))
 }
 sessionInfo()
 q(save="no")

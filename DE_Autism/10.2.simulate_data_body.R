@@ -288,7 +288,7 @@ if(!file.exists(paste0("../Data_PRJNA434002/dca_PFC_all/",input_file_tag,"_sampl
   
   sample_log_mean=log(mid_mean)
   sample_log_disp=log(mid_disp)
-  sample_logit_drop=log(mid_drop)/(1-mid_drop)
+  sample_logit_drop=log((mid_drop)/(1-mid_drop))
   
   
   
@@ -306,8 +306,7 @@ if(!file.exists(paste0("../Data_PRJNA434002/dca_PFC_all/",input_file_tag,"_sampl
   summary(apply(sample_log_mean, 1, sd))
   summary(apply(sample_log_mean_sd,1,mean))
   
-  sample_log_mean_sd = sample_log_mean_sd/10
-  
+  #sample_log_mean_sd = sample_log_mean_sd/10
   
   #simulate individual level parameters from correlated mutinormal distribution
   # sample_data=cbind(c(sample_log_mean),c(sample_log_disp),c(sample_logit_drop))
@@ -346,7 +345,7 @@ ind_strength=0.5 #from 0 to 1, use this to adjust individual mean expression str
 for(ig in 1:nGeneTotal){
   sample_data=cbind(c(sample_log_mean[ig,]),c(sample_log_disp[ig,]),c(sample_logit_drop[ig,]),c(sample_log_mean_sd[ig,]))
   
-  sample_data_reg=apply(sample_data,2,mean)
+  sample_data_reg=apply(sample_data,2,median)
   sample_data2=sample_data*ind_strength+matrix(rep(sample_data_reg,each=nrow(sample_data)),nrow=nrow(sample_data))*(1-ind_strength)
   
   sample_data_mean=apply(sample_data2,2,function(x)mean(x,na.rm = TRUE))
@@ -486,6 +485,7 @@ for(j in mult_index){
       sample_mean_cases[j,i]=sample_mean_cases[j,i]/(1-r_change_prop)
       sample_disp_cases[j,i]=cal_nbzinb_param_multimodality_enlarge(mu=mu_ji,size=theta_ji,drop=drop_ji,
                                                                    change_proportion=r_change_prop)
+      sample_mean_ctrls[j,i]=sample_mean_ctrls[j,i]* (1 + (2*(r_change_prop)/(1-r_change_prop))*rbinom(1,1,0.5))
       
     }
   }
@@ -497,6 +497,7 @@ for(j in mult_index){
       sample_mean_ctrls[j,i]=sample_mean_ctrls[j,i]/(1-r_change_prop)
       sample_disp_ctrls[j,i]=cal_nbzinb_param_multimodality_enlarge(mu=mu_ji,size=theta_ji,drop=drop_ji,
                                                                    change_proportion=r_change_prop)
+      sample_mean_cases[j,i]=sample_mean_cases[j,i]* (1 + (2*(r_change_prop)/(1-r_change_prop))*rbinom(1,1,0.5))
     }
   }
 }
@@ -601,14 +602,10 @@ for(i in 1:nall){
         mean_i = sample_mean_cases[,i-nctrl]
         disp_i = sample_disp_cases[,i-nctrl]
         drop_i = sample_drop_cases[,i-nctrl]
-        mean_i[de.mult & case_modify_flag]=mean_i[de.mult & case_modify_flag]+
-          mean_i[de.mult & case_modify_flag]*(2*(r_change_prop)/(1-r_change_prop))*rbinom(sum(de.mult & case_modify_flag),1,0.5)
       }else{
         mean_i = sample_mean_ctrls[,i]
         disp_i = sample_disp_ctrls[,i]
         drop_i = sample_drop_ctrls[,i]
-        mean_i[de.mult & !case_modify_flag]=mean_i[de.mult & !case_modify_flag]+
-          mean_i[de.mult & !case_modify_flag]*(2*(r_change_prop)/(1-r_change_prop))*rbinom(sum(de.mult & !case_modify_flag),1,0.5)
       }
     }
     if(!HET){
@@ -616,14 +613,10 @@ for(i in 1:nall){
         mean_i = sample_mean_cases[,i-nctrl]
         disp_i = sample_disp_cases[,i-nctrl]
         drop_i = sample_drop_cases[,i-nctrl]
-        mean_i[de.mult & case_modify_flag]=mean_i[de.mult & case_modify_flag]+
-          mean_i[de.mult & case_modify_flag]*(2*(r_change_prop)/(1-r_change_prop))*rbinom(sum(de.mult & case_modify_flag),1,0.5)
       }else{
         mean_i = sample_mean_ctrls[,i]
         disp_i = sample_disp_ctrls[,i]
         drop_i = sample_drop_ctrls[,i]
-        mean_i[de.mult & !case_modify_flag]=mean_i[de.mult & !case_modify_flag]+
-          mean_i[de.mult & !case_modify_flag]*(2*(r_change_prop)/(1-r_change_prop))*rbinom(sum(de.mult & !case_modify_flag),1,0.5)
       }
     }
     

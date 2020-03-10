@@ -11,6 +11,7 @@ pre_tag="dca" #c("dca","scvi")
 
 sim_n=10
 covariate_flag=NA #c(NA, "quantile99")
+dataset_folder="MS"  #Data_PRJNA434002   MS
 
 #setwd("~/Desktop/fh/1.Testing_scRNAseq/")
 setwd("/Users/mzhang24/Desktop/fh/1.Testing_scRNAseq/")
@@ -25,20 +26,20 @@ for(cluster_tag in 1:17){
   print(cluster_tag)
   sim_data=NA
   #input phenotype
-  if(!is.na(covariate_flag) & file.exists(paste0("../Data_PRJNA434002/7.Result/sim_ind_",covariate_flag,"_",pre_tag,"_sim_",cluster_tag,"_",file_tag,".rds"))){
-    sim_data=readRDS(paste0("../Data_PRJNA434002/7.Result/sim_ind_",covariate_flag,"_",pre_tag,"_sim_",cluster_tag,"_",file_tag,".rds"))
+  if(!is.na(covariate_flag) & file.exists(paste0("../",dataset_folder,"/7.Result/sim_ind_",covariate_flag,"_",pre_tag,"_sim_",cluster_tag,"_",file_tag,".rds"))){
+    sim_data=readRDS(paste0("../",dataset_folder,"/7.Result/sim_ind_",covariate_flag,"_",pre_tag,"_sim_",cluster_tag,"_",file_tag,".rds"))
   }
-  if(is.na(covariate_flag) & file.exists(paste0("../Data_PRJNA434002/7.Result/sim_ind_",pre_tag,"_sim_",cluster_tag,"_",file_tag,".rds"))){
-    sim_data=readRDS(paste0("../Data_PRJNA434002/7.Result/sim_ind_",pre_tag,"_sim_",cluster_tag,"_",file_tag,".rds"))
+  if(is.na(covariate_flag) & file.exists(paste0("../",dataset_folder,"/7.Result/sim_ind_",pre_tag,"_sim_",cluster_tag,"_",file_tag,".rds"))){
+    sim_data=readRDS(paste0("../",dataset_folder,"/7.Result/sim_ind_",pre_tag,"_sim_",cluster_tag,"_",file_tag,".rds"))
   }
   if(!is.na(sim_data)){
     
     if(is.na(unlist(strsplit(file_tag,"k"))[2])){
-      tmeta=read.table("../Data_PRJNA434002/meta.tsv",header = TRUE, sep = "\t")
+      tmeta=read.table("../",dataset_folder,"/meta.tsv",header = TRUE, sep = "\t")
       
     }
     if(!is.na(unlist(strsplit(file_tag,"k"))[2])){
-      tmeta=readRDS(paste0("../Data_PRJNA434002/meta",unlist(strsplit(file_tag,"k"))[2],".rds"))
+      tmeta=readRDS(paste0("../",dataset_folder,"/meta",unlist(strsplit(file_tag,"k"))[2],".rds"))
     }
     
     cur_cluster=as.character(unique(tmeta$cluster)[cluster_tag])
@@ -47,7 +48,7 @@ for(cluster_tag in 1:17){
     cur_individual=unique(meta$individual)
     
     #input counts
-    rawM=readRDS(paste0("../Data_PRJNA434002/rawM",file_tag,".rds"))
+    rawM=readRDS(paste0("../",dataset_folder,"/rawM",file_tag,".rds"))
     rawM=rawM[,tmeta$cluster==cur_cluster]
     
     
@@ -63,10 +64,10 @@ for(cluster_tag in 1:17){
     colnames(sim_zero_rate_ind)=cur_individual
     
     if(!is.na(covariate_flag)){
-      pdf(paste0("../Data_PRJNA434002/7.Result/zero_rate_scatter_",covariate_flag,"_",pre_tag,"_sim_",cluster_tag,"_",file_tag,".pdf"),height = 4,width = 4)
+      pdf(paste0("../",dataset_folder,"/7.Result/zero_rate_scatter_",covariate_flag,"_",pre_tag,"_sim_",cluster_tag,"_",file_tag,".pdf"),height = 4,width = 4)
     }
     if(is.na(covariate_flag)){
-      pdf(paste0("../Data_PRJNA434002/7.Result/zero_rate_scatter_",pre_tag,"_sim_",cluster_tag,"_",file_tag,".pdf"),height = 4,width = 4)
+      pdf(paste0("../",dataset_folder,"/7.Result/zero_rate_scatter_",pre_tag,"_sim_",cluster_tag,"_",file_tag,".pdf"),height = 4,width = 4)
     }
     
     for(i_ind in 1:length(cur_individual)){

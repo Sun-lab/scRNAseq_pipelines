@@ -9,9 +9,10 @@ library("emdbook")
 #cluster_tag=1
 #file_tag="3k10"
 #pre_tag="dca" #c("dca","scvi")
+fit_tag="nb" # ""(zinb) or "nb"
 sim_n=10
 covariate_flag=NA #c(NA, "quantile99")
-
+dataset_folder="MS"  #Data_PRJNA434002   MS
 
 #setwd("~/Desktop/fh/1.Testing_scRNAseq/")
 #setwd("/Users/mzhang24/Desktop/fh/1.Testing_scRNAseq/")
@@ -23,11 +24,14 @@ source("./Command/8.0_kl_divergence_functions.R")
 ###########input###############
 #input phenotype
 if(is.na(unlist(strsplit(file_tag,"k"))[2])){
-  tmeta=meta=read.table("../Data_PRJNA434002/meta.tsv",header = TRUE, sep = "\t")
+  tmeta=read.table(paste0("../",dataset_folder,"/meta.tsv"),header = TRUE, sep = "\t")
 }
 if(!is.na(unlist(strsplit(file_tag,"k"))[2])){
-  tmeta=readRDS(paste0("../Data_PRJNA434002/meta",unlist(strsplit(file_tag,"k"))[2],".rds"))
+  tmeta=readRDS(paste0("../",dataset_folder,"/meta",unlist(strsplit(file_tag,"k"))[2],".rds"))
 }
+#name match for MS samples
+colnames(tmeta)[grep("cell_type",names(tmeta))]="cluster"
+colnames(tmeta)[grep("sample",names(tmeta))]="individual"
 
 cur_cluster=as.character(unique(tmeta$cluster)[cluster_tag])
 meta=tmeta[tmeta$cluster==cur_cluster,]
@@ -36,12 +40,12 @@ cur_individual=unique(meta$individual)
 
 #input counts
 if(!is.na(covariate_flag)){
-  sim_fit=readRDS(paste0("../Data_PRJNA434002/7.Result/fit_ind_",covariate_flag,"_",pre_tag,"_sim_",cluster_tag,"_",file_tag,".rds"))
-  sim_data=readRDS(paste0("../Data_PRJNA434002/7.Result/sim_ind_",covariate_flag,"_",pre_tag,"_sim_",cluster_tag,"_",file_tag,".rds"))
+  sim_fit=readRDS(paste0("../",dataset_folder,"/7.Result/fit_ind_",covariate_flag,"_",fit_tag,pre_tag,"_sim_",cluster_tag,"_",file_tag,".rds"))
+  sim_data=readRDS(paste0("../",dataset_folder,"/7.Result/sim_ind_",covariate_flag,"_",fit_tag,pre_tag,"_sim_",cluster_tag,"_",file_tag,".rds"))
 }
 if(is.na(covariate_flag)){
-  sim_fit=readRDS(paste0("../Data_PRJNA434002/7.Result/fit_ind_",pre_tag,"_sim_",cluster_tag,"_",file_tag,".rds"))
-  sim_data=readRDS(paste0("../Data_PRJNA434002/7.Result/sim_ind_",pre_tag,"_sim_",cluster_tag,"_",file_tag,".rds"))
+  sim_fit=readRDS(paste0("../",dataset_folder,"/7.Result/fit_ind_",fit_tag,pre_tag,"_sim_",cluster_tag,"_",file_tag,".rds"))
+  sim_data=readRDS(paste0("../",dataset_folder,"/7.Result/sim_ind_",fit_tag,pre_tag,"_sim_",cluster_tag,"_",file_tag,".rds"))
 }
 
 
@@ -97,16 +101,16 @@ for(i_g in 1:nrow(sim_fit)){
 print("calculation end")
 
 if(!is.na(covariate_flag)){
-  saveRDS(klmean_empirical_array,paste0("../Data_PRJNA434002/8.Result/klmean_empirical_array_",covariate_flag,"_",pre_tag,"_sim_",cluster_tag,"_",file_tag,".rds"))
-  saveRDS(jsd_empirical_array,paste0("../Data_PRJNA434002/8.Result/jsd_empirical_array_",covariate_flag,"_",pre_tag,"_sim_",cluster_tag,"_",file_tag,".rds"))
-  saveRDS(klmean_nbzinb_array,paste0("../Data_PRJNA434002/8.Result/klmean_nbzinb_array_",covariate_flag,"_",pre_tag,"_sim_",cluster_tag,"_",file_tag,".rds"))
-  saveRDS(jsd_nbzinb_array,paste0("../Data_PRJNA434002/8.Result/jsd_nbzinb_array_",covariate_flag,"_",pre_tag,"_sim_",cluster_tag,"_",file_tag,".rds"))
+  saveRDS(klmean_empirical_array,paste0("../",dataset_folder,"/8.Result/klmean_empirical_array_",covariate_flag,"_",fit_tag,pre_tag,"_sim_",cluster_tag,"_",file_tag,".rds"))
+  saveRDS(jsd_empirical_array,paste0("../",dataset_folder,"/8.Result/jsd_empirical_array_",covariate_flag,"_",fit_tag,pre_tag,"_sim_",cluster_tag,"_",file_tag,".rds"))
+  saveRDS(klmean_nbzinb_array,paste0("../",dataset_folder,"/8.Result/klmean_nbzinb_array_",covariate_flag,"_",fit_tag,pre_tag,"_sim_",cluster_tag,"_",file_tag,".rds"))
+  saveRDS(jsd_nbzinb_array,paste0("../",dataset_folder,"/8.Result/jsd_nbzinb_array_",covariate_flag,"_",fit_tag,pre_tag,"_sim_",cluster_tag,"_",file_tag,".rds"))
 }
 if(is.na(covariate_flag)){
-  saveRDS(klmean_empirical_array,paste0("../Data_PRJNA434002/8.Result/klmean_empirical_array_",pre_tag,"_sim_",cluster_tag,"_",file_tag,".rds"))
-  saveRDS(jsd_empirical_array,paste0("../Data_PRJNA434002/8.Result/jsd_empirical_array_",pre_tag,"_sim_",cluster_tag,"_",file_tag,".rds"))
-  saveRDS(klmean_nbzinb_array,paste0("../Data_PRJNA434002/8.Result/klmean_nbzinb_array_",pre_tag,"_sim_",cluster_tag,"_",file_tag,".rds"))
-  saveRDS(jsd_nbzinb_array,paste0("../Data_PRJNA434002/8.Result/jsd_nbzinb_array_",pre_tag,"_sim_",cluster_tag,"_",file_tag,".rds"))
+  saveRDS(klmean_empirical_array,paste0("../",dataset_folder,"/8.Result/klmean_empirical_array_",fit_tag,pre_tag,"_sim_",cluster_tag,"_",file_tag,".rds"))
+  saveRDS(jsd_empirical_array,paste0("../",dataset_folder,"/8.Result/jsd_empirical_array_",fit_tag,pre_tag,"_sim_",cluster_tag,"_",file_tag,".rds"))
+  saveRDS(klmean_nbzinb_array,paste0("../",dataset_folder,"/8.Result/klmean_nbzinb_array_",fit_tag,pre_tag,"_sim_",cluster_tag,"_",file_tag,".rds"))
+  saveRDS(jsd_nbzinb_array,paste0("../",dataset_folder,"/8.Result/jsd_nbzinb_array_",fit_tag,pre_tag,"_sim_",cluster_tag,"_",file_tag,".rds"))
 }
 
 sessionInfo()
