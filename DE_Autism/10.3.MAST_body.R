@@ -12,7 +12,7 @@
 setwd("/fh/fast/sun_w/mengqi/1.Testing_scRNAseq/")
 perm_label=0
 perm_method="" #c("","b") 
-sim_folder="sim_v5"
+sim_folder="sim_v6"
 
 n_seq=c(50,30,20,10,5)
 ncell_seq=c(200,100,50,20)

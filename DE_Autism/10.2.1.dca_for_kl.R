@@ -21,9 +21,9 @@ perm_num=500
 covariate_flag=NA #c(NA, "quantile99")
 tol=10
 perm_label_seq=0:10
-sim_folder="sim_v5"
+sim_folder="sim_v6"
 fit_tag="nb" # ""(zinb) or "nb"
-sim_n=10
+sim_n=3
 
 ##############functions#################
 library("ggplot2")
