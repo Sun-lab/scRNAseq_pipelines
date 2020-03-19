@@ -13,7 +13,7 @@ setwd("/fh/fast/sun_w/mengqi/1.Testing_scRNAseq/")
 fit_tag="nb" # ""(zinb) or "nb"
 sim_n=10
 covariate_flag=NA #c(NA, "quantile99","quantile99_readdepth","readdepth")
-dataset_folder="MS"  #Data_PRJNA434002   MS
+dataset_folder="Data_PRJNA434002"  #Data_PRJNA434002   MS
 
 library("ggplot2")
 library("emdbook")
@@ -40,6 +40,9 @@ if(is.na(unlist(strsplit(file_tag,"k"))[2])){
 if(!is.na(unlist(strsplit(file_tag,"k"))[2])){
   tmeta=readRDS(paste0("/fh/scratch/delete90/sun_w/mengqi/",dataset_folder,"/meta",unlist(strsplit(file_tag,"k"))[2],".rds"))
 }
+if(!is.na(grep("PFC",file_tag))){
+  tmeta=tmeta[tmeta$region=="PFC",]
+}
 
 #name match for MS samples
 colnames(tmeta)[grep("cell_type",names(tmeta))]="cluster"
@@ -47,7 +50,7 @@ colnames(tmeta)[grep("sample",names(tmeta))]="individual"
 
 
 #adjust t_mean with total read depth per 1000 counts.
-read_depth=readRDS(paste0("../",dataset_folder,"/rawM_read_depth_per_1Kcell_ind.rds"))
+#read_depth=readRDS(paste0("../",dataset_folder,"/rawM_read_depth_per_1Kcell_ind.rds"))
 
 #Ajust option: adjust means with read depth
 #read_depth_median=median(read_depth)

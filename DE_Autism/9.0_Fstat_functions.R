@@ -41,32 +41,54 @@ calc_F_manova=function(dist_matrix,label){
   
   epsilon=matrix((rep(label,time=N)==rep(label,each=N)),ncol=N,nrow=N)+0
   d2=dist_matrix*dist_matrix
-  sst=sum(d2/(2*N))
+  sst=sum(d2)/(2*N)
   ssw=0
   for(ik in 1:a){
     cur_index=which(label==(unique(label)[ik]))
-    ssw=ssw+sum(d2[cur_index,cur_index]/(2*length(cur_index)))
+    ssw=ssw+sum(d2[cur_index,cur_index])/(2*length(cur_index))
   }
   Fstat=((sst-ssw)*(N-a))/(ssw*(a-1))
   return(Fstat)
 }
 
+# calc_F_manova2_previous=function(dist_array,label){
+#   label=as.numeric(label)
+#   a=length(unique(label))
+#   N=length(label)
+#   d2=dist_array*dist_array
+#   sst=apply(d2/(2*N),1,function(x){sum(x)})
+#   ssw=matrix(0,nrow=dim(dist_array)[1],ncol=1)
+#   for(ik in 1:a){
+#     cur_index=which(label==(unique(label)[ik]))
+#     ssw=ssw+apply(d2,1,function(x){sum(x[cur_index,cur_index])/(2*length(cur_index))})
+#   }
+#   #ssw=apply(d2,1,function(x){sum(x*epsilon,na.rm = TRUE)})
+#   Fstat=((sst-ssw)*(N-a))/(ssw*(a-1))
+#   return(Fstat)
+# }
+
+#d2=array(exp(rnorm(10000)),dim=c(100,10,10))
+#d2label=c(1,1,1,2,2,2,3,3,3,3)
 calc_F_manova2=function(dist_array,label){
   label=as.numeric(label)
   a=length(unique(label))
   N=length(label)
+  Ng=dim(dist_array)[1]
   d2=dist_array*dist_array
-  sst=apply(d2/(2*N),1,function(x){sum(x)})
-  ssw=matrix(0,nrow=dim(dist_array)[1],ncol=1)
+  
+  dim(d2)=c(Ng,N^2)
+  sst=rowSums(d2)/(2*N)
+  divid_vector=matrix(0,N,N)   #this is nxn indicator with 1/n_1, 1/n_2,...for genexnxn --> genex (nxn) 
   for(ik in 1:a){
     cur_index=which(label==(unique(label)[ik]))
-    ssw=ssw+apply(d2,1,function(x){sum(x[cur_index,cur_index])/(2*length(cur_index))})
+    divid_vector[cur_index,cur_index]=1/(2*length(cur_index))
   }
+  divid_vector2=c(divid_vector)
+  ssw=d2 %*% divid_vector2
   #ssw=apply(d2,1,function(x){sum(x*epsilon,na.rm = TRUE)})
   Fstat=((sst-ssw)*(N-a))/(ssw*(a-1))
   return(Fstat)
 }
-
 
 ####PERMANOVAS Section ###############
 ##1.distance matrix realted

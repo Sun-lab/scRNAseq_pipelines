@@ -9,10 +9,10 @@ library("emdbook")
 #cluster_tag=1
 #file_tag="3k10"
 #pre_tag="dca" #c("dca","scvi")
-fit_tag="nb" # ""(zinb) or "nb"
-sim_n=10
+fit_tag="" # ""(zinb) or "nb" 
+fit_tag2="raw" # "" or "raw"(directely use dca res)
 covariate_flag=NA #c(NA, "quantile99")
-dataset_folder="MS"  #Data_PRJNA434002   MS
+dataset_folder="Data_PRJNA434002"  #Data_PRJNA434002   MS
 
 #setwd("~/Desktop/fh/1.Testing_scRNAseq/")
 #setwd("/Users/mzhang24/Desktop/fh/1.Testing_scRNAseq/")
@@ -41,11 +41,25 @@ cur_individual=unique(meta$individual)
 #input counts
 if(!is.na(covariate_flag)){
   sim_fit=readRDS(paste0("../",dataset_folder,"/7.Result/fit_ind_",covariate_flag,"_",fit_tag,pre_tag,"_sim_",cluster_tag,"_",file_tag,".rds"))
-  sim_data=readRDS(paste0("../",dataset_folder,"/7.Result/sim_ind_",covariate_flag,"_",fit_tag,pre_tag,"_sim_",cluster_tag,"_",file_tag,".rds"))
+  # if(fit_tag=="raw"){
+  #   sim_data=read.table(paste0("/fh/scratch/delete90/sun_w/mengqi/",dataset_folder,"/res_dca_rawM",file_tag,"/mean.tsv"),stringsAsFactors = FALSE)
+  #   dim(sim_data)=c(dim(sim_data),1)
+  # }
+  if(fit_tag2!="raw"){
+    sim_data=readRDS(paste0("../",dataset_folder,"/7.Result/sim_ind_",covariate_flag,"_",fit_tag,pre_tag,"_sim_",cluster_tag,"_",file_tag,".rds"))
+  }
+  
 }
 if(is.na(covariate_flag)){
   sim_fit=readRDS(paste0("../",dataset_folder,"/7.Result/fit_ind_",fit_tag,pre_tag,"_sim_",cluster_tag,"_",file_tag,".rds"))
-  sim_data=readRDS(paste0("../",dataset_folder,"/7.Result/sim_ind_",fit_tag,pre_tag,"_sim_",cluster_tag,"_",file_tag,".rds"))
+  if(fit_tag2=="raw"){
+    sim_data=as.matrix(read.table(paste0("/fh/scratch/delete90/sun_w/mengqi/",dataset_folder,"/res_dca_rawM",file_tag,"/mean.tsv"),stringsAsFactors = FALSE))
+    sim_data=array(sim_data,dim=c(dim(sim_data),1))
+  }
+  if(fit_tag2!="raw"){
+    sim_data=readRDS(paste0("../",dataset_folder,"/7.Result/sim_ind_",fit_tag,pre_tag,"_sim_",cluster_tag,"_",file_tag,".rds"))
+    
+  }
 }
 
 
@@ -58,14 +72,14 @@ jsd_empirical_array=array(dim=c(nrow(sim_data),length(cur_individual),length(cur
                 dimnames = list(rownames(sim_data),cur_individual,cur_individual))
 
 for(i_g in 1:nrow(sim_data)){
-  cur_sim=sim_data[i_g,,]
+  cur_sim=sim_data[i_g,,,drop=FALSE]
   for(i_ind_a in 1:length(cur_individual)){
     for(i_ind_b in 1:length(cur_individual)){
       cur_ind_a=cur_individual[i_ind_a]
       cur_ind_b=cur_individual[i_ind_b]
       #fit sim
-      cur_sim_ind_a=as.numeric(cur_sim[meta$individual==cur_ind_a,])
-      cur_sim_ind_b=as.numeric(cur_sim[meta$individual==cur_ind_b,])
+      cur_sim_ind_a=as.numeric(cur_sim[,meta$individual==cur_ind_a,])
+      cur_sim_ind_b=as.numeric(cur_sim[,meta$individual==cur_ind_b,])
       klmean_empirical_array[i_g,i_ind_a,i_ind_b]=tryCatch(mean_KL_dens(cur_sim_ind_a,cur_sim_ind_b,alter="mean",fit_model="empirical"), error = function(e) {NA} )
       jsd_empirical_array[i_g,i_ind_a,i_ind_b]=tryCatch(mean_KL_dens(cur_sim_ind_a,cur_sim_ind_b,alter="JSD",fit_model="empirical"), error = function(e) {NA} )
     }
@@ -99,6 +113,10 @@ for(i_g in 1:nrow(sim_fit)){
 
 ###################calculation end, output#################################
 print("calculation end")
+
+if(fit_tag2=="raw"){
+  fit_tag=fit_tag2
+}
 
 if(!is.na(covariate_flag)){
   saveRDS(klmean_empirical_array,paste0("../",dataset_folder,"/8.Result/klmean_empirical_array_",covariate_flag,"_",fit_tag,pre_tag,"_sim_",cluster_tag,"_",file_tag,".rds"))
