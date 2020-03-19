@@ -4,7 +4,7 @@ library("ggplot2")
 #cluster_tag=1
 #file_tag="3k10"
 covariate_flag=NA #c(NA, "quantile99")
-dataset_folder="MS"  #Data_PRJNA434002   MS
+dataset_folder="Data_PRJNA434002"  #Data_PRJNA434002   MS
 
 ###########functions#############
 source("./Command/7.0_ZINB_fit_functions.R")

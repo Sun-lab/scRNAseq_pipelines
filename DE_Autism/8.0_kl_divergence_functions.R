@@ -47,7 +47,7 @@ mean_KL_hist=function(x,y,nbins=10,rangep=NA,bmeth="equal"){
 #version 2:
 
 
-calDensity=function(x,y,n=1024){
+calDensity=function(x,y,n=256){
   cur_range=range(c(x,y),na.rm=TRUE,finite = TRUE)
   x_dens=density(x,from=cur_range[1],to=cur_range[2],n=n,na.rm = TRUE)
   y_dens=density(y,from=cur_range[1],to=cur_range[2],n=n,na.rm = TRUE)
@@ -74,7 +74,7 @@ calDens_nbzinb=function(x_triple,y_triple,range_max=0,quantile=0.975){
 }
 
 
-mean_KL_dens=function(x,y,empirical.n=1024,zinb.range_max=0,zinb.quantile=0.975,alter=c("mean","JSD"),fit_model=c("empirical","zinb")){ 
+mean_KL_dens=function(x,y,empirical.n=256,zinb.range_max=0,zinb.quantile=0.975,alter=c("mean","JSD"),fit_model=c("empirical","zinb")){ 
   if(fit_model=="zinb"){
     res=calDens_nbzinb(x,y,quantile=zinb.quantile,range_max = zinb.range_max)
     px=res$dens_x

@@ -40,6 +40,9 @@ if(is.na(unlist(strsplit(file_tag,"k"))[2])){
 if(!is.na(unlist(strsplit(file_tag,"k"))[2])){
   tmeta=readRDS(paste0("/fh/scratch/delete90/sun_w/mengqi/",dataset_folder,"/meta",unlist(strsplit(file_tag,"k"))[2],".rds"))
 }
+if(!is.na(grep("PFC",file_tag))){
+  tmeta=tmeta[tmeta$region=="PFC",]
+}
 
 #name match for MS samples
 colnames(tmeta)[grep("cell_type",names(tmeta))]="cluster"

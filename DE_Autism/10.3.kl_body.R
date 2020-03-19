@@ -22,9 +22,9 @@ perm_num=500
 covariate_flag=NA #c(NA, "quantile99")
 tol=10
 perm_label_seq=0:10
-sim_folder="sim_v5"
-pre_tag="dca" #c("" "dca")
-fit_tag="nb" #c("" "nb") 
+sim_folder="sim_v6"
+pre_tag="" #c("" "dca")
+fit_tag="" #c("" "nb") 
 
 
 
