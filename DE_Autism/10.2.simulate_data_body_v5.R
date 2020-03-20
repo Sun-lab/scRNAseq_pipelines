@@ -273,7 +273,9 @@ if(!file.exists(paste0("../Data_PRJNA434002/dca_PFC_all/",input_file_tag,"_sampl
   dim(t_drop)
   t_drop[1:2,1:5]
   
-  
+  # ==========================================================
+  # filter to one cluster PFC L2/3 
+  # ==========================================================
   
   ############### collect sample information ###################
   
@@ -285,6 +287,10 @@ if(!file.exists(paste0("../Data_PRJNA434002/dca_PFC_all/",input_file_tag,"_sampl
   tapply_median <- function(x){tapply(x, sample_ids, function(x)return(median(x,na.rm = TRUE)))}
   tapply_sd <- function(x){tapply(x, sample_ids, function(x)return(sd(x,na.rm = TRUE)))}
   
+  # here we assume across all the cells, the disp and drop do not change
+  # and we estimate one parameter for all cells, but mean could change 
+  # acorss cells, so we estimte sample_log_mean_sd, which is the sd
+  # within individuals for log mean values
   mid_mean = t(apply(t_mean, 1, tapply_median))
   mid_disp = t(apply(t_disp, 1, tapply_median))
   mid_drop = t(apply(t_drop, 1, tapply_median))
