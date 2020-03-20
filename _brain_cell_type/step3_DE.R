@@ -8,12 +8,10 @@
 # ------------------------------------------------------------
 
 rm(list=ls())
-repo_dir = "/pine/scr/p/l/pllittle/CS_eQTL/s3_Real/scRNAseq_pipelines"
-# repo_dir = file.path("..") # relative path of repo directory from this R code
 
+# repo_dir = "/pine/scr/p/l/pllittle/CS_eQTL/s3_Real/scRNAseq_pipelines"
+repo_dir = file.path("..") # relative path of repo directory from this R code
 source(file.path(repo_dir,"SOURCE.R"))
-MTG_dir = file.path(repo_dir,"MTG")
-setwd(MTG_dir)
 
 # ------------------------------------------------------------
 # a raw data needed for the analysis is too large ()
@@ -23,6 +21,11 @@ setwd(MTG_dir)
 rawData_dir = "human_MTG_gene_expression_matrices_2018-06-14"
 rawData_dir = file.path("~/research/scRNAseq/data/Allen_BI/", rawData_dir)
 rawData_dir
+
+# MTG_dir = file.path(repo_dir,"MTG")
+MTG_dir = rawData_dir
+
+setwd(MTG_dir)
 
 # ------------------------------------------------------------
 # Libraries/Functions
@@ -44,9 +47,11 @@ library(scater)
 GTF_calc_gene_length = function(work_dir,rsem_gtf_fn){
 	if(FALSE){
 		work_dir = MTG_dir
-		rsem_gtf_fn = file.path(work_dir,"rsem_GRCh38.p2.gtf")
+		rsem_gtf_fn = file.path(work_dir, "rsem_GRCh38.p2.gtf")
 	}
 
+  rsem_gtf_fn = file.path(work_dir, "rsem_GRCh38.p2.gtf")
+  
 	# Download GTF file
 	if( !file.exists(rsem_gtf_fn) ){
 		gtf_link = "http://celltypes.brain-map.org/api/v2/well_known_file_download/502175284"
@@ -93,6 +98,7 @@ GTF_calc_gene_length = function(work_dir,rsem_gtf_fn){
 	# Output
 	gtf
 }
+
 MAST_DEgenes = function(work_dir,num_genes=NULL,sce_obj,one_cell_type){
   
 	if(FALSE){
@@ -222,13 +228,13 @@ ICeDT_consistency = function(sig,bulk,ICeDT_out){
 }
 
 
-
 # ------------------------------------------------------------
 # Import and Prep Data
 # ------------------------------------------------------------
 # Import gtf with gene lengths
 rsem_fn = "rsem_GRCh38.p2.gtf"
 gtf = GTF_calc_gene_length(work_dir = MTG_dir,rsem_gtf_fn = rsem_fn)
+dim(gtf)
 head(gtf)
 
 # sce = readRDS(file.path(rawData_dir,"final_sce_filtered_by_kmeans.rds"))
@@ -391,7 +397,20 @@ dev.off()
 # ------------------------------------------------------------
 # Calculate TPM and get signature matrix: Based on Chong Jin's code
 # ------------------------------------------------------------
+
 table(colData(sce)$cell_type)
+
+read.depth = colSums(counts(sce))
+summary(read.depth)
+
+n.expressed.genes = colSums(counts(sce) > 0)
+summary(n.expressed.genes)
+
+pdf("total_expression_vs_cell_type.pdf", width=5, height=6)
+par(mfrow=c(2,1), mar=c(5,4,1,1), bty="n")
+boxplot(log10(read.depth) ~ colData(sce)$cell_type)
+boxplot(log10(n.expressed.genes) ~ colData(sce)$cell_type)
+dev.off()
 
 # Construct signature matrix
 SIG = matrix(nrow = nrow(sce),ncol = length(cell_types))
