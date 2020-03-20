@@ -525,6 +525,7 @@ cc_tpm = apply(sig_rds$SIG,2,function(xx) xx / sig_rds$anno$gene_length)
 cc_tpm = 1e6 * apply(cc_tpm,2,function(xx) xx / sum(xx))
 
 cell_sizes = colSums(apply(sig_rds$SIG,2,function(xx) xx / sig_rds$anno$gene_length))
+cell_sizes/max(cell_sizes)
 cell_sizes
 
 # Run ICeDT
