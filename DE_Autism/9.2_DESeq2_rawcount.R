@@ -93,7 +93,7 @@ if(perm_label>0){
 
 dds=DESeqDataSetFromMatrix(countData = rawcount_matrix_bulk,
                            colData = cur_info,
-                           design = ~ diagnosis)
+                           design = ~ age + sex + Seqbatch + RNA.Integrity.Number + diagnosis)
 
 dds=DESeq(dds)
 de_ob_pval=results(dds)$pvalue

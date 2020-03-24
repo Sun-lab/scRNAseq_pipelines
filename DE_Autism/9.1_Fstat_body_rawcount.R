@@ -65,7 +65,7 @@ if(ind_covariate_flag=="ind"){
   read_depth=readRDS(paste0("../",dataset_folder,"/rawM",file_tag,"_read_depth_per_1Kcell_ind.rds"))
   read_depth=read_depth[match(cur_individual,rownames(read_depth)),]
   #
-  cur_covariate=meta[match(cur_individual,meta$individual),c("age","sex","Capbatch","Seqbatch")]
+  cur_covariate=meta[match(cur_individual,meta$individual),c("age","sex","RNA.Integrity.Number","Seqbatch")]
   cur_covariate=cbind(cur_covariate, read_depth)
   rownames(cur_covariate)=cur_individual
   covariate_model_matrix=model.matrix(~.,cur_covariate)

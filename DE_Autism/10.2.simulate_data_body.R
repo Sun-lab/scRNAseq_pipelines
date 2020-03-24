@@ -321,8 +321,8 @@ if(!file.exists(paste0("../Data_PRJNA434002/dca_PFC_all/",input_file_tag,input_c
   summary(apply(sample_log_mean_sd,1,mean))
   
   #sample_log_mean_sd = sample_log_mean_sd/10
-  
-  
+  plot(apply(sample_log_mean_sd,1,mean),apply(sample_log_mean, 1, sd),cex=.2,xlim=c(0,2),ylim=c(0,2),main=paste0(input_file_tag,"_",input_cluster_tag2))
+  lines(c(0,10),c(0,10),col="red")
   #simulate individual level parameters from correlated mutinormal distribution
   # sample_data=cbind(c(sample_log_mean),c(sample_log_disp),c(sample_logit_drop))
   # sample_data_mean=apply(sample_data,2,mean)

@@ -1,6 +1,0 @@
-"","FP_inflation.sign","Loose.Power.sign","strange.median.sign","any.sign","FP_inflation.moderate","Loose.Power.moderate","strange.median.moderate","any.moderate","FP_inflation.extreme","Loose.Power.extreme","strange.median.extreme","any.extreme"
-"mean_diff",0.0133333333333333,0,0,0.0133333333333333,0,0,0,0,0,0,0,0
-"var_diff",0.0166666666666667,0.00166666666666667,0,0.0183333333333333,0,0,0,0,0,0,0,0
-"disp_diff",0.015,0,0,0.015,0,0,0,0,0,0,0,0
-"mult_diff",0.0133333333333333,0,0,0.0133333333333333,0,0,0,0,0,0,0,0
-"control(FDR)",0.0133333333333333,0,0,0.0133333333333333,0,0,0,0,0,0,0,0

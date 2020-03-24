@@ -114,6 +114,7 @@ sca=FromMatrix(rawcount_data_log, cData, fData)
 colData(sca)$cngeneson = as.numeric(CDR) 
 colData(sca)$diagnosis =as.factor(meta$diagnosis)
 colData(sca)$ind = as.factor(meta$individual)
+colData(sca)$riboPercent = as.numeric(meta$RNA.ribosomal.percent)
 
 if(perm_label>0){
   #count cases and controls
@@ -141,11 +142,11 @@ colData(sca)
 print(paste0("print system details, before b0"))
 date()
 gc()
-b0 = zlm(formula = ~ diagnosis, sca = sca, parallel = TRUE)
+b0 = zlm(formula = ~ diagnosis + cngeneson + age + sex + RIN + PMI + Capbatch + riboPercent, sca = sca, parallel = TRUE)
 print(paste0("print system details, before b1"))
 date()
 gc()
-b1 = zlm(formula = ~ diagnosis + ( 1 | ind ), sca = sca, method = 'glmer', 
+b1 = zlm(formula = ~ diagnosis + ( 1 | ind ) + cngeneson + age + sex + RIN + PMI + Capbatch + riboPercent, sca = sca, method = 'glmer', 
          ebayes = FALSE, parallel = TRUE)
 print(paste0("print system details, after b1"))
 date()

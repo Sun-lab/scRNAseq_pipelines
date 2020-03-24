@@ -1,9 +1,0 @@
-"","FP_inflation.sign","Loose.Power.sign","strange.median.sign","any.sign","FP_inflation.moderate","Loose.Power.moderate","strange.median.moderate","any.moderate","FP_inflation.extreme","Loose.Power.extreme","strange.median.extreme","any.extreme"
-"DESeq",0.23,0.14,0.08,0.41,0.13,0,0,0.13,0,0,0,0
-"MAST",0.362,0.096,0.12,0.468,0.248,0.008,0.008,0.258,0.06,0,0,0.06
-"jsd_empirical",0.19,0.106,0.072,0.336,0.068,0.008,0,0.076,0.024,0,0,0.024
-"klmean_empirical",0.186,0.15,0.102,0.36,0.062,0.004,0.002,0.066,0.01,0,0,0.01
-"jsd_zinb",0.21,0.18,0.16,0.444,0.138,0.022,0,0.16,0.01,0,0,0.01
-"klmean_zinb",0.232,0.202,0.19,0.486,0.152,0.028,0.012,0.184,0.04,0,0,0.04
-"jsd_direct",0.328,0.248,0.56,0.76,0.232,0.144,0.152,0.438,0.102,0.034,0,0.136
-"klmean_direct",0.24,0.25,0.45,0.682,0.184,0.148,0.142,0.418,0.066,0.03,0.014,0.11

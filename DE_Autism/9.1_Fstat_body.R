@@ -87,7 +87,7 @@ for(perm_label in perm_label_seq){
   }
   if(ind_covariate_flag=="ind"){
     #
-    cur_covariate=meta[match(cur_individual,meta$individual),c("age","sex","Capbatch","Seqbatch")]
+    cur_covariate=meta[match(cur_individual,meta$individual),c("age","sex","RNA.Integrity.Number","Seqbatch")]
     #read depth
     if(length(grep("rdpadj",file_tag))==0){ #if not justed before
       read_depth=readRDS(paste0("../",dataset_folder,"/rawM",file_tag,"_read_depth_per_1Kcell_ind.rds"))

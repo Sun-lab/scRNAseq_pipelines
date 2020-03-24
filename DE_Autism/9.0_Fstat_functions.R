@@ -217,7 +217,7 @@ calH=function(x){
 }
 
 library("psych")
-calTrace=function(H,G){
+calTrace=function(G,H){
   tr(H%*%G%*%H)
 }
 

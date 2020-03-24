@@ -2,26 +2,25 @@
 
 
 setwd("/Users/mzhang24/Desktop/fh/1.Testing_scRNAseq/")
-setwd("/Volumes/SpecialData/fh_data/Data_PRJNA434002/10.Result/sim_v1/")
+setwd("/Volumes/SpecialData/fh_data/Data_PRJNA434002/10.Result/sim_v6/")
 #sim_method_seq=c("splat.org","zinb.naive") #"splat.mean","splat.var"
 
 file_tag_seq=1
-perm_label=1
+perm_label=0
 perm_method=""
 
 param_tag=1
 power_array=list()
-param_tag_seq=c("mean","var","disp","mult")
+param_tag_seq=c("mean","var","dp","mult")
 
 for(i_param in 1:length(param_tag_seq)){
   param_tag=param_tag_seq[i_param]
-  power_array[[param_tag]]=readRDS(paste0("./p",perm_label,perm_method,"_final_power_array_",param_tag,".rds"))
+  power_array[[param_tag]]=readRDS(paste0("./p",perm_label,perm_method,"_final_range01_array_",param_tag,".rds"))
   power_array[[param_tag]][power_array[[param_tag]]==0]=NA
 }
 
-cell_seq=1:5*20
-ind_seq=1:4*10
-
+ind_seq=c(10,20,40,60,100)
+cell_seq=c(20,50,100,200)
 
 library("RColorBrewer")
 #power_plot is used for plotting the power curves
@@ -32,7 +31,7 @@ power_plot1=function(y_matrix,cur_main="",cur_xlab="",cur_ylab="Power",x_seq=NA,
     x_seq=as.numeric(rownames(y_matrix))
   }
   if(sum(!is.na(cur_xlim))==0){
-    cur_xlim=c((min(x_seq)-0.2),(max(x_seq)+0.5))
+    cur_xlim=c((min(x_seq)-0.1),(max(x_seq)+0.1))
   }
   if(sum(!is.na(cur_ylim))==0){
     cur_ylim=c(0,1)
@@ -49,12 +48,13 @@ power_plot1=function(y_matrix,cur_main="",cur_xlab="",cur_ylab="Power",x_seq=NA,
     points(x_seq,y_matrix[,i_c],col=cur_col[i_c],pch=i_c,cex=2)
   }
   
-  legend("bottomright",cur_legend,pch=1:ncol(y_matrix),col=cur_col,cex=.5)
+  legend("topleft",cur_legend,pch=1:ncol(y_matrix),col=cur_col,cex=.5)
 }
 
 
-pdf(paste0("./fig_power_curve/p",perm_label,perm_method,"_power_curve.pdf"),height = 40,width = 25)
-op=par(mfrow = c(8, 5))
+pdf(paste0("./fig_power_curve/p",perm_label,perm_method,"_power_curve.pdf"),height = 48,width = 30)
+
+op=par(mfrow = c(8, 5),cex=1.5)
 for(i_ind in 1:length(ind_seq)){
   for(i_cell in 1:length(cell_seq)){
     for(i_file in 1:length(file_tag_seq)){
