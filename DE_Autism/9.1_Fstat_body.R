@@ -30,11 +30,22 @@ source("./Command/9.0_Fstat_functions.R")
 dist_array=readRDS(paste0("../",dataset_folder,"/8.Result/",dist_method,"_",fit_method,"_array_",fit_tag,pre_tag,"_sim_",cluster_tag,"_",file_tag,".rds"))
 
 #input phenotype
-if(is.na(unlist(strsplit(file_tag,"k"))[2])){
-  tmeta=read.table(paste0("../",dataset_folder,"/meta.tsv"),header = TRUE, sep = "\t")
+#input phenotype
+if(length(grep("PFC",file_tag))>0){
+  if(is.na(unlist(strsplit(file_tag,"k"))[2])){
+    tmeta=readRDS(paste0("../",dataset_folder,"/meta_PFC.rds"))
+  }
+  if(!is.na(unlist(strsplit(file_tag,"k"))[2])){
+    tmeta=readRDS(paste0("../",dataset_folder,"/meta",unlist(strsplit(file_tag,"k"))[2],"_PFC.rds"))
+  }
 }
-if(!is.na(unlist(strsplit(file_tag,"k"))[2])){
-  tmeta=readRDS(paste0("../",dataset_folder,"/meta",unlist(strsplit(file_tag,"k"))[2],".rds"))
+if(length(grep("PFC",file_tag))==0){
+  if(is.na(unlist(strsplit(file_tag,"k"))[2])){
+    tmeta=read.table(paste0("../",dataset_folder,"/meta.tsv"),header = TRUE, sep = "\t")
+  }
+  if(!is.na(unlist(strsplit(file_tag,"k"))[2])){
+    tmeta=readRDS(paste0("../",dataset_folder,"/meta",unlist(strsplit(file_tag,"k"))[2],".rds"))
+  }
 }
 #name match for MS samples
 colnames(tmeta)[grep("cell_type",names(tmeta))]="cluster"

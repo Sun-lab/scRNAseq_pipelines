@@ -34,11 +34,22 @@ if(pre_tag=="scvi"){
   t_dispersion=matrix(rep(t_dispersion,times=ncol(t_mean)),nrow=length(t_dispersion),ncol=ncol(t_mean))
   t_dropout=exp(t_dropout)/(1+exp(t_dropout))
 }
-if(is.na(unlist(strsplit(file_tag,"k"))[2])){
-  tmeta=read.table(paste0("/fh/scratch/delete90/sun_w/mengqi/",dataset_folder,"/meta.tsv"),header = TRUE, sep = "\t")
+#input phenotype
+if(length(grep("PFC",file_tag))>0){
+  if(is.na(unlist(strsplit(file_tag,"k"))[2])){
+    tmeta=readRDS(paste0("../",dataset_folder,"/meta_PFC.rds"))
+  }
+  if(!is.na(unlist(strsplit(file_tag,"k"))[2])){
+    tmeta=readRDS(paste0("../",dataset_folder,"/meta",unlist(strsplit(file_tag,"k"))[2],"_PFC.rds"))
+  }
 }
-if(!is.na(unlist(strsplit(file_tag,"k"))[2])){
-  tmeta=readRDS(paste0("/fh/scratch/delete90/sun_w/mengqi/",dataset_folder,"/meta",unlist(strsplit(file_tag,"k"))[2],".rds"))
+if(length(grep("PFC",file_tag))==0){
+  if(is.na(unlist(strsplit(file_tag,"k"))[2])){
+    tmeta=read.table(paste0("../",dataset_folder,"/meta.tsv"),header = TRUE, sep = "\t")
+  }
+  if(!is.na(unlist(strsplit(file_tag,"k"))[2])){
+    tmeta=readRDS(paste0("../",dataset_folder,"/meta",unlist(strsplit(file_tag,"k"))[2],".rds"))
+  }
 }
 #name match for MS samples
 colnames(tmeta)[grep("cell_type",names(tmeta))]="cluster"

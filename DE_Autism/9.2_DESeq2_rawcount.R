@@ -16,11 +16,22 @@ setwd("/fh/fast/sun_w/mengqi/1.Testing_scRNAseq/")
 
 ###########input###############
 #input diagnosis
-if(is.na(unlist(strsplit(file_tag,"k"))[2])){
-  tmeta=read.table(paste0("../",dataset_folder,"/meta.tsv"),header = TRUE, sep = "\t")
+#input phenotype
+if(length(grep("PFC",file_tag))>0){
+  if(is.na(unlist(strsplit(file_tag,"k"))[2])){
+    tmeta=readRDS(paste0("../",dataset_folder,"/meta_PFC.rds"))
+  }
+  if(!is.na(unlist(strsplit(file_tag,"k"))[2])){
+    tmeta=readRDS(paste0("../",dataset_folder,"/meta",unlist(strsplit(file_tag,"k"))[2],"_PFC.rds"))
+  }
 }
-if(!is.na(unlist(strsplit(file_tag,"k"))[2])){
-  tmeta=readRDS(paste0("../",dataset_folder,"/meta",unlist(strsplit(file_tag,"k"))[2],".rds"))
+if(length(grep("PFC",file_tag))==0){
+  if(is.na(unlist(strsplit(file_tag,"k"))[2])){
+    tmeta=read.table(paste0("../",dataset_folder,"/meta.tsv"),header = TRUE, sep = "\t")
+  }
+  if(!is.na(unlist(strsplit(file_tag,"k"))[2])){
+    tmeta=readRDS(paste0("../",dataset_folder,"/meta",unlist(strsplit(file_tag,"k"))[2],".rds"))
+  }
 }
 #name match for MS samples
 colnames(tmeta)[grep("cell_type",names(tmeta))]="cluster"

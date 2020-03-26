@@ -8,7 +8,7 @@
 library("DESeq2")
 #perm_num=500
 covariate_flag=NA #c(NA, "quantile99")
-dataset_folder="MS"  #Data_PRJNA434002   MS
+dataset_folder="Data_PRJNA434002"  #Data_PRJNA434002   MS
 
 #setwd("~/Desktop/fh/1.Testing_scRNAseq/")
 #setwd("/Users/mzhang24/Desktop/fh/1.Testing_scRNAseq/")
@@ -16,11 +16,22 @@ setwd("/fh/fast/sun_w/mengqi/1.Testing_scRNAseq/")
 
 ###########input###############
 #input diagnosis
-if(is.na(unlist(strsplit(file_tag,"k"))[2])){
-  tmeta=read.table(paste0("../",dataset_folder,"/meta.tsv"),header = TRUE, sep = "\t")
+#input phenotype
+if(length(grep("PFC",file_tag))>0){
+  if(is.na(unlist(strsplit(file_tag,"k"))[2])){
+    tmeta=readRDS(paste0("../",dataset_folder,"/meta_PFC.rds"))
+  }
+  if(!is.na(unlist(strsplit(file_tag,"k"))[2])){
+    tmeta=readRDS(paste0("../",dataset_folder,"/meta",unlist(strsplit(file_tag,"k"))[2],"_PFC.rds"))
+  }
 }
-if(!is.na(unlist(strsplit(file_tag,"k"))[2])){
-  tmeta=readRDS(paste0("../",dataset_folder,"/meta",unlist(strsplit(file_tag,"k"))[2],".rds"))
+if(length(grep("PFC",file_tag))==0){
+  if(is.na(unlist(strsplit(file_tag,"k"))[2])){
+    tmeta=read.table(paste0("../",dataset_folder,"/meta.tsv"),header = TRUE, sep = "\t")
+  }
+  if(!is.na(unlist(strsplit(file_tag,"k"))[2])){
+    tmeta=readRDS(paste0("../",dataset_folder,"/meta",unlist(strsplit(file_tag,"k"))[2],".rds"))
+  }
 }
 #name match for MS samples
 colnames(tmeta)[grep("cell_type",names(tmeta))]="cluster"
