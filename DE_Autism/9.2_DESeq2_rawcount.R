@@ -8,7 +8,7 @@ library("DESeq2")
 #perm_num=500
 covariate_flag=NA #c(NA, "quantile99")
 perm_label=1 #perm_label =0 means calculate the observed data other wise, permutated data
-dataset_folder="MS"  #Data_PRJNA434002   MS
+dataset_folder="Data_PRJNA434002"  #Data_PRJNA434002   MS
 
 #setwd("~/Desktop/fh/1.Testing_scRNAseq/")
 #setwd("/Users/mzhang24/Desktop/fh/1.Testing_scRNAseq/")
@@ -86,7 +86,7 @@ read_count_total=apply(rawcount_matrix_bulk,1,function(x){return(sum(as.numeric(
 saveRDS(zero_rate,paste0("../",dataset_folder,"/7.Result/rawcount_gene_zero_rate_",cluster_tag,"_",file_tag,".rds"))
 saveRDS(read_count_total,paste0("../",dataset_folder,"/7.Result/rawcount_gene_read_count_total_",cluster_tag,"_",file_tag,".rds"))
 
-cur_info=meta[,c("individual","diagnosis")]
+cur_info=meta[,c("individual","diagnosis","age","sex","Seqbatch","RNA.Integrity.Number")]
 cur_info=unique(cur_info)
 rownames(cur_info)=cur_info$individual
 

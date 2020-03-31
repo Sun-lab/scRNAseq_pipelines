@@ -8,7 +8,7 @@ perm_num=500
 sim_n=10
 covariate_flag=NA #c(NA, "quantile99")
 perm_label=1 #perm_label =0 means calculate the observed data other wise, permutated data
-dataset_folder="MS"  #Data_PRJNA434002   MS
+dataset_folder="Data_PRJNA434002"  #Data_PRJNA434002   MS
 
 #setwd("~/Desktop/fh/1.Testing_scRNAseq/")
 #setwd("/Users/mzhang24/Desktop/fh/1.Testing_scRNAseq/")
@@ -121,11 +121,18 @@ colnames(meta)
 length(fData)
 length(cData)
 
+
 sca=FromMatrix(rawcount_data_log, cData, fData)
 colData(sca)$cngeneson = as.numeric(CDR) 
 colData(sca)$diagnosis =as.factor(meta$diagnosis)
 colData(sca)$ind = as.factor(meta$individual)
+colData(sca)$age = as.numeric(meta$age)
+colData(sca)$sex = as.factor(meta$sex)
+colData(sca)$RIN = as.numeric(meta$RNA.Integrity.Number)
+colData(sca)$PMI = as.numeric(meta$post.mortem.interval..hours.)
+colData(sca)$Capbatch = as.factor(meta$Capbatch)
 colData(sca)$riboPercent = as.numeric(meta$RNA.ribosomal.percent)
+
 
 if(perm_label>0){
   #count cases and controls

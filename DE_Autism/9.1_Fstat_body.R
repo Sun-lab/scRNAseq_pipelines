@@ -15,7 +15,7 @@ cell_threshold=4
 ind_covariate_flag="ind" 
 perm_num=500
 tol=10
-dataset_folder="MS"  #Data_PRJNA434002   MS
+dataset_folder="Data_PRJNA434002"  #Data_PRJNA434002   MS
 fit_tag="raw" # "" "nb" "raw"
 
 #setwd("~/Desktop/fh/1.Testing_scRNAseq/")

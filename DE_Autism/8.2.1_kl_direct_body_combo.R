@@ -11,7 +11,7 @@ library("emdbook")
 #pre_tag="dca" #c("dca","scvi")
 
 fit_tag="nb" # ""(zinb) or "nb"
-dataset_folder="MS"  #Data_PRJNA434002   MS
+dataset_folder="Data_PRJNA434002"  #Data_PRJNA434002   MS
 
 #setwd("~/Desktop/fh/1.Testing_scRNAseq/")
 #setwd("/Users/mzhang24/Desktop/fh/1.Testing_scRNAseq/")
@@ -58,7 +58,7 @@ colnames(tmeta)[grep("sample",names(tmeta))]="individual"
 
 
 #adjust t_mean with total read depth per 1000 counts.
-read_depth=readRDS(paste0("../",dataset_folder,"/rawM_read_depth_per_1Kcell_ind.rds"))
+#read_depth=readRDS(paste0("../",dataset_folder,"/rawM_read_depth_per_1Kcell_ind.rds"))
 
 #Ajust option: adjust means with read depth
 #read_depth_median=median(read_depth)

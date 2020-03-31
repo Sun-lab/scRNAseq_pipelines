@@ -8,11 +8,11 @@
 # fit_method="nbzinb"
 # F_method="p"
 
-perm_label=1
+perm_label=0
 ind_covariate_flag="ind" 
 perm_num=500
 tol=0.2
-dataset_folder="MS"  #Data_PRJNA434002   MS
+dataset_folder="Data_PRJNA434002"  #Data_PRJNA434002   MS
 #setwd("~/Desktop/fh/1.Testing_scRNAseq/")
 #setwd("/Users/mzhang24/Desktop/fh/1.Testing_scRNAseq/")
 setwd("/fh/fast/sun_w/mengqi/1.Testing_scRNAseq/")

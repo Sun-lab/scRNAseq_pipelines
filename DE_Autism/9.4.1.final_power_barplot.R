@@ -2,11 +2,13 @@
 #setwd("~/Desktop/fh/1.Testing_scRNAseq/")
 setwd("/Users/mzhang24/Desktop/fh/1.Testing_scRNAseq/")
 setwd("/Volumes/SpecialData/fh_data/Data_PRJNA434002/")
-setwd("/Volumes/SpecialData/fh_data/MS/")
+#setwd("/Volumes/SpecialData/fh_data/MS/")
 #setwd("/fh/fast/sun_w/mengqi/1.Testing_scRNAseq/")
 
-cluster_tag_seq=1:21
-file_tag_seq=c("3k","5k") #c("3k","5k")
+#cluster_tag_seq=1:17
+cluster_tag_seq=1:17
+file_tag_seq=c("PFC3k","PFC5k") #
+#file_tag_seq=c("3k","5k")
 dist_method_seq=c("klmean","jsd")
 fit_method_seq=c("empirical","nbzinb")
 F_method_seq=c("p","ps")
@@ -69,7 +71,7 @@ pval_list=list()
 
 for(i_file in 1:length(file_tag_seq)){
   file_tag=file_tag_seq[i_file]
-  pval_length=as.numeric(unlist(strsplit(file_tag,"k"))[1])*1000
+  pval_length=as.numeric(gsub("PFC","",unlist(strsplit(file_tag,"k"))[1]))*1000
   pval_list[[file_tag]]=array(dim=c(
     length(F_method_seq),
     length(fit_tag_seq),
@@ -167,6 +169,11 @@ for(i_file in 1:length(file_tag_seq)){
           power_matrix[8]=tryCatch({cal_power(klmean_direct_pval,threshold = 0.05)}, error = function(e) {NA} )
           power_array[i_file,i_F,i_fit,i_cluster,i_perm_label,]=power_matrix
           
+          
+          
+          
+          
+          
           #record range005
           power_matrix=matrix(nrow=8,ncol=1)
           names(power_matrix)=c("DESeq","MAST","jsd_empirical","klmean_empirical","jsd_zinb","klmean_zinb","jsd_direct","klmean_direct")
@@ -227,18 +234,18 @@ for(i_file in 1:length(file_tag_seq)){
           
           #record gene-based cor test result: zero rate ind and expression
 
-          zero_rate_ind=readRDS(paste0("./7.Result/sim_ind_zero_rate_",fit_tag,pre_tag,"_sim_",cluster_tag,"_",file_tag,".rds"))
-          zerorate_ind_mean=apply(zero_rate_ind,1,mean)
-          nonexpres_ind=apply(zero_rate_ind==10,1,sum)
+          #zero_rate_ind=readRDS(paste0("./7.Result/sim_ind_zero_rate_",fit_tag,pre_tag,"_sim_",cluster_tag,"_",file_tag,".rds"))
+          #zerorate_ind_mean=apply(zero_rate_ind,1,mean)
+          #nonexpres_ind=apply(zero_rate_ind==10,1,sum)
 
           #zero_rate=readRDS(paste0("./7.Result/sim_zero_rate_",fit_tag,pre_tag,"_sim_",cluster_tag,"_",file_tag,".rds"))
-          expression_level=readRDS(paste0("./7.Result/sim_gene_read_count_total_",fit_tag,pre_tag,"_sim_",cluster_tag,"_",file_tag,".rds"))
+          #expression_level=readRDS(paste0("./7.Result/sim_gene_read_count_total_",fit_tag,pre_tag,"_sim_",cluster_tag,"_",file_tag,".rds"))
 
-          zinb_fit=readRDS(paste0("./7.Result/fit_ind_",fit_tag,pre_tag,"_sim_",cluster_tag,"_",file_tag,".rds"))
-          overdisp_max=apply(zinb_fit[,,2],1,function(x){return(max(x,na.rm = TRUE))})
-          overdisp_median=apply(zinb_fit[,,2],1,function(x){return(median(x,na.rm = TRUE))})
-          dropout_max=apply(zinb_fit[,,3],1,function(x){return(max(x,na.rm = TRUE))})
-          dropout_median=apply(zinb_fit[,,3],1,function(x){return(median(x,na.rm = TRUE))})
+          #zinb_fit=readRDS(paste0("./7.Result/fit_ind_",fit_tag,pre_tag,"_sim_",cluster_tag,"_",file_tag,".rds"))
+          #overdisp_max=apply(zinb_fit[,,2],1,function(x){return(max(x,na.rm = TRUE))})
+          #overdisp_median=apply(zinb_fit[,,2],1,function(x){return(median(x,na.rm = TRUE))})
+          #dropout_max=apply(zinb_fit[,,3],1,function(x){return(max(x,na.rm = TRUE))})
+          #dropout_median=apply(zinb_fit[,,3],1,function(x){return(median(x,na.rm = TRUE))})
           
           log_deseq2_pval=tryCatch({-log10(deseq2_pval+min(deseq2_pval[deseq2_pval>0],na.rm = TRUE))}, error = function(e) {NA} )
           log_MAST_pval=tryCatch({-log10(MAST_pval+min(MAST_pval[MAST_pval>0],na.rm = TRUE))}, error = function(e) {NA} )
@@ -355,6 +362,8 @@ for(i_file in 1:length(file_tag_seq)){
           
         }
         
+        
+        
         #power scatter
         png(paste0("./8.Result/fig_power_point/power_point_",perm_label,"_",F_method,"_",fit_tag,pre_tag,"_",cluster_tag,"_",file_tag,".png"),height = 600,width = 600)
         plot(power_array[i_file,i_F,i_fit,i_cluster,i_perm_label,1],power_array[i_file,i_F,i_fit,i_cluster,1,1],xlim=c(0,1),ylim=c(0,1),xlab="False positive rate (FPR)",ylab="True positive rate (TPR)",type="p",col="red",pch=3,cex=3)
@@ -444,12 +453,12 @@ for(i_file in 1:length(file_tag_seq)){
       png(paste0("./8.Result/fig_boxplot_power/boxplot_power_",F_method,"_",fit_tag,pre_tag,"_",file_tag,".png"),height = 400*(length(perm_label_seq)+1),width = 500)
       op=par(mfrow=c((length(perm_label_seq)+1),1))
       a=power_array[i_file,i_F,i_fit,,1,]
-      boxplot(a,cex.lab=1.5, cex.axis=1.5, cex.main=1.5, cex.sub=1.5,main="proportion of p-values less than 0.05 of all clusters, observed data",ylab="power")
+      boxplot(a,cex.lab=1.5, cex.axis=1.5, cex.main=1.5, cex.sub=1.5,main="proportion of p-values <0.05 of all clusters, observed data",ylab="power",las=2,ylim=c(0,1))
       abline(h = 0.05, col = "red") 
       
       for(i_perm_label in 2:length(perm_label_seq)){
         b=power_array[i_file,i_F,i_fit,,i_perm_label,]
-        boxplot(b,cex.lab=1.5, cex.axis=1.5, cex.main=1.5, cex.sub=1.5,main="proportion of p-values less than 0.05 of all clusters, permutated data",ylab="type I error")
+        boxplot(b,cex.lab=1.5, cex.axis=1.5, cex.main=1.5, cex.sub=1.5,main="proportion of p-values <0.05 of all clusters, permutated data",ylab="type I error",las=2,ylim=c(0,1))
         abline(h = 0.05, col = "red") 
       }
       
@@ -459,7 +468,32 @@ for(i_file in 1:length(file_tag_seq)){
   }
 }
 
-
+#do barplot##############
+for(i_file in 1:length(file_tag_seq)){
+  for(i_F in 1:length(F_method_seq)){
+    for(i_fit in 1:length(fit_tag_seq)){
+      file_tag=file_tag_seq[i_file]
+      F_method=F_method_seq[i_F]
+      fit_tag=fit_tag_seq[i_fit]
+      png(paste0("./8.Result/fig_barplot/barplot_",F_method,"_",fit_tag,pre_tag,"_",file_tag,".png"),height = 300*(length(perm_label_seq)+1),width = 200*length(cur_cluster))
+      op=par(mfrow=c((length(perm_label_seq)+1),length(cur_cluster)))
+      a=power_array[i_file,i_F,i_fit,,1,]
+      for(i_cluster in 1:length(cur_cluster)){
+        barplot(a[i_cluster,],cex.lab=1.5, cex.axis=1.5, cex.main=1.5, cex.sub=1.5,main="proportion of p-values <0.05, observed data",sub=cur_cluster[i_cluster],ylab="power",las=2,ylim=c(0,1))
+        abline(h = 0.05, col = "red") 
+      }
+      for(i_perm_label in 2:length(perm_label_seq)){
+        b=power_array[i_file,i_F,i_fit,,i_perm_label,]
+        for(i_cluster in 1:length(cur_cluster)){
+          barplot(b[i_cluster,],cex.lab=1.5, cex.axis=1.5, cex.main=1.5, cex.sub=1.5,main="proportion of p-values <0.05, permutated data",sub=cur_cluster[i_cluster],ylab="type I error",las=2,ylim=c(0,1))
+          abline(h = 0.05, col = "red") 
+        }
+      }
+      par(op)
+      dev.off()
+    }
+  }
+}
 #do scatter plot about cell number vs power##############
 for(i_file in 1:length(file_tag_seq)){
   file_tag=file_tag_seq[i_file]
@@ -483,7 +517,7 @@ for(i_file in 1:length(file_tag_seq)){
       fit_tag=fit_tag_seq[i_fit]
       
       png(paste0("./8.Result/fig_scatter_power/scatter_power_",F_method,"_",fit_tag,pre_tag,"_",file_tag,".png"),height = 1200,width = 500*length(perm_label_seq))
-      op=par(mfrow=c(3,length(perm_label_seq)))
+      op=par(mfrow=c(length(perm_label_seq),3))
 
       a=power_array[i_file,i_F,i_fit,,1,]
       
@@ -549,11 +583,11 @@ for(i_file in 1:length(file_tag_seq)){
       png(paste0("./8.Result/fig_boxplot_ks/boxplot_ks_",F_method,"_",fit_tag,pre_tag,"_",file_tag,".png"),height = 400*(1+length(perm_label_seq)),width = 500)
       op=par(mfrow=c((length(perm_label_seq)+1),1))
       a=ks_array[i_file,i_F,i_fit,,1,]
-      boxplot(a,cex.lab=1.5, cex.axis=1.5, cex.main=1.5, cex.sub=1.5,main="ks test for distribution of pvalues, observed data",ylab="ks pval")
+      boxplot(a,cex.lab=1.5, cex.axis=1.5, cex.main=1.5, cex.sub=1.5,main="ks test for distribution of pvalues, observed data",ylab="ks pval",ylim=c(0,1))
       abline(h = 0.05, col = "red") 
       for(i_perm_label in 2:length(perm_label_seq)){
         b=ks_array[i_file,i_F,i_fit,,i_perm_label,]
-        boxplot(b,cex.lab=1.5, cex.axis=1.5, cex.main=1.5, cex.sub=1.5,main="ks test for distribution of pvalues, permutated data",ylab="ks pval")
+        boxplot(b,cex.lab=1.5, cex.axis=1.5, cex.main=1.5, cex.sub=1.5,main="ks test for distribution of pvalues, permutated data",ylab="ks pval",ylim=c(0,1))
         abline(h = 0.05, col = "red") 
       }
       
@@ -589,7 +623,7 @@ for(i_file in 1:length(file_tag_seq)){
       fit_tag=fit_tag_seq[i_fit]
       
       png(paste0("./8.Result/fig_scatter_ks/scatter_ks_",F_method,"_",fit_tag,pre_tag,"_",file_tag,".png"),height = 500,width = 500*length(perm_label_seq))
-      op=par(mfrow=c(3,length(perm_label_seq)))
+      op=par(mfrow=c(length(perm_label_seq),3))
 
       a=-log10(ks_array[i_file,i_F,i_fit,,1,]+min(ks_array[ks_array>0],na.rm = TRUE))
       

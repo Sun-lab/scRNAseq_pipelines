@@ -92,7 +92,7 @@ read_count_total=apply(sim_matrix_bulk,1,function(x){return(sum(as.numeric(x),na
 saveRDS(zero_rate,paste0("../",dataset_folder,"/7.Result/sim_gene_zero_rate_",pre_tag,"_sim_",cluster_tag,"_",file_tag,".rds"))
 saveRDS(read_count_total,paste0("../",dataset_folder,"/7.Result/sim_gene_read_count_total_",pre_tag,"_sim_",cluster_tag,"_",file_tag,".rds"))
 
-cur_info=meta[,c("individual","diagnosis")]
+cur_info=meta[,c("individual","diagnosis","age","sex","Seqbatch","RNA.Integrity.Number")]
 cur_info=unique(cur_info)
 rownames(cur_info)=cur_info$individual
 

@@ -13,11 +13,20 @@ param_tag=1
 power_array=list()
 param_tag_seq=c("mean","var","dp","mult")
 
+perm_method_seq="" #c("","b")
+pre_tag_seq=c("","dca")
+
+pre_tag=""
+
+if(pre_tag==""){fit_tag=""}
+if(pre_tag=="dca"){fit_tag="nb"}
+
 for(i_param in 1:length(param_tag_seq)){
   param_tag=param_tag_seq[i_param]
-  power_array[[param_tag]]=readRDS(paste0("./p",perm_label,perm_method,"_final_range01_array_",param_tag,".rds"))
+  power_array[[param_tag]]=readRDS(paste0("./p",perm_label,perm_method,pre_tag,fit_tag,"_final_range005_array_",param_tag,".rds"))
   power_array[[param_tag]][power_array[[param_tag]]==0]=NA
 }
+
 
 ind_seq=c(10,20,40,60,100)
 cell_seq=c(20,50,100,200)
@@ -52,7 +61,7 @@ power_plot1=function(y_matrix,cur_main="",cur_xlab="",cur_ylab="Power",x_seq=NA,
 }
 
 
-pdf(paste0("./fig_power_curve/p",perm_label,perm_method,"_power_curve.pdf"),height = 48,width = 30)
+pdf(paste0("./fig_power_curve/p",perm_label,perm_method,pre_tag,fit_tag,"_power_curve.pdf"),height = 48,width = 30)
 
 op=par(mfrow = c(8, 5),cex=1.5)
 for(i_ind in 1:length(ind_seq)){
@@ -70,12 +79,15 @@ for(i_ind in 1:length(ind_seq)){
       i_param=i_param+1
       power_cur=power_array[[param_tag]][i_file,,,,,i_ind,i_cell,,i_param]
       print(power_cur)
-      power_plot1(power_cur,cur_main=paste0("power of ",param_tag,", n ",ind_seq[i_ind],", ncell ",cell_seq[i_cell],", rep ",file_tag),cur_xlab=paste0("DE ",param_tag," change rate"),cur_ylab="Power",x_seq=NA,cur_xlim=NA,cur_ylim=NA,cur_legend=NA,cur_col=NA)
+      ##option1: still curve plot
+      #power_plot1(power_cur,cur_main=paste0("False Positive of ",param_tag,", n ",ind_seq[i_ind],", ncell ",cell_seq[i_cell],", rep ",file_tag),cur_xlab=paste0("DE ",param_tag," change rate"),cur_ylab="Type I error",x_seq=NA,cur_xlim=NA,cur_ylim=NA,cur_legend=NA,cur_col=NA)
+      ##option2: barplot
+      barplot(colMeans(power_cur, na.rm = TRUE, dims = 1),main=paste0("FDR of ",param_tag,", n ",ind_seq[i_ind],", ncell ",cell_seq[i_cell],", rep ",file_tag),xlab="",las=2,ylab="Type I error",x_seq=NA,cur_xlim=NA,cur_ylim=NA,cur_legend=NA,cur_col=NA,ylim=c(0,0.2),col=brewer.pal(ncol(power_cur),"Paired"))
+      abline(h=0.05,col="red")
+      
     }
   }
 }
-
-
 
 
 par(op)
