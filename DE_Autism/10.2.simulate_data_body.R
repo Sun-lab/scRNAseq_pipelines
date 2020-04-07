@@ -241,6 +241,7 @@ cal_nbzinb_param_multimodality_enlarge=function(mu=NA,size,drop,change_proportio
   size3=m^2/(m^2/size + t^2/size + t^2)
   return(c(size3))
 }
+
 # ############ Simulation Data Preparation ###############################
 
 
@@ -448,11 +449,13 @@ for(i in var_index){
 
 for(i in mult_index){
   for(j in 1:ncase){
+    
     sample_param_ctrl[i,j,2]=cal_nbzinb_param_multimodality_enlarge(mu=sample_param_ctrl[i,j,1]*(1-r_change_prop),
-                                                                    size=sample_param_ctrl[i,j,2],
+                                                                    size=(sample_param_ctrl[i,j,2]*2),
                                                                     drop=sample_param_ctrl[i,j,3],
                                                                     change_proportion=r_change_prop)
     sample_param_case[i,j,1]=sample_param_case[i,j,1]+sample_param_case[i,j,1]*2*(0.5-rbinom(1,1,0.5))*(r_change_prop)
+    sample_param_case[i,j,2]=sample_param_case[i,j,2]*2
   }
 }
 
@@ -461,11 +464,13 @@ for(i in dp_index){
     cur_dp=rbinom(1,1,dp_minor_prop)
     if(cur_dp==0){
       x=sample_param_case[i,j,]
-      sample_param_case[i,j,1:2]=calc_zinb_param(mu=x[1],theta=x[2],drop=x[3],r_m=r_mean2,r_v=1)
+      #sample_param_case[i,j,1:2]=calc_zinb_param(mu=x[1],theta=x[2],drop=x[3],r_m=r_mean2,r_v=1)
+      sample_param_case[i,j,1:2]=calc_zinb_param(mu=x[1],theta=x[2],drop=x[3],r_m=4,r_v=1) #here we set r_m=4
     }
     if(cur_dp==1){
       x= sample_param_ctrl[i,j,]
-      sample_param_ctrl[i,j,1:2]=calc_zinb_param(mu=x[1],theta=x[2],drop=x[3],r_m=r_mean2,r_v=1)
+      #sample_param_ctrl[i,j,1:2]=calc_zinb_param(mu=x[1],theta=x[2],drop=x[3],r_m=r_mean2,r_v=1)
+      sample_param_ctrl[i,j,1:2]=calc_zinb_param(mu=x[1],theta=x[2],drop=x[3],r_m=4,r_v=1) #here we set r_m=4
     }
   }
 }
@@ -626,8 +631,17 @@ for(i in 1:nall){
     
     sample_mean_k = exp(rnorm(nGeneTotal, log(mean_i), log(sample_mean_sd_i)))
     for (ig in 1:nGeneTotal) {
-      sim_matrix[ig,idx_i[k]] = emdbook::rzinbinom(1, sample_mean_k[ig], 
-                                                   disp_i[ig], drop_i[ig])
+      cur_count=emdbook::rzinbinom(1, sample_mean_k[ig], disp_i[ig], drop_i[ig])
+      if(is.na(cur_count)){
+        print(c(i,ik,ig,sample_mean_k[ig], disp_i[ig], drop_i[ig]))
+        while(is.na(cur_count)){
+          cur_count=emdbook::rzinbinom(1, sample_mean_k[ig], disp_i[ig], drop_i[ig])
+          if(!is.na(cur_count)){
+            print(c(i,ik,ig,cur_count))
+          }
+        }
+      }
+      sim_matrix[ig,idx_i[k]]=cur_count
       sim_param[ig,idx_i[k],]=c(sample_mean_k[ig], disp_i[ig], drop_i[ig])
     }
   }

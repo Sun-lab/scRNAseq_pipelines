@@ -235,7 +235,6 @@ if(!file.exists(paste0("../Data_PRJNA434002/10.Result/",sim_folder,"/dist_array/
         }
       }
     }
-    
     if(fit_method=="direct"){
       for(i_g in 1:nrow(sim_matrix)){
         cell_param=sim_param[i_g,,]
