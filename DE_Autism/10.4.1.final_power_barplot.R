@@ -19,8 +19,7 @@ fit_method_seq=c("empirical","zinb","direct")
 
 #shrink param
 perm_method_seq=""
-pre_tag_seq=c("dca","")
-dist_method_seq=c("mean","JSD")
+pre_tag_seq=""
 
 for(pre_tag in pre_tag_seq){
   if(pre_tag==""){
@@ -38,7 +37,7 @@ for(pre_tag in pre_tag_seq){
         r_mean_seq=1.2
         r_var_seq=1.2
         r_dp_seq=0.2
-        r_mult_seq=0.2
+        r_mult_seq=0.6
         
         ind_seq=c(10,20,40,60,100)
         cell_seq=c(20,50,100,200)
@@ -52,7 +51,7 @@ for(pre_tag in pre_tag_seq){
           param_tag="var"
         }
         if(param_tag==3){
-          r_mult_seq=1:5/10
+          r_mult_seq=1:4/5
           param_tag="mult"
         }
         if(param_tag==4){
