@@ -41,16 +41,16 @@ deseq_pval = results(dds)$pvalue
 
 pdf(paste0("../Data_PRJNA434002/10.Result/",sim_folder,"/fig_bulk_count_hist/p",perm_label,perm_method,"_DESeq2_pval_",r_mean,"_",r_var,"_",r_change_prop,"_",dp_minor_prop,"_",file_tag,".pdf"),height =15 ,width=10)
 
-op=par(mfrow = c(3, 2))
-for(ig in 1:30){
+op=par(mfrow = c(4, 2))
+for(ig in c(1:8,order(deseq_pval)[1:8])){
   cur_case=sim_matrix_bulk[ig,cur_info$phenotype==1]
   cur_ctrl=sim_matrix_bulk[ig,cur_info$phenotype==0]
-  hist(cur_case,col=rgb(1,0,0,0.5),main=paste0("bulk of gene ",ig),sub=paste0(
+  hist(cur_case,col=rgb(1,0,0,0.5),main=paste0("bulk of gene ",ig,",pval ",round(deseq_pval[ig],3)),sub=paste0(
     "mean-var case: ",round(mean(cur_case),2),"-",round(var(cur_case),2),
     " mean-var ctrl: ",round(mean(cur_ctrl),2),"-",round(var(cur_ctrl),2)))
   legend("topright",c("case","ctrl"),col=c(rgb(1,0,0,0.5),rgb(0,0,1,0.5)),pch=15)
   hist(cur_ctrl,add=T,col=rgb(0,0,1,0.5))
-  plot(density(cur_case),col=rgb(1,0,0,0.5),main=paste0("bulk of gene ",ig),sub=paste0(
+  plot(density(cur_case),col=rgb(1,0,0,0.5),main=paste0("bulk of gene ",ig,",pval ",round(deseq_pval[ig],3)),sub=paste0(
     "mean-var case: ",round(mean(cur_case),2),"-",round(var(cur_case),2),
     " mean-var ctrl: ",round(mean(cur_ctrl),2),"-",round(var(cur_ctrl),2)))
   legend("topright",c("case","ctrl"),col=c(rgb(1,0,0,0.5),rgb(0,0,1,0.5)),pch=15)
