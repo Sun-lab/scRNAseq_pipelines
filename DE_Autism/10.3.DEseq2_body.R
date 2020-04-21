@@ -3,8 +3,8 @@
 # file_tag=1
 # r_mean=1.5
 # r_var=1.5
-# r_disp=1.2
-# r_change_prop=0.6
+# r_dp=0.3
+# r_change_prop=0.8
 perm_label=0
 perm_method="" #c("","b") 
 sim_folder="sim_v6"

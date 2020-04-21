@@ -37,6 +37,7 @@ fit_nbzinb=function(input_numeric,input_x=NA){
         #print("zinb0")
       }
       if(sum(!is.na(input_x))>0){
+        input_x=scale(input_x)
         fm_zinb=tryCatch(pscl::zeroinfl(as.numeric(input_numeric) ~  input_x, dist = "negbin"), error = function(e) {print(e);NA} )
         #print("zinb1")
       }
@@ -59,6 +60,7 @@ fit_nbzinb=function(input_numeric,input_x=NA){
         #print("nb0")
       }
       if(sum(!is.na(input_x))>0){
+        input_x=scale(input_x)
         fm_nb=tryCatch(MASS::glm.nb(as.numeric(input_numeric) ~  input_x), error = function(e) {print(e);NA} )
         #print("nb1")
       }
@@ -96,6 +98,7 @@ fit_nb=function(input_numeric,input_x=NA){
       #print("nb0")
     }
     if(sum(!is.na(input_x))>0){
+      input_x=scale(input_x)
       fm_nb=tryCatch(MASS::glm.nb(as.numeric(input_numeric) ~  input_x), error = function(e) {print(e);NA} )
       #print("nb1")
     }

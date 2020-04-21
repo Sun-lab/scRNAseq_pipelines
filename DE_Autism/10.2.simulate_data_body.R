@@ -499,8 +499,8 @@ quantile(colSums(sample_param_ctrl[dp_index,,1]))
 
 # scatter plot 
 pdf(paste0("../Data_PRJNA434002/10.Result/",sim_folder,"/check_simulation/check_simulation_scatter_",r_mean,"_",r_var,"_",r_change_prop,"_",dp_minor_prop,"_",file_tag,".pdf"), 
-    width = 8, height = 6)
-par(mfrow = c(3, 4), pty = "s")
+    width = 10, height = 6)
+par(mfrow = c(3, 5), pty = "s")
 
 plot(log10(apply(sample_param_ctrl[de.mean + de.var + de.mult + de.dp == 0,,1], 1, mean)),
      log10(apply(sample_param_case[de.mean + de.var + de.mult + de.dp == 0,,1], 1, mean)),
@@ -616,7 +616,7 @@ for(i in 1:nall){
       }
     }
     if(!HET){
-      if(i > nctrl){
+      if(i > ncase){
         mean_i = sample_param_ctrl[,(i-ncase),1]
         disp_i = sample_param_ctrl[,(i-ncase),2]
         drop_i = sample_param_ctrl[,(i-ncase),3]
@@ -654,6 +654,84 @@ sim_matrix[1:4,1:4]
 
 table(c(sim_matrix) == 0)
 table(c(sim_matrix) == 0)/(nrow(sim_matrix)*ncol(sim_matrix))
+
+
+
+
+
+
+
+# scatter plot 2
+pdf(paste0("../Data_PRJNA434002/10.Result/",sim_folder,"/check_simulation/check_simulation_matrix_",r_mean,"_",r_var,"_",r_change_prop,"_",dp_minor_prop,"_",file_tag,".pdf"), 
+    width = 20, height = 40)
+par(mfrow = c(10, 5), pty = "s")
+
+for(ig in which(de.mean + de.var + de.mult + de.dp == 0)[1:10]){
+  for(i in c(1:5,(nall-4):nall)){
+    idx_i = ((i-1)*ncell+1):(i*ncell)
+    if(i<=ncase){
+      cur_col="red"
+      cur_label=paste0("count non-DE gene ",ig," of case ",i) }
+    if(i>=ncase){
+      cur_col="blue" 
+      cur_label=paste0("count non-DE gene ",ig," of ctrl ",i)}
+    hist(sim_matrix[ig,idx_i],col=cur_col,main= cur_label)
+  }
+}
+
+for(ig in which(de.mean==1)[1:10]){
+  for(i in c(1:5,(nall-4):nall)){
+    idx_i = ((i-1)*ncell+1):(i*ncell)
+    if(i<=ncase){
+      cur_col="red"
+      cur_label=paste0("count Mean-DE gene ",ig," of case ",i) }
+    if(i>=ncase){
+      cur_col="blue" 
+      cur_label=paste0("count Mean-DE gene ",ig," of ctrl ",i)}
+    hist(sim_matrix[ig,idx_i],col=cur_col,main= cur_label)
+  }
+}
+
+for(ig in which(de.var==1)[1:10]){
+  for(i in c(1:5,(nall-4):nall)){
+    idx_i = ((i-1)*ncell+1):(i*ncell)
+    if(i<=ncase){
+      cur_col="red"
+      cur_label=paste0("count Var-DE gene ",ig," of case ",i) }
+    if(i>=ncase){
+      cur_col="blue" 
+      cur_label=paste0("count Var-DE gene ",ig," of ctrl ",i)}
+    hist(sim_matrix[ig,idx_i],col=cur_col,main= cur_label)
+  }
+}
+
+for(ig in which(de.mult==1)[1:10]){
+  for(i in c(1:5,(nall-4):nall)){
+    idx_i = ((i-1)*ncell+1):(i*ncell)
+    if(i<=ncase){
+      cur_col="red"
+      cur_label=paste0("count Mult-DE gene ",ig," of case ",i) }
+    if(i>=ncase){
+      cur_col="blue" 
+      cur_label=paste0("count Mult-DE gene ",ig," of ctrl ",i)}
+    hist(sim_matrix[ig,idx_i],col=cur_col,main= cur_label)
+  }
+}
+
+for(ig in which(de.dp==1)[1:10]){
+  for(i in c(1:5,(nall-4):nall)){
+    idx_i = ((i-1)*ncell+1):(i*ncell)
+    if(i<=ncase){
+      cur_col="red"
+      cur_label=paste0("count DP-DE gene ",ig," of case ",i) }
+    if(i>=ncase){
+      cur_col="blue" 
+      cur_label=paste0("count DP-DE gene ",ig," of ctrl ",i)}
+    hist(sim_matrix[ig,idx_i],col=cur_col,main= cur_label)
+  }
+}
+dev.off()
+
 
 ####################### Meta information collection #################
 
@@ -726,7 +804,11 @@ for (i_ind in 1:length(cur_individual)) {
 
 tapply(read_depth, phenotype_ind, summary)
 
+########################Other cell level info################################
+#sim_matrix=readRDS(paste0("../Data_PRJNA434002/10.Result/",sim_folder,"/sim_data/sim_matrix_",r_mean,"_",r_var,"_",r_change_prop,"_",dp_minor_prop,"_",file_tag,".rds"))
 
+cell_readdepth=apply(sim_matrix,2,sum)
+cell_count_quantile=apply(sim_matrix,2,quantile)
 
 #almost no need to adjust library size.
 saveRDS(de.mean,paste0("../Data_PRJNA434002/10.Result/",sim_folder,"/de_label/sim_de.mean_",r_mean,"_",r_var,"_",r_change_prop,"_",dp_minor_prop,"_",file_tag,".rds"))
@@ -743,10 +825,11 @@ saveRDS(sim_matrix,paste0("../Data_PRJNA434002/10.Result/",sim_folder,"/sim_data
 saveRDS(meta,paste0("../Data_PRJNA434002/10.Result/",sim_folder,"/sim_data/sim_meta_",r_mean,"_",r_var,"_",r_change_prop,"_",dp_minor_prop,"_",file_tag,".rds"))
 saveRDS(sim_matrix_bulk,paste0("../Data_PRJNA434002/10.Result/",sim_folder,"/sim_data/sim_matrix_bulk_",r_mean,"_",r_var,"_",r_change_prop,"_",dp_minor_prop,"_",file_tag,".rds"))
 
+saveRDS(cell_readdepth,paste0("../Data_PRJNA434002/10.Result/",sim_folder,"/sim_data/sim_cell_readdepth_",r_mean,"_",r_var,"_",r_change_prop,"_",dp_minor_prop,"_",file_tag,".rds"))
+saveRDS(cell_count_quantile,paste0("../Data_PRJNA434002/10.Result/",sim_folder,"/sim_data/sim_cell_count_quantile_",r_mean,"_",r_var,"_",r_change_prop,"_",dp_minor_prop,"_",file_tag,".rds"))
+
+
 write.csv(sim_matrix,paste0("../Data_PRJNA434002/10.Result/",sim_folder,"/dca_data/sim_matrix_",r_mean,"_",r_var,"_",r_change_prop,"_",dp_minor_prop,"_",file_tag,".csv"))
-
-
-
 
 
 

@@ -23,6 +23,7 @@ tol=10
 perm_label_seq=0:10
 sim_folder="sim_v6"
 fit_tag="nb" # ""(zinb) or "nb"
+covariate_flag="readdepth" #c("","readdepth","q50","q75","q100")
 sim_n=3
 
 ##############functions#################
@@ -44,6 +45,19 @@ sim_dropout=read.table(paste0("../Data_PRJNA434002/10.Result/",sim_folder,"/dca_
 sim_param=abind(sim_mean,sim_dispersion,sim_dropout,along=3)
 dimnames(sim_param)[[2]]=colnames(sim_mean)
 dimnames(sim_param)[[3]]=c("mean","overdisp","dropout")
+
+if(covariate_flag=="readdepth"){
+  covariate=as.matrix(readRDS(paste0("../Data_PRJNA434002/10.Result/",sim_folder,"/sim_data/sim_cell_readdepth_",r_mean,"_",r_var,"_",r_change_prop,"_",dp_minor_prop,"_",file_tag,".rds")))
+}
+if(covariate_flag=="q50"){
+  covariate=as.matrix(readRDS(paste0("../Data_PRJNA434002/10.Result/",sim_folder,"/sim_data/sim_cell_count_quantile_",r_mean,"_",r_var,"_",r_change_prop,"_",dp_minor_prop,"_",file_tag,".rds")))[3,]
+}
+if(covariate_flag=="q75"){
+  covariate=as.matrix(readRDS(paste0("../Data_PRJNA434002/10.Result/",sim_folder,"/sim_data/sim_cell_count_quantile_",r_mean,"_",r_var,"_",r_change_prop,"_",dp_minor_prop,"_",file_tag,".rds")))[4,]
+}
+if(covariate_flag=="q100"){
+  covariate=as.matrix(readRDS(paste0("../Data_PRJNA434002/10.Result/",sim_folder,"/sim_data/sim_cell_count_quantile_",r_mean,"_",r_var,"_",r_change_prop,"_",dp_minor_prop,"_",file_tag,".rds")))[5,]
+}
 
 #####construct reconstructed data #############
 
@@ -71,7 +85,7 @@ for(i_g in 1:nrow(sim_mean)){
     #fit sim
     cur_sim_ind=as.numeric(cur_sim[meta$individual==cur_ind,])
     
-    if(!is.na(covariate_flag)){
+    if(covariate_flag!=""){
       cur_covariate=rep(covariate[meta$individual==cur_ind,],sim_n)
       if(fit_tag==""){
         fit_ind[i_g,i_ind,]=fit_nbzinb(cur_sim_ind,cur_covariate)
@@ -81,7 +95,7 @@ for(i_g in 1:nrow(sim_mean)){
       }
       
     }
-    if(is.na(covariate_flag)){
+    if(covariate_flag==""){
       if(fit_tag==""){
         fit_ind[i_g,i_ind,]=fit_nbzinb(cur_sim_ind)
       }
@@ -94,12 +108,9 @@ for(i_g in 1:nrow(sim_mean)){
   print(i_g)
 }
 
-saveRDS(fit_ind,paste0("../Data_PRJNA434002/10.Result/",sim_folder,"/dca_data/fit_ind_",fit_tag,r_mean,"_",r_var,"_",r_change_prop,"_",dp_minor_prop,"_",file_tag,".rds"))
-
-saveRDS(sim_ind,paste0("../Data_PRJNA434002/10.Result/",sim_folder,"/dca_data/sim_ind_",fit_tag,r_mean,"_",r_var,"_",r_change_prop,"_",dp_minor_prop,"_",file_tag,".rds"))
-
-
-saveRDS(sim_param,paste0("../Data_PRJNA434002/10.Result/",sim_folder,"/dca_data/sim_param_",fit_tag,r_mean,"_",r_var,"_",r_change_prop,"_",dp_minor_prop,"_",file_tag,".rds"))
+saveRDS(fit_ind,paste0("../Data_PRJNA434002/10.Result/",sim_folder,"/dca_data/fit_ind_",covariate_flag,fit_tag,r_mean,"_",r_var,"_",r_change_prop,"_",dp_minor_prop,"_",file_tag,".rds"))
+saveRDS(sim_ind,paste0("../Data_PRJNA434002/10.Result/",sim_folder,"/dca_data/sim_ind_",covariate_flag,fit_tag,r_mean,"_",r_var,"_",r_change_prop,"_",dp_minor_prop,"_",file_tag,".rds"))
+saveRDS(sim_param,paste0("../Data_PRJNA434002/10.Result/",sim_folder,"/dca_data/sim_param_",covariate_flag,fit_tag,r_mean,"_",r_var,"_",r_change_prop,"_",dp_minor_prop,"_",file_tag,".rds"))
 
 sessionInfo()
 #q(save="no")
