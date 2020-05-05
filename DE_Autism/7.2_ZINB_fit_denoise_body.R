@@ -10,9 +10,9 @@
 #setwd("/Users/mzhang24/Desktop/fh/1.Testing_scRNAseq/")
 setwd("/fh/fast/sun_w/mengqi/1.Testing_scRNAseq/")
 
-fit_tag="nb" # ""(zinb) or "nb"
+fit_tag="" # ""(zinb) or "nb"
 sim_n=10
-covariate_flag=NA #c(NA, "quantile99","quantile99_readdepth","readdepth")
+covariate_flag="readdepth" #c(NA, "quantile99","quantile99_readdepth","readdepth")
 dataset_folder="Data_PRJNA434002"  #Data_PRJNA434002   MS
 
 library("ggplot2")
@@ -45,8 +45,11 @@ if(!is.na(grep("PFC",file_tag))){
 }
 
 #name match for MS samples
-colnames(tmeta)[grep("cell_type",names(tmeta))]="cluster"
-colnames(tmeta)[grep("sample",names(tmeta))]="individual"
+if(dataset_folder=="MS"){
+  colnames(tmeta)[grep("cell_type",names(tmeta))]="cluster"
+  colnames(tmeta)[grep("sample",names(tmeta))]="individual"
+}
+
 
 
 #adjust t_mean with total read depth per 1000 counts.
@@ -79,23 +82,21 @@ fit_ind_sub_sim=array(dim=c(nrow(sub_mean),length(cur_individual),3),
 
 sim_ind=array(dim=c(nrow(sub_mean),ncol(sub_mean),sim_n),
                       dimnames = list(rownames(sub_mean),colnames(sub_mean),1:sim_n))
+sim_ind_adj=sim_ind #adj for covariate
 
-if(!is.na(covariate_flag)){
-  if("quantile99" %in% covariate_flag){
-    quantile99=log(apply(sub_mean,2,function(x)return(quantile(x,0.99)+1)))
-    covariate=as.matrix(quantile99)
-  }
-  if("readdepth" %in% covariate_flag){
-    quantile99=log(apply(sub_mean,2,function(x)return(quantile(x,0.99)+1)))
-    covariate=log(apply(sub_mean,2,function(x)return(sum(x,na.rm = TRUE))))
-  }
+if("quantile99" %in% covariate_flag){ #only 1 covaraite allowed
+  quantile99=apply(sub_mean,2,function(x)return(quantile(x,0.99)+1))
+  covariate=as.matrix(quantile99)
+  log_covariate=log(covariate)
+  covariate_ratio=covariate/median(covariate)
+}
+if("readdepth" %in% covariate_flag){  #only 1 covaraite allowed
+  covariate=apply(sub_mean,2,function(x)return(sum(x,na.rm = TRUE)))
+  log_covariate=log(covariate)
+  covariate_ratio=covariate/median(covariate)
+}
   
-  pdf(paste0("../",dataset_folder,"/7.Result/hist_",covariate_flag,"_",pre_tag,"_sim_",cluster_tag,"_",file_tag,".pdf"),height = 4,width = 6)
-}
-if(is.na(covariate_flag)){
-  pdf(paste0("../",dataset_folder,"/7.Result/hist_",pre_tag,"_sim_",cluster_tag,"_",file_tag,".pdf"),height = 4,width = 6)
-}
-
+pdf(paste0("../",dataset_folder,"/7.Result/hist_",covariate_flag,pre_tag,"_sim_",cluster_tag,"_",file_tag,".pdf"),height = 4,width = 6)
 for(i_g in 1:nrow(sub_mean)){
   cur_sim=matrix(ncol=sim_n,nrow=ncol(sub_mean))
   for(i_s in 1:ncol(sub_mean)){
@@ -105,8 +106,17 @@ for(i_g in 1:nrow(sub_mean)){
     if(fit_tag=="nb"){
       cur_sim[i_s,]=rnbinom(n=sim_n,mu=sub_mean[i_g,i_s], size=sub_dispersion[i_g,i_s])
     }
+    
   }
   sim_ind[i_g,,]=cur_sim
+  if(!is.na(covariate_flag)){
+    cur_sim_adj=cur_sim
+    for(i_s in 1:ncol(sub_mean)){
+      cur_sim_adj[i_s,]=cur_sim_adj[i_s,]/covariate_ratio[i_s] 
+    }
+    sim_ind_adj[i_g,,]=cur_sim_adj
+  }
+  
   for(i_ind in 1:length(cur_individual)){
     cur_ind=cur_individual[i_ind]
 
@@ -114,7 +124,7 @@ for(i_g in 1:nrow(sub_mean)){
     cur_sim_ind=as.numeric(cur_sim[meta$individual==cur_ind,])
     
     if(!is.na(covariate_flag)){
-      cur_covariate=rep(covariate[meta$individual==cur_ind,],sim_n)
+      cur_covariate=rep(log_covariate[meta$individual==cur_ind],sim_n)
       if(fit_tag==""){
         fit_ind_sub_sim[i_g,i_ind,]=fit_nbzinb(cur_sim_ind,cur_covariate)
       }
@@ -145,16 +155,17 @@ for(i_g in 1:nrow(sub_mean)){
 }
 dev.off()
 
-if(!is.na(covariate_flag)){
-  saveRDS(fit_ind_sub_sim,paste0("../",dataset_folder,"/7.Result/fit_ind_",covariate_flag,"_",fit_tag,pre_tag,"_sim_",cluster_tag,"_",file_tag,".rds"))
-  saveRDS(sim_ind,paste0("../",dataset_folder,"/7.Result/sim_ind_",covariate_flag,"_",fit_tag,pre_tag,"_sim_",cluster_tag,"_",file_tag,".rds"))
-}
+saveRDS(fit_ind_sub_sim,paste0("../",dataset_folder,"/7.Result/fit_ind_",covariate_flag,fit_tag,pre_tag,"_sim_",cluster_tag,"_",file_tag,".rds"))
+saveRDS(sim_ind,paste0("../",dataset_folder,"/7.Result/sim_ind_",fit_tag,pre_tag,"_sim_",cluster_tag,"_",file_tag,".rds"))
+saveRDS
 if(is.na(covariate_flag)){
-  saveRDS(fit_ind_sub_sim,paste0("../",dataset_folder,"/7.Result/fit_ind_",fit_tag,pre_tag,"_sim_",cluster_tag,"_",file_tag,".rds"))
-  saveRDS(sim_ind,paste0("../",dataset_folder,"/7.Result/sim_ind_",fit_tag,pre_tag,"_sim_",cluster_tag,"_",file_tag,".rds"))
+  saveRDS(sim_ind_adj,paste0("../",dataset_folder,"/7.Result/sim_ind_",covariate_flag,fit_tag,pre_tag,"_sim_",cluster_tag,"_",file_tag,".rds"))
+  saveRDS(covariate,paste0("../",dataset_folder,"/7.Result/covariate_",covariate_flag,fit_tag,pre_tag,"_sim_",cluster_tag,"_",file_tag,".rds"))
+  saveRDS(covariate_ratio,paste0("../",dataset_folder,"/7.Result/covariate_ratio_",covariate_flag,fit_tag,pre_tag,"_sim_",cluster_tag,"_",file_tag,".rds"))
+  
+  
+  
 }
-
-
 
 sessionInfo()
 q(save="no")

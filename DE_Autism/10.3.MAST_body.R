@@ -15,7 +15,7 @@ perm_method="" #c("","b")
 sim_folder="sim_v6"
 
 n_seq=c(50,30,20,10,5)
-ncell_seq=c(200,100,50,20)
+ncell_seq=c(800,400,200,100,50,20)
 
 sim_matrix=readRDS(paste0("../Data_PRJNA434002/10.Result/",sim_folder,"/sim_data/sim_matrix_",r_mean,"_",r_var,"_",r_change_prop,"_",dp_minor_prop,"_",file_tag,".rds"))
 t_meta=readRDS(paste0("../Data_PRJNA434002/10.Result/",sim_folder,"/sim_data/sim_meta_",r_mean,"_",r_var,"_",r_change_prop,"_",dp_minor_prop,"_",file_tag,".rds"))
