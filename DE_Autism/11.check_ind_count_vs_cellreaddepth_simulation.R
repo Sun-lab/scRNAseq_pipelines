@@ -57,15 +57,23 @@ ind=as.factor(sim_meta$individual)
 
 pdf(paste0("~/Desktop/github/scRNAseq_pipelines/DE_Autism/11.check/11.check_ind_count_vs_cellreaddepth_simulation_",file_tag,".pdf"),width = 5,height=3)
 #for mean-DE
+sub_ind=1:nrow(sim_meta)
+sub_ind_num=10
+ncell=800
+sub_ind=((nrow(sim_meta)/2)-ncell*sub_ind_num+1):((nrow(sim_meta)/2)+ncell*sub_ind_num)
+
 for(ig in which(de.mean==1)[1:5]){
-  count=sim_matrix[ig,]
-  count_adj=sim_matrix_adj[ig,]
-  count_resid=log_sim_resid[ig,]
-  cur_df=data.frame(count,count_adj,count_resid,ind,phenotype)
+  #count=sim_matrix[ig,]
+  #count_adj=sim_matrix_adj[ig,]
+  log_count=log(sim_matrix[ig,]+1)
+  log_count_adj=log(sim_matrix_adj[ig,]+0.1)
+  log_count_resid=log_sim_resid[ig,]
+  cur_df=data.frame(log_count,log_count_adj,log_count_resid,ind,phenotype)
+  cur_df=cur_df[sub_ind,]
   cur_df$sim_meta.phenotype=as.factor(cur_df$phenotype)
-  p1=ggplot(cur_df, aes(x=count, color=phenotype, group=ind)) +geom_density(bw=0.5) + ggtitle(paste0("raw count: mean-DE gene", ig))
-  p2=ggplot(cur_df, aes(x=count_adj, color=phenotype, group=ind)) +geom_density(bw=0.5) + ggtitle(paste0("adj count: mean-DE gene", ig))
-  p3=ggplot(cur_df, aes(x=count_resid, color=phenotype, group=ind)) +geom_density(bw=0.5) + ggtitle(paste0("resid count: mean-DE gene", ig))
+  p1=ggplot(cur_df, aes(x=log_count, color=phenotype, group=ind)) +geom_density(bw=.2) + ggtitle(paste0("raw log_count: mean-DE gene", ig))
+  p2=ggplot(cur_df, aes(x=log_count_adj, color=phenotype, group=ind)) +geom_density(bw=.2) + ggtitle(paste0("adj log_count: mean-DE gene", ig))
+  p3=ggplot(cur_df, aes(x=log_count_resid, color=phenotype, group=ind)) +geom_density(bw=.2) + ggtitle(paste0("resid log_count: mean-DE gene", ig))
   print(p1)
   print(p2)
   print(p3)
@@ -73,14 +81,17 @@ for(ig in which(de.mean==1)[1:5]){
 
 #for var-DE
 for(ig in which(de.var==1)[1:5]){
-  count=sim_matrix[ig,]
-  count_adj=sim_matrix_adj[ig,]
-  count_resid=log_sim_resid[ig,]
-  cur_df=data.frame(count,count_adj,count_resid,ind,phenotype)
+  #count=sim_matrix[ig,]
+  #count_adj=sim_matrix_adj[ig,]
+  log_count=log(sim_matrix[ig,]+1)
+  log_count_adj=log(sim_matrix_adj[ig,]+0.1)
+  log_count_resid=log_sim_resid[ig,]
+  cur_df=data.frame(log_count,log_count_adj,log_count_resid,ind,phenotype)
+  cur_df=cur_df[sub_ind,]
   cur_df$sim_meta.phenotype=as.factor(cur_df$phenotype)
-  p1=ggplot(cur_df, aes(x=count, color=phenotype, group=ind)) +geom_density(bw=0.5) + ggtitle(paste0("raw count: var-DE gene", ig))
-  p2=ggplot(cur_df, aes(x=count_adj, color=phenotype, group=ind)) +geom_density(bw=0.5) + ggtitle(paste0("adj count: var-DE gene", ig))
-  p3=ggplot(cur_df, aes(x=count_resid, color=phenotype, group=ind)) +geom_density(bw=0.5) + ggtitle(paste0("resid count: var-DE gene", ig))
+  p1=ggplot(cur_df, aes(x=log_count, color=phenotype, group=ind)) +geom_density(bw=.2) + ggtitle(paste0("raw log_count: var-DE gene", ig))
+  p2=ggplot(cur_df, aes(x=log_count_adj, color=phenotype, group=ind)) +geom_density(bw=.2) + ggtitle(paste0("adj log_count: var-DE gene", ig))
+  p3=ggplot(cur_df, aes(x=log_count_resid, color=phenotype, group=ind)) +geom_density(bw=.2) + ggtitle(paste0("resid log_count: var-DE gene", ig))
   print(p1)
   print(p2)
   print(p3)
@@ -88,14 +99,17 @@ for(ig in which(de.var==1)[1:5]){
 
 #for dp-DE
 for(ig in which(de.dp==1)[1:5]){
-  count=sim_matrix[ig,]
-  count_adj=sim_matrix_adj[ig,]
-  count_resid=log_sim_resid[ig,]
-  cur_df=data.frame(count,count_adj,count_resid,ind,phenotype)
+  #count=sim_matrix[ig,]
+  #count_adj=sim_matrix_adj[ig,]
+  log_count=log(sim_matrix[ig,]+1)
+  log_count_adj=log(sim_matrix_adj[ig,]+0.1)
+  log_count_resid=log_sim_resid[ig,]
+  cur_df=data.frame(log_count,log_count_adj,log_count_resid,ind,phenotype)
+  cur_df=cur_df[sub_ind,]
   cur_df$sim_meta.phenotype=as.factor(cur_df$phenotype)
-  p1=ggplot(cur_df, aes(x=count, color=phenotype, group=ind)) +geom_density(bw=0.5) + ggtitle(paste0("raw count: dp-DE gene", ig))
-  p2=ggplot(cur_df, aes(x=count_adj, color=phenotype, group=ind)) +geom_density(bw=0.5) + ggtitle(paste0("adj count: dp-DE gene", ig))
-  p3=ggplot(cur_df, aes(x=count_resid, color=phenotype, group=ind)) +geom_density(bw=0.5) + ggtitle(paste0("resid count: dp-DE gene", ig))
+  p1=ggplot(cur_df, aes(x=log_count, color=phenotype, group=ind)) +geom_density(bw=.2) + ggtitle(paste0("raw log_count: dp-DE gene", ig))
+  p2=ggplot(cur_df, aes(x=log_count_adj, color=phenotype, group=ind)) +geom_density(bw=.2) + ggtitle(paste0("adj log_count: dp-DE gene", ig))
+  p3=ggplot(cur_df, aes(x=log_count_resid, color=phenotype, group=ind)) +geom_density(bw=.2) + ggtitle(paste0("resid log_count: dp-DE gene", ig))
   print(p1)
   print(p2)
   print(p3)
@@ -103,14 +117,17 @@ for(ig in which(de.dp==1)[1:5]){
 
 #for mult-DE
 for(ig in which(de.mult==1)[1:5]){
-  count=sim_matrix[ig,]
-  count_adj=sim_matrix_adj[ig,]
-  count_resid=log_sim_resid[ig,]
-  cur_df=data.frame(count,count_adj,count_resid,ind,phenotype)
+  #count=sim_matrix[ig,]
+  #count_adj=sim_matrix_adj[ig,]
+  log_count=log(sim_matrix[ig,]+1)
+  log_count_adj=log(sim_matrix_adj[ig,]+0.1)
+  log_count_resid=log_sim_resid[ig,]
+  cur_df=data.frame(log_count,log_count_adj,log_count_resid,ind,phenotype)
+  cur_df=cur_df[sub_ind,]
   cur_df$sim_meta.phenotype=as.factor(cur_df$phenotype)
-  p1=ggplot(cur_df, aes(x=count, color=phenotype, group=ind)) +geom_density(bw=0.5) + ggtitle(paste0("raw count: mult-DE gene", ig))
-  p2=ggplot(cur_df, aes(x=count_adj, color=phenotype, group=ind)) +geom_density(bw=0.5) + ggtitle(paste0("adj count: mult-DE gene", ig))
-  p3=ggplot(cur_df, aes(x=count_resid, color=phenotype, group=ind)) +geom_density(bw=0.5) + ggtitle(paste0("resid count: mult-DE gene", ig))
+  p1=ggplot(cur_df, aes(x=log_count, color=phenotype, group=ind)) +geom_density(bw=.2) + ggtitle(paste0("raw log_count: mult-DE gene", ig))
+  p2=ggplot(cur_df, aes(x=log_count_adj, color=phenotype, group=ind)) +geom_density(bw=.2) + ggtitle(paste0("adj log_count: mult-DE gene", ig))
+  p3=ggplot(cur_df, aes(x=log_count_resid, color=phenotype, group=ind)) +geom_density(bw=.2) + ggtitle(paste0("resid log_count: mult-DE gene", ig))
   print(p1)
   print(p2)
   print(p3)
@@ -119,14 +136,17 @@ for(ig in which(de.mult==1)[1:5]){
 
 #for none-DE
 for(ig in which(de.mean+de.var+de.dp+de.mult==0)[1:5]){
-  count=sim_matrix[ig,]
-  count_adj=sim_matrix_adj[ig,]
-  count_resid=log_sim_resid[ig,]
-  cur_df=data.frame(count,count_adj,count_resid,ind,phenotype)
+  #count=sim_matrix[ig,]
+  #count_adj=sim_matrix_adj[ig,]
+  log_count=log(sim_matrix[ig,]+1)
+  log_count_adj=log(sim_matrix_adj[ig,]+0.1)
+  log_count_resid=log_sim_resid[ig,]
+  cur_df=data.frame(log_count,log_count_adj,log_count_resid,ind,phenotype)
+  cur_df=cur_df[sub_ind,]
   cur_df$sim_meta.phenotype=as.factor(cur_df$phenotype)
-  p1=ggplot(cur_df, aes(x=count, color=phenotype, group=ind)) +geom_density(bw=0.5) + ggtitle(paste0("raw count: none-DE gene", ig))
-  p2=ggplot(cur_df, aes(x=count_adj, color=phenotype, group=ind)) +geom_density(bw=0.5) + ggtitle(paste0("adj count: none-DE gene", ig))
-  p3=ggplot(cur_df, aes(x=count_resid, color=phenotype, group=ind)) +geom_density(bw=0.5) + ggtitle(paste0("resid count: none-DE gene", ig))
+  p1=ggplot(cur_df, aes(x=log_count, color=phenotype, group=ind)) +geom_density(bw=.2) + ggtitle(paste0("raw log_count: none-DE gene", ig))
+  p2=ggplot(cur_df, aes(x=log_count_adj, color=phenotype, group=ind)) +geom_density(bw=.2) + ggtitle(paste0("adj log_count: none-DE gene", ig))
+  p3=ggplot(cur_df, aes(x=log_count_resid, color=phenotype, group=ind)) +geom_density(bw=.2) + ggtitle(paste0("resid log_count: none-DE gene", ig))
   print(p1)
   print(p2)
   print(p3)

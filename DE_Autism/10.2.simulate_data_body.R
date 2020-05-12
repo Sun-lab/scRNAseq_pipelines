@@ -678,9 +678,12 @@ date()
 for(i in 1:nall){
   idx_i = ((i-1)*ncell+1):(i*ncell)
   for(k in 1:ncell){
-    cell_distr_flag=rbinom(1,1,0.5)+1
-    sub_sample_param_case=sample_param_case[,,,cell_distr_flag]
-    sub_sample_param_ctrl=sample_param_ctrl[,,,cell_distr_flag]
+    cell_distr_flag=rbinom(1,1,0.5)+1 #indicate the minor prop for simulation
+    sub_sample_param_case=sample_param_case[,,,cell_distr_flag] #equally separated for mult as design
+    sub_sample_param_ctrl=sample_param_ctrl[,,,cell_distr_flag] #equally separated for mult as design
+    cell_distr_flag_dp_add=(cell_distr_flag-1)*rbinom(1,1,prob=(dp_minor_prop*2))+1
+    sub_sample_param_case[which(de.dp==1),,]=sample_param_case[which(de.dp==1),,,cell_distr_flag_dp_add] #equally separated for dp as design
+    sub_sample_param_ctrl[which(de.dp==1),,]=sample_param_ctrl[which(de.dp==1),,,cell_distr_flag_dp_add] #equally separated for dp as design
     if(HET){
       if(i > ncase && k > ncell/2 ){
         mean_i = sub_sample_param_ctrl[,(i-ncase),1]

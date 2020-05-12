@@ -26,6 +26,8 @@ fit_tag="nb" # ""(zinb) or "nb"
 covariate_flag="readdepth" #c("","readdepth","q50","q75","q100")
 sim_n=3
 
+sub_unit=1000 #sub_unit (gene num in each sub file) is used with sub_index (sub file index, defined in each head files, could be "") to separate genes for manual paralelle settings. 
+
 ##############functions#################
 library("ggplot2")
 library("emdbook")
@@ -41,6 +43,14 @@ meta=readRDS(paste0("../Data_PRJNA434002/10.Result/",sim_folder,"/sim_data/sim_m
 sim_mean=read.table(paste0("../Data_PRJNA434002/10.Result/",sim_folder,"/dca_data/dca_",r_mean,"_",r_var,"_",r_change_prop,"_",dp_minor_prop,"_",file_tag,"/mean.tsv"),stringsAsFactors = FALSE)
 sim_dispersion=read.table(paste0("../Data_PRJNA434002/10.Result/",sim_folder,"/dca_data/dca_",r_mean,"_",r_var,"_",r_change_prop,"_",dp_minor_prop,"_",file_tag,"/dispersion.tsv"),stringsAsFactors = FALSE,row.names = 1)
 sim_dropout=read.table(paste0("../Data_PRJNA434002/10.Result/",sim_folder,"/dca_data/dca_",r_mean,"_",r_var,"_",r_change_prop,"_",dp_minor_prop,"_",file_tag,"/dropout.tsv"),stringsAsFactors = FALSE,row.names = 1)
+
+
+if(sub_index!=""){
+  sim_mean=sim_mean[(((sub_index-1)*sub_unit+1):(sub_index*sub_unit)),]
+  sim_dispersion=sim_dispersion[(((sub_index-1)*sub_unit+1):(sub_index*sub_unit)),]
+  sim_dropout=sim_dropout[(((sub_index-1)*sub_unit+1):(sub_index*sub_unit)),]
+}
+gc()
 
 sim_param=abind(sim_mean,sim_dispersion,sim_dropout,along=3)
 dimnames(sim_param)[[2]]=colnames(sim_mean)
@@ -108,9 +118,9 @@ for(i_g in 1:nrow(sim_mean)){
   print(i_g)
 }
 
-saveRDS(fit_ind,paste0("../Data_PRJNA434002/10.Result/",sim_folder,"/dca_data/fit_ind_",covariate_flag,fit_tag,r_mean,"_",r_var,"_",r_change_prop,"_",dp_minor_prop,"_",file_tag,".rds"))
-saveRDS(sim_ind,paste0("../Data_PRJNA434002/10.Result/",sim_folder,"/dca_data/sim_ind_",covariate_flag,fit_tag,r_mean,"_",r_var,"_",r_change_prop,"_",dp_minor_prop,"_",file_tag,".rds"))
-saveRDS(sim_param,paste0("../Data_PRJNA434002/10.Result/",sim_folder,"/dca_data/sim_param_",covariate_flag,fit_tag,r_mean,"_",r_var,"_",r_change_prop,"_",dp_minor_prop,"_",file_tag,".rds"))
+saveRDS(fit_ind,paste0("../Data_PRJNA434002/10.Result/",sim_folder,"/dca_data/fit_ind_",covariate_flag,fit_tag,r_mean,"_",r_var,"_",r_change_prop,"_",dp_minor_prop,"_",file_tag,sub_unit,".rds"))
+saveRDS(sim_ind,paste0("../Data_PRJNA434002/10.Result/",sim_folder,"/dca_data/sim_ind_",covariate_flag,fit_tag,r_mean,"_",r_var,"_",r_change_prop,"_",dp_minor_prop,"_",file_tag,sub_unit,".rds"))
+saveRDS(sim_param,paste0("../Data_PRJNA434002/10.Result/",sim_folder,"/dca_data/sim_param_",covariate_flag,fit_tag,r_mean,"_",r_var,"_",r_change_prop,"_",dp_minor_prop,"_",file_tag,sub_unit,".rds"))
 
 sessionInfo()
 #q(save="no")

@@ -3,7 +3,7 @@
 #step1: simulate 10 samples based on the parameters of distributions on each cell each gene.
 #step2: compare the distribution with the original cells of certain type,certain individual
 # cluster_tag=1
-# file_tag="3k10"
+# file_tag="PFC3k"
 # pre_tag="dca" #c("dca","scvi")
 # 
 # setwd("~/Desktop/fh/1.Testing_scRNAseq/")
@@ -83,6 +83,7 @@ fit_ind_sub_sim=array(dim=c(nrow(sub_mean),length(cur_individual),3),
 sim_ind=array(dim=c(nrow(sub_mean),ncol(sub_mean),sim_n),
                       dimnames = list(rownames(sub_mean),colnames(sub_mean),1:sim_n))
 sim_ind_adj=sim_ind #adj for covariate
+sim_ind_logresid=sim_ind #adj for covariate
 
 if("quantile99" %in% covariate_flag){ #only 1 covaraite allowed
   quantile99=apply(sub_mean,2,function(x)return(quantile(x,0.99)+1))
@@ -111,9 +112,16 @@ for(i_g in 1:nrow(sub_mean)){
   sim_ind[i_g,,]=cur_sim
   if(!is.na(covariate_flag)){
     cur_sim_adj=cur_sim
+    cur_sim_logresid=cur_sim
+    #resid
+    for(i_sim in 1:sim_n){
+      cur_sim_logresid[,i_sim]=lm(log(cur_sim_logresid[,i_sim]+1)~log_covariate)$residuals
+    }
+    #adj
     for(i_s in 1:ncol(sub_mean)){
       cur_sim_adj[i_s,]=cur_sim_adj[i_s,]/covariate_ratio[i_s] 
     }
+    sim_ind_logresid[i_g,,]=cur_sim_logresid
     sim_ind_adj[i_g,,]=cur_sim_adj
   }
   
@@ -157,15 +165,11 @@ dev.off()
 
 saveRDS(fit_ind_sub_sim,paste0("../",dataset_folder,"/7.Result/fit_ind_",covariate_flag,fit_tag,pre_tag,"_sim_",cluster_tag,"_",file_tag,".rds"))
 saveRDS(sim_ind,paste0("../",dataset_folder,"/7.Result/sim_ind_",fit_tag,pre_tag,"_sim_",cluster_tag,"_",file_tag,".rds"))
-saveRDS
-if(is.na(covariate_flag)){
-  saveRDS(sim_ind_adj,paste0("../",dataset_folder,"/7.Result/sim_ind_",covariate_flag,fit_tag,pre_tag,"_sim_",cluster_tag,"_",file_tag,".rds"))
-  saveRDS(covariate,paste0("../",dataset_folder,"/7.Result/covariate_",covariate_flag,fit_tag,pre_tag,"_sim_",cluster_tag,"_",file_tag,".rds"))
-  saveRDS(covariate_ratio,paste0("../",dataset_folder,"/7.Result/covariate_ratio_",covariate_flag,fit_tag,pre_tag,"_sim_",cluster_tag,"_",file_tag,".rds"))
-  
-  
-  
-}
+saveRDS(sim_ind_adj,paste0("../",dataset_folder,"/7.Result/sim_ind_adj",covariate_flag,fit_tag,pre_tag,"_sim_",cluster_tag,"_",file_tag,".rds")) #if covariate flag works, then adj can be defined from here
+saveRDS(sim_ind_logresid,paste0("../",dataset_folder,"/7.Result/sim_ind_logresid",covariate_flag,fit_tag,pre_tag,"_sim_",cluster_tag,"_",file_tag,".rds"))
+saveRDS(covariate,paste0("../",dataset_folder,"/7.Result/covariate_",covariate_flag,fit_tag,pre_tag,"_sim_",cluster_tag,"_",file_tag,".rds"))
+saveRDS(covariate_ratio,paste0("../",dataset_folder,"/7.Result/covariate_ratio_",covariate_flag,fit_tag,pre_tag,"_sim_",cluster_tag,"_",file_tag,".rds"))
+
 
 sessionInfo()
 q(save="no")
