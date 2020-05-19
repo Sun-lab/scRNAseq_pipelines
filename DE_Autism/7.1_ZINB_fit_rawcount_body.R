@@ -3,7 +3,7 @@
 library("ggplot2")
 #cluster_tag=1
 #file_tag="3k10"
-covariate_flag=NA #c(NA, "quantile99")
+covariate_flag="readdepth" #c(NA, "quantile99","quantile99_readdepth","readdepth")
 dataset_folder="Data_PRJNA434002"  #Data_PRJNA434002   MS
 
 ###########functions#############
@@ -23,9 +23,16 @@ if(!is.na(unlist(strsplit(file_tag,"k"))[2])){
   tmeta=readRDS(paste0("../",dataset_folder,"/meta",unlist(strsplit(file_tag,"k"))[2],".rds"))
 }
 
+if(!is.na(grep("PFC",file_tag))){
+  tmeta=tmeta[tmeta$region=="PFC",]
+}
+
 #name match for MS samples
-colnames(tmeta)[grep("cell_type",names(tmeta))]="cluster"
-colnames(tmeta)[grep("sample",names(tmeta))]="individual"
+if(dataset_folder=="MS"){
+  colnames(tmeta)[grep("cell_type",names(tmeta))]="cluster"
+  colnames(tmeta)[grep("sample",names(tmeta))]="individual"
+}
+
 ##########data processing############
 for(i_c in 1:17){
   cur_cluster=as.character(unique(tmeta$cluster)[i_c])
@@ -41,36 +48,63 @@ meta=tmeta[tmeta$cluster==cur_cluster,]
 cur_individual=unique(meta$individual)
 
 #3.fit raw count data
-if(!is.na(covariate_flag)){
-  #logsum_count=log(apply(rawM,2,sum))
-  quantile99=log(apply(rawM,2,function(x)return(quantile(x,0.99)+1)))
+#logsum_count=log(apply(rawM,2,sum))
+if("quantile99" %in% covariate_flag){ #only 1 covaraite allowed
+  quantile99=apply(rawM,2,function(x)return(quantile(x,0.99)+1))
   covariate=as.matrix(quantile99)
-  pdf(paste0("../",dataset_folder,"/7.Result/hist_raw_",covariate_flag,"_",cluster_tag,"_",file_tag,".pdf"),height = 4,width = 6)
+  log_covariate=log(covariate)
+  covariate_ratio=covariate/median(covariate)
 }
-if(is.na(covariate_flag)){
-  pdf(paste0("../",dataset_folder,"/7.Result/hist_raw_",cluster_tag,"_",file_tag,".pdf"),height = 4,width = 6)
+if("readdepth" %in% covariate_flag){  #only 1 covaraite allowed
+  covariate=apply(rawM,2,function(x)return(sum(x,na.rm = TRUE)))
+  log_covariate=log(covariate)
+  covariate_ratio=covariate/median(covariate)
 }
+
+
+
+if(covariate_flag!=""){
+  #for real data adj of empirical
+  covariate_ratio=covariate/median(covariate,na.rm = TRUE)
+  rawM_adj=round(matrix(as.numeric(rawM)*rep(covariate_ratio,each=nrow(rawM)),nrow=nrow(rawM),ncol=ncol(rawM)))
+  rownames(rawM_adj)=rownames(rawM)
+  colnames(rawM_adj)=colnames(rawM)
+  
+  #for real data resid of empirical
+  rawM_resid=rawM
+  rawM_resid[]=NA
+  for(i_g in 1:nrow(rawM)){
+    rawM_resid[i_g,]=lm(log(rawM[i_g,]+0.1)~log(covariate))$residuals
+  }
+}
+
+saveRDS(rawM,paste0("../",dataset_folder,"/7.Result/rawM_",covariate_flag,cluster_tag,"_",file_tag,".rds"))
+if(covariate_flag!=""){
+  saveRDS(rawM_adj,paste0("../",dataset_folder,"/7.Result/rawM_adj",covariate_flag,cluster_tag,"_",file_tag,".rds"))
+  saveRDS(rawM_resid,paste0("../",dataset_folder,"/7.Result/rawM_logresid",covariate_flag,cluster_tag,"_",file_tag,".rds"))
+}
+
+pdf(paste0("../",dataset_folder,"/7.Result/hist_raw_",covariate_flag,cluster_tag,"_",file_tag,".pdf"),height = 4,width = 6)
 
 fit_ind_org=array(dim=c(nrow(rawM),length(cur_individual),3),
                       dimnames = list(rownames(rawM),cur_individual,c("logmean","dispersion","dropout_rate")))
 
 for(i_g in 1:nrow(rawM)){
+  #for individual level model fit
   for(i_ind in 1:length(cur_individual)){
     cur_ind=cur_individual[i_ind]
     #fit org
     cur_org_ind=rawM[i_g,meta$individual==cur_ind]
-
-    
-    if(!is.na(covariate_flag)){
-      cur_covariate=covariate[meta$individual==cur_ind,]
+    if(covariate_flag!=""){
+      #for git
+      cur_covariate=covariate[meta$individual==cur_ind]
       fit_ind_org[i_g,i_ind,]=fit_nbzinb(cur_org_ind,cur_covariate)
+      
+
     }
-    if(is.na(covariate_flag)){
+    if(covariate_flag==""){
       fit_ind_org[i_g,i_ind,]=fit_nbzinb(cur_org_ind)
     }
-    
-    
-    
     
     if(i_g<=10 & i_ind<=5){
       cur_org_ind=data.frame(cur_org_ind)
@@ -85,11 +119,9 @@ for(i_g in 1:nrow(rawM)){
 }
 dev.off()
 
-if(!is.na(covariate_flag)){
-  saveRDS(fit_ind_org,paste0("../",dataset_folder,"/7.Result/fit_ind_rawM_",covariate_flag,"_",cluster_tag,"_",file_tag,".rds"))
-}
-if(is.na(covariate_flag)){
-  saveRDS(fit_ind_org,paste0("../",dataset_folder,"/7.Result/fit_ind_rawM_",cluster_tag,"_",file_tag,".rds"))
-}
+
+saveRDS(fit_ind_org,paste0("../",dataset_folder,"/7.Result/fit_ind_rawM_",covariate_flag,cluster_tag,"_",file_tag,".rds"))
+
+
 sessionInfo()
 q(save="no")

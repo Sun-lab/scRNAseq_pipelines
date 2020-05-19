@@ -18,180 +18,193 @@ dataset_folder="Data_PRJNA434002"  #Data_PRJNA434002   MS
 setwd("/fh/fast/sun_w/mengqi/1.Testing_scRNAseq/")
 
 
+resid_flag_seq=c("", "logresid","adj")
+covariate_flag_seq=c("", "readdepth")
+#resid_flag_seq="adj" #c("", "logresid","adj")
+#covariate_flag_seq="readdepth" #c("", "quantile99","readdepth")
+
 ###########functions#############
 source("./Command/9.0_Fstat_functions.R")
 ###########input###############
 
-#input phenotype
-#input phenotype
-if(length(grep("PFC",file_tag))>0){
-  if(is.na(unlist(strsplit(file_tag,"k"))[2])){
-    tmeta=readRDS(paste0("../",dataset_folder,"/meta_PFC.rds"))
-  }
-  if(!is.na(unlist(strsplit(file_tag,"k"))[2])){
-    tmeta=readRDS(paste0("../",dataset_folder,"/meta",unlist(strsplit(file_tag,"k"))[2],"_PFC.rds"))
-  }
-}
-if(length(grep("PFC",file_tag))==0){
-  if(is.na(unlist(strsplit(file_tag,"k"))[2])){
-    tmeta=read.table(paste0("../",dataset_folder,"/meta.tsv"),header = TRUE, sep = "\t")
-  }
-  if(!is.na(unlist(strsplit(file_tag,"k"))[2])){
-    tmeta=readRDS(paste0("../",dataset_folder,"/meta",unlist(strsplit(file_tag,"k"))[2],".rds"))
-  }
-}
-#name match for MS samples
-colnames(tmeta)[grep("cell_type",names(tmeta))]="cluster"
-colnames(tmeta)[grep("sample",names(tmeta))]="individual"
 
-total_individual=unique(tmeta$individual)
-cur_cluster=as.character(unique(tmeta$cluster)[cluster_tag])
-meta=tmeta[tmeta$cluster==cur_cluster,]
-cur_individual=unique(meta$individual)
-phenotype=matrix(1,ncol=1,nrow=length(cur_individual))
-phenotype[which(meta$diagnosis[match(cur_individual,meta$individual)]=="Control")]=0
-
-###################calculation t#################################
-print("start calculation: Part I: Empirical KLmean and JSD")
-
-#set input
-dist_array=readRDS(paste0("../",dataset_folder,"/8.Result/",dist_method,"_",fit_method,"_array_rawcount_",cluster_tag,"_",file_tag,".rds"))
-
-#set perm
-if(perm_label>0){
-  perm_order=readRDS(paste0("../",dataset_folder,"/7.Result/ind_perm_order.rds"))
-  perm_order=as.numeric(perm_order[,perm_label])
-  total_individual_ref=total_individual[perm_order]
-  perm_order=match(total_individual_ref,cur_individual)
-  perm_order=perm_order[!is.na(perm_order)]
-  phenotype=phenotype[perm_order,drop=FALSE]
-}
-
-#set covariate
-if(is.na(ind_covariate_flag)){
-  covariate_model_matrix=NA
-}
-if(ind_covariate_flag=="ind"){
-  #read depth
-  read_depth=readRDS(paste0("../",dataset_folder,"/rawM",file_tag,"_read_depth_per_1Kcell_ind.rds"))
-  read_depth=read_depth[match(cur_individual,rownames(read_depth)),]
-  #
-  cur_covariate=meta[match(cur_individual,meta$individual),c("age","sex","RNA.Integrity.Number","Seqbatch")]
-  cur_covariate=cbind(cur_covariate, read_depth)
-  rownames(cur_covariate)=cur_individual
-  covariate_model_matrix=model.matrix(~.,cur_covariate)
-}
-
-dist_pval=cal_permanova_pval2(dist_array,phenotype,Fstat_method=F_method,perm_num.min = perm_num,zm=covariate_model_matrix)$pval
-print("0 level complete")
-print(Sys.time())
-print(gc())
-thres=tol/perm_num
-second_index=which(dist_pval<thres)
-if(length(second_index)>0){
-  print("1st level")
-  print(Sys.time())
-  print(gc())
-  sub_dist_array=dist_array[second_index,,,drop=FALSE]
-  sub_dist_pval=cal_permanova_pval2(sub_dist_array,phenotype,perm_num.min = perm_num*10,Fstat_method=F_method,zm=covariate_model_matrix)$pval
-  dist_pval[second_index]=sub_dist_pval
-  thres=tol/(perm_num*10)
-  second_index=which(dist_pval<thres)
-  if(length(second_index)>0){
-    print("2nd level")
-    print(Sys.time())
-    print(gc())
-    sub_dist_array=dist_array[second_index,,,drop=FALSE]
-    sub_dist_pval=cal_permanova_pval2(sub_dist_array,phenotype,perm_num.min = perm_num*100,Fstat_method=F_method,zm=covariate_model_matrix)$pval
-    dist_pval[second_index]=sub_dist_pval
-    thres=tol/(perm_num*100)
-    second_index=which(dist_pval<thres)
-    if(length(second_index)>0){
-      print("3rd level")
-      print(Sys.time())
-      print(gc())
-      sub_dist_array=dist_array[second_index,,,drop=FALSE]
-      sub_dist_pval=cal_permanova_pval2(sub_dist_array,phenotype,perm_num.min = perm_num*1000,Fstat_method=F_method,zm=covariate_model_matrix)$pval
-      dist_pval[second_index]=sub_dist_pval
-    }
-  }
-}
-
-
-if(!is.na(ind_covariate_flag)){
-  saveRDS(dist_pval,paste0("../",dataset_folder,"/8.Result/kl_pval/p",perm_label,"_",dist_method,"_",fit_method,"_",F_method,"_pval_",ind_covariate_flag,"_rawcount_",cluster_tag,"_",file_tag,".rds"))
-  
-}
-if(is.na(ind_covariate_flag)){
-  saveRDS(dist_pval,paste0("../",dataset_folder,"/8.Result/kl_pval/p",perm_label,"_",dist_method,"_",fit_method,"_",F_method,"_pval_rawcount_",cluster_tag,"_",file_tag,".rds"))
-}
-
-
-####Second Chance, to see if we can get more from our method (OPTIONAL)##############################
-##here we give the NAs a second chance by removing missing samples/ missing distances, 
-# or fix the missing samples with median distances.
-
-second_index=which(is.na(dist_pval))
-tol_missing_dist=0 # tolerate missing p-values number, if missing numer is no bigger than it, we will make it up with median of distance.
-tol_missing_sample=dim(dist_array)[2]/2 #if effective sample less than this number, stop calculation
-
-for(i2 in second_index){
-  print(i2)
-  x=dist_array[i2,,]
-  #calculate zeros
-  zero_sum=apply(is.na(x),2,sum)
-  
-  #first thres: to remove all zero inds
-  flag=(zero_sum<nrow(x))
-  if(sum(flag)>=tol_missing_sample){
-    x=x[flag,flag]
-    cur_pheno=phenotype[flag]
-    
-    #second thres:to remove inds with more than tolerate missing values
-    zero_sum=apply(is.na(x),2,sum)
-    flag=(zero_sum<=tol_missing_dist)
-    if(sum(flag)>=tol_missing_sample){ 
-      #third thres:to 
-      x=x[flag,flag]
-      cur_pheno=cur_pheno[flag]
-      #add missing values:
-      fill_index=which(!complete.cases(x))
-      if(length(fill_index)>0){
-        for(i_f in fill_index){
-          for(j_f in fill_index){
-            if(j_f>i_f){
-              x[i_f,j_f]=median(c(x[,i_f],x[,j_f]),na.rm = TRUE) #here is a little recurrence, but that's OK...
-              x[j_f,i_f]=x[i_f,j_f]
+for(resid_flag in resid_flag_seq){
+  for(covariate_flag in covariate_flag_seq){
+    if(file.exists(paste0("../",dataset_folder,"/8.Result/",dist_method,"_",fit_method,"_array_rawcount_",resid_flag,covariate_flag,cluster_tag,"_",file_tag,".rds"))){
+      
+      dist_array=NA
+      dist_pval=NA
+      
+      #input phenotype
+      #input phenotype
+      if(length(grep("PFC",file_tag))>0){
+        if(is.na(unlist(strsplit(file_tag,"k"))[2])){
+          tmeta=readRDS(paste0("../",dataset_folder,"/meta_PFC.rds"))
+        }
+        if(!is.na(unlist(strsplit(file_tag,"k"))[2])){
+          tmeta=readRDS(paste0("../",dataset_folder,"/meta",unlist(strsplit(file_tag,"k"))[2],"_PFC.rds"))
+        }
+      }
+      if(length(grep("PFC",file_tag))==0){
+        if(is.na(unlist(strsplit(file_tag,"k"))[2])){
+          tmeta=read.table(paste0("../",dataset_folder,"/meta.tsv"),header = TRUE, sep = "\t")
+        }
+        if(!is.na(unlist(strsplit(file_tag,"k"))[2])){
+          tmeta=readRDS(paste0("../",dataset_folder,"/meta",unlist(strsplit(file_tag,"k"))[2],".rds"))
+        }
+      }
+      #name match for MS samples
+      colnames(tmeta)[grep("cell_type",names(tmeta))]="cluster"
+      colnames(tmeta)[grep("sample",names(tmeta))]="individual"
+      
+      total_individual=unique(tmeta$individual)
+      cur_cluster=as.character(unique(tmeta$cluster)[cluster_tag])
+      meta=tmeta[tmeta$cluster==cur_cluster,]
+      cur_individual=unique(meta$individual)
+      phenotype=matrix(1,ncol=1,nrow=length(cur_individual))
+      phenotype[which(meta$diagnosis[match(cur_individual,meta$individual)]=="Control")]=0
+      
+      ###################calculation t#################################
+      print("start calculation: Part I: Empirical KLmean and JSD")
+      
+      #set input
+      dist_array=readRDS(paste0("../",dataset_folder,"/8.Result/",dist_method,"_",fit_method,"_array_rawcount_",resid_flag,covariate_flag,cluster_tag,"_",file_tag,".rds"))
+      
+      #set perm
+      if(perm_label>0){
+        perm_order=readRDS(paste0("../",dataset_folder,"/7.Result/ind_perm_order.rds"))
+        perm_order=as.numeric(perm_order[,perm_label])
+        total_individual_ref=total_individual[perm_order]
+        perm_order=match(total_individual_ref,cur_individual)
+        perm_order=perm_order[!is.na(perm_order)]
+        phenotype=phenotype[perm_order,drop=FALSE]
+      }
+      
+      #set covariate
+      if(is.na(ind_covariate_flag)){
+        covariate_model_matrix=NA
+      }
+      if(ind_covariate_flag=="ind"){
+        #read depth
+        read_depth=readRDS(paste0("../",dataset_folder,"/rawM",file_tag,"_read_depth_per_1Kcell_ind.rds"))
+        read_depth=read_depth[match(cur_individual,rownames(read_depth)),]
+        #
+        cur_covariate=meta[match(cur_individual,meta$individual),c("age","sex","RNA.Integrity.Number","Seqbatch")]
+        cur_covariate=cbind(cur_covariate, read_depth)
+        rownames(cur_covariate)=cur_individual
+        covariate_model_matrix=model.matrix(~.,cur_covariate)
+      }
+      
+      dist_pval=cal_permanova_pval2(dist_array,phenotype,Fstat_method=F_method,perm_num.min = perm_num,zm=covariate_model_matrix)$pval
+      print("0 level complete")
+      #print(Sys.time())
+      #print(gc())
+      thres=tol/perm_num
+      second_index=which(dist_pval<thres)
+      if(length(second_index)>0){
+        print("1st level")
+        #print(Sys.time())
+        #print(gc())
+        sub_dist_array=dist_array[second_index,,,drop=FALSE]
+        sub_dist_pval=cal_permanova_pval2(sub_dist_array,phenotype,perm_num.min = perm_num*10,Fstat_method=F_method,zm=covariate_model_matrix)$pval
+        dist_pval[second_index]=sub_dist_pval
+        thres=tol/(perm_num*10)
+        second_index=which(dist_pval<thres)
+        if(length(second_index)>0){
+          print("2nd level")
+          #print(Sys.time())
+          #print(gc())
+          sub_dist_array=dist_array[second_index,,,drop=FALSE]
+          sub_dist_pval=cal_permanova_pval2(sub_dist_array,phenotype,perm_num.min = perm_num*100,Fstat_method=F_method,zm=covariate_model_matrix)$pval
+          dist_pval[second_index]=sub_dist_pval
+          thres=tol/(perm_num*100)
+          second_index=which(dist_pval<thres)
+          if(length(second_index)>0){
+            print("3rd level")
+            #print(Sys.time())
+            #print(gc())
+            sub_dist_array=dist_array[second_index,,,drop=FALSE]
+            sub_dist_pval=cal_permanova_pval2(sub_dist_array,phenotype,perm_num.min = perm_num*1000,Fstat_method=F_method,zm=covariate_model_matrix)$pval
+            dist_pval[second_index]=sub_dist_pval
+          }
+        }
+      }
+      
+      saveRDS(dist_pval,paste0("../",dataset_folder,"/8.Result/kl_pval/p",perm_label,"_",dist_method,"_",fit_method,"_",F_method,"_pval_rawcount_",ind_covariate_flag,resid_flag,covariate_flag,cluster_tag,"_",file_tag,".rds"))
+      
+      
+      ####Second Chance, to see if we can get more from our method (OPTIONAL)##############################
+      ##here we give the NAs a second chance by removing missing samples/ missing distances, 
+      # or fix the missing samples with median distances.
+      
+      second_index=which(is.na(dist_pval))
+      tol_missing_dist=0 # tolerate missing p-values number, if missing numer is no bigger than it, we will make it up with median of distance.
+      tol_missing_sample=dim(dist_array)[2]/2 #if effective sample less than this number, stop calculation
+      
+      for(i2 in second_index){
+        print(i2)
+        x=dist_array[i2,,]
+        #calculate zeros
+        zero_sum=apply(is.na(x),2,sum)
+        
+        #first thres: to remove all zero inds
+        flag=(zero_sum<nrow(x))
+        if(sum(flag)>=tol_missing_sample){
+          x=x[flag,flag]
+          cur_pheno=phenotype[flag]
+          
+          #second thres:to remove inds with more than tolerate missing values
+          zero_sum=apply(is.na(x),2,sum)
+          flag=(zero_sum<=tol_missing_dist)
+          if(sum(flag)>=tol_missing_sample){ 
+            #third thres:to 
+            x=x[flag,flag]
+            cur_pheno=cur_pheno[flag]
+            #add missing values:
+            fill_index=which(!complete.cases(x))
+            if(length(fill_index)>0){
+              for(i_f in fill_index){
+                for(j_f in fill_index){
+                  if(j_f>i_f){
+                    x[i_f,j_f]=median(c(x[,i_f],x[,j_f]),na.rm = TRUE) #here is a little recurrence, but that's OK...
+                    x[j_f,i_f]=x[i_f,j_f]
+                  }
+                }
+              }
+            }
+            dist_pval[i2]=tryCatch(cal_permanova_pval(x,cur_pheno,Fstat_method=F_method,perm_num.min = perm_num,zm=covariate_model_matrix)$pval, error = function(e) {NA} )
+            thres=tol/perm_num
+            if(!is.na(dist_pval[i2]) && dist_pval[i2]<thres){
+              dist_pval[i2]=tryCatch(cal_permanova_pval(x,cur_pheno,Fstat_method=F_method,perm_num.min = (perm_num*10),zm=covariate_model_matrix)$pval, error = function(e) {NA} )
+              thres=tol/(perm_num*10)
+              if(!is.na(dist_pval[i2]) && dist_pval[i2]<thres){
+                dist_pval[i2]=tryCatch(cal_permanova_pval(x,cur_pheno,Fstat_method=F_method,perm_num.min = (perm_num*100),zm=covariate_model_matrix)$pval, error = function(e) {NA} )
+                thres=tol/(perm_num*100)
+                if(!is.na(dist_pval[i2]) && dist_pval[i2]<thres){
+                  dist_pval[i2]=tryCatch(cal_permanova_pval(x,cur_pheno,Fstat_method=F_method,perm_num.min = (perm_num*1000),zm=covariate_model_matrix)$pval, error = function(e) {NA} )
+                }
+              }
             }
           }
         }
       }
-      dist_pval[i2]=tryCatch(cal_permanova_pval(x,cur_pheno,Fstat_method=F_method,perm_num.min = perm_num,zm=covariate_model_matrix)$pval, error = function(e) {NA} )
-      thres=tol/perm_num
-      if(!is.na(dist_pval[i2]) && dist_pval[i2]<thres){
-        dist_pval[i2]=tryCatch(cal_permanova_pval(x,cur_pheno,Fstat_method=F_method,perm_num.min = (perm_num*10),zm=covariate_model_matrix)$pval, error = function(e) {NA} )
-        thres=tol/(perm_num*10)
-        if(!is.na(dist_pval[i2]) && dist_pval[i2]<thres){
-          dist_pval[i2]=tryCatch(cal_permanova_pval(x,cur_pheno,Fstat_method=F_method,perm_num.min = (perm_num*100),zm=covariate_model_matrix)$pval, error = function(e) {NA} )
-          thres=tol/(perm_num*100)
-          if(!is.na(dist_pval[i2]) && dist_pval[i2]<thres){
-            dist_pval[i2]=tryCatch(cal_permanova_pval(x,cur_pheno,Fstat_method=F_method,perm_num.min = (perm_num*1000),zm=covariate_model_matrix)$pval, error = function(e) {NA} )
-          }
-        }
-      }
+      
+      saveRDS(dist_pval,paste0("../",dataset_folder,"/8.Result/kl_pval/p",perm_label,"_",dist_method,"_",fit_method,"_",F_method,"_pval_rawcount_",ind_covariate_flag,resid_flag,covariate_flag,cluster_tag,"_",file_tag,".rds"))
+      
+      
+      
+      
+      
     }
   }
 }
 
 
-if(!is.na(ind_covariate_flag)){
-  saveRDS(dist_pval,paste0("../",dataset_folder,"/8.Result/kl_pval/p",perm_label,"_",dist_method,"_",fit_method,"_",F_method,"_pval_",ind_covariate_flag,"_rawcount_",cluster_tag,"_",file_tag,".rds"))
-}
-if(is.na(ind_covariate_flag)){
-  saveRDS(dist_pval,paste0("../",dataset_folder,"/8.Result/kl_pval/p",perm_label,"_",dist_method,"_",fit_method,"_",F_method,"_pval_rawcount_",cluster_tag,"_",file_tag,".rds"))
-}
+
+
+  
 
   
 sessionInfo()
-q(save="no")
+#q(save="no")
   

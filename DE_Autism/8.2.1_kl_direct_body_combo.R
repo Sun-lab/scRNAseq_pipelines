@@ -10,8 +10,11 @@ library("emdbook")
 #file_tag="3k10"
 #pre_tag="dca" #c("dca","scvi")
 
-fit_tag="" # ""(zinb) or "nb"
+fit_tag="nb" # ""(zinb) or "nb"
+
+resid_flag="adj" #c("", "logresid","adj")
 covariate_flag="readdepth" #c("", "quantile99","readdepth")
+
 dataset_folder="Data_PRJNA434002"  #Data_PRJNA434002   MS
 
 #setwd("~/Desktop/fh/1.Testing_scRNAseq/")
@@ -91,11 +94,22 @@ cur_individual=unique(meta$individual)
 
 #3. covariates adjustment(optional)
 if(covariate_flag!=""){
-  covariate_ratio=readRDS(paste0("../",dataset_folder,"/7.Result/covariate_ratio_",covariate_flag,fit_tag,pre_tag,"_sim_",cluster_tag,"_",file_tag,".rds"))
-  sub_mean_adj=matrix(as.numeric(sub_mean)*rep(covariate_ratio,each=nrow(sub_mean)),nrow=nrow(sub_mean),ncol=ncol(sub_mean))
-  rownames(sub_mean_adj)=rownames(sub_mean)
-  colnames(sub_mean_adj)=colnames(sub_mean)
-  sub_mean_adj=sub_mean
+  if(resid_flag=="adj"){
+    covariate_ratio=readRDS(paste0("../",dataset_folder,"/7.Result/covariate_ratio_",covariate_flag,pre_tag,"_sim_",cluster_tag,"_",file_tag,".rds"))
+    sub_mean_adj=matrix(as.numeric(sub_mean)*rep(covariate_ratio,each=nrow(sub_mean)),nrow=nrow(sub_mean),ncol=ncol(sub_mean))
+    rownames(sub_mean_adj)=rownames(sub_mean)
+    colnames(sub_mean_adj)=colnames(sub_mean)
+    sub_mean=sub_mean_adj
+  }
+  if(resid_flag=="resid"){
+    covariate=readRDS(paste0("../",dataset_folder,"/7.Result/covariate_",covariate_flag,pre_tag,"_sim_",cluster_tag,"_",file_tag,".rds"))
+    sub_mean_adj=sub_mean
+    sub_mean_adj[]=NA
+    for(i_g in 1:nrow(sub_mean)){
+      sub_mean_adj[ig,]=lm(log(sub_mean[ig,]+0.1)~log(covariate))$residuals
+    }
+    sub_mean=sub_mean_adj
+  }
 }
 
 
@@ -122,8 +136,8 @@ for(i_g in 1:nrow(sub_mean)){
 ###################calculation end, output#################################
 print("calculation end")
 
-saveRDS(klmean_direct_array,paste0("../",dataset_folder,"/8.Result/klmean_direct_array_",covariate_flag,fit_tag,pre_tag,"_sim_",cluster_tag,"_",file_tag,".rds"))
-saveRDS(jsd_direct_array,paste0("../",dataset_folder,"/8.Result/jsd_direct_array_",covariate_flag,fit_tag,pre_tag,"_sim_",cluster_tag,"_",file_tag,".rds"))
+saveRDS(klmean_direct_array,paste0("../",dataset_folder,"/8.Result/klmean_direct_array_",resid_flag,covariate_flag,fit_tag,pre_tag,"_sim_",cluster_tag,"_",file_tag,".rds"))
+saveRDS(jsd_direct_array,paste0("../",dataset_folder,"/8.Result/jsd_direct_array_",resid_flag,covariate_flag,fit_tag,pre_tag,"_sim_",cluster_tag,"_",file_tag,".rds"))
 
 
 sessionInfo()

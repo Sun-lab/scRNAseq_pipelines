@@ -10,7 +10,7 @@ pre_tag="dca" #c("dca","scvi")
 #setwd("/Users/mzhang24/Desktop/fh/1.Testing_scRNAseq/")
 setwd("/fh/fast/sun_w/mengqi/1.Testing_scRNAseq/")
 
-fit_tag="" # ""(zinb) or "nb"
+fit_tag="nb" # ""(zinb) or "nb"
 sim_n=10
 covariate_flag="readdepth" #c(NA, "quantile99","quantile99_readdepth","readdepth")
 dataset_folder="Data_PRJNA434002"  #Data_PRJNA434002   MS
@@ -24,8 +24,8 @@ source("./Command/7.0_ZINB_fit_functions.R")
 
 for(file_tag in file_tag_seq){
   for(cluster_tag in 1:17){
-    covariate=readRDS(paste0("../",dataset_folder,"/7.Result/covariate_",covariate_flag,fit_tag,pre_tag,"_sim_",cluster_tag,"_",file_tag,".rds"))
-    covariate_ratio=readRDS(paste0("../",dataset_folder,"/7.Result/covariate_ratio_",covariate_flag,fit_tag,pre_tag,"_sim_",cluster_tag,"_",file_tag,".rds"))
+    covariate=readRDS(paste0("../",dataset_folder,"/7.Result/covariate_",covariate_flag,pre_tag,"_sim_",cluster_tag,"_",file_tag,".rds"))
+    covariate_ratio=readRDS(paste0("../",dataset_folder,"/7.Result/covariate_ratio_",covariate_flag,pre_tag,"_sim_",cluster_tag,"_",file_tag,".rds"))
     log_covariate=log(covariate)
     
     sim_ind=readRDS(paste0("../",dataset_folder,"/7.Result/sim_ind_",fit_tag,pre_tag,"_sim_",cluster_tag,"_",file_tag,".rds"))
@@ -60,4 +60,4 @@ for(file_tag in file_tag_seq){
 }
 
 sessionInfo()
-q(save="no")
+#q(save="no")

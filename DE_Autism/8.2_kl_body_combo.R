@@ -11,6 +11,7 @@ library("emdbook")
 #pre_tag="dca" #c("dca","scvi")
 fit_tag="" # ""(zinb) or "nb" 
 fit_tag2="" # "" or "raw"(directely use dca res)
+resid_flag="logresid" #c("", "logresid","adj")
 covariate_flag="readdepth" #c("", "quantile99","readdepth")
 dataset_folder="Data_PRJNA434002"  #Data_PRJNA434002   MS
 
@@ -53,12 +54,35 @@ cur_individual=unique(meta$individual)
 
 #input counts
 sim_fit=readRDS(paste0("../",dataset_folder,"/7.Result/fit_ind_",covariate_flag,fit_tag,pre_tag,"_sim_",cluster_tag,"_",file_tag,".rds"))
+
 if(fit_tag2=="raw"){
-  sim_data=as.matrix(read.table(paste0("/fh/scratch/delete90/sun_w/mengqi/",dataset_folder,"/res_dca_rawM",file_tag,"/mean.tsv"),stringsAsFactors = FALSE))
+  sim_data=as.matrix(read.table(paste0("../",dataset_folder,"/res_dca_rawM",file_tag,"/mean.tsv"),stringsAsFactors = FALSE))
+  if(resid_flag=="adj"){
+    covariate_ratio=readRDS(paste0("../",dataset_folder,"/7.Result/covariate_ratio_",covariate_flag,pre_tag,"_sim_",cluster_tag,"_",file_tag,".rds"))
+    sim_data_adj=matrix(as.numeric(sim_data)*rep(covariate_ratio,each=nrow(sim_data)),nrow=nrow(sim_data),ncol=ncol(sim_data))
+    rownames(sim_data_adj)=rownames(sim_data)
+    colnames(sim_data_adj)=colnames(sim_data)
+    sim_data=sim_data_adj
+  }
+  if(resid_flag=="resid"){
+    covariate=readRDS(paste0("../",dataset_folder,"/7.Result/covariate_",covariate_flag,pre_tag,"_sim_",cluster_tag,"_",file_tag,".rds"))
+    sim_data_adj=sim_data
+    sim_data_adj[]=NA
+    for(i_g in 1:nrow(sim_data)){
+      sim_data_adj[ig,]=lm(log(sim_data[ig,]+0.1)~log(covariate))$residuals
+    }
+    sim_data=sim_data_adj
+  }
+  
   sim_data=array(sim_data,dim=c(dim(sim_data),1))
 }
 if(fit_tag2!="raw"){
-  sim_data=readRDS(paste0("../",dataset_folder,"/7.Result/sim_ind_",covariate_flag,fit_tag,pre_tag,"_sim_",cluster_tag,"_",file_tag,".rds"))
+  if(resid_flag==""){
+    sim_data=readRDS(paste0("../",dataset_folder,"/7.Result/sim_ind_",covariate_flag,fit_tag,pre_tag,"_sim_",cluster_tag,"_",file_tag,".rds"))
+  }
+  if(resid_flag!=""){
+    sim_data=readRDS(paste0("../",dataset_folder,"/7.Result/sim_ind_",resid_flag,covariate_flag,fit_tag,pre_tag,"_sim_",cluster_tag,"_",file_tag,".rds"))
+  }
 }
 
 ###################calculation t#################################
@@ -116,10 +140,10 @@ if(fit_tag2=="raw"){
   fit_tag=fit_tag2
 }
 
-saveRDS(klmean_empirical_array,paste0("../",dataset_folder,"/8.Result/klmean_empirical_array_",covariate_flag,fit_tag,pre_tag,"_sim_",cluster_tag,"_",file_tag,".rds"))
-saveRDS(jsd_empirical_array,paste0("../",dataset_folder,"/8.Result/jsd_empirical_array_",covariate_flag,fit_tag,pre_tag,"_sim_",cluster_tag,"_",file_tag,".rds"))
-saveRDS(klmean_nbzinb_array,paste0("../",dataset_folder,"/8.Result/klmean_nbzinb_array_",covariate_flag,fit_tag,pre_tag,"_sim_",cluster_tag,"_",file_tag,".rds"))
-saveRDS(jsd_nbzinb_array,paste0("../",dataset_folder,"/8.Result/jsd_nbzinb_array_",covariate_flag,fit_tag,pre_tag,"_sim_",cluster_tag,"_",file_tag,".rds"))
+saveRDS(klmean_empirical_array,paste0("../",dataset_folder,"/8.Result/klmean_empirical_array_",resid_flag,covariate_flag,fit_tag,pre_tag,"_sim_",cluster_tag,"_",file_tag,".rds"))
+saveRDS(jsd_empirical_array,paste0("../",dataset_folder,"/8.Result/jsd_empirical_array_",resid_flag,covariate_flag,fit_tag,pre_tag,"_sim_",cluster_tag,"_",file_tag,".rds"))
+saveRDS(klmean_nbzinb_array,paste0("../",dataset_folder,"/8.Result/klmean_nbzinb_array_",resid_flag,covariate_flag,fit_tag,pre_tag,"_sim_",cluster_tag,"_",file_tag,".rds"))
+saveRDS(jsd_nbzinb_array,paste0("../",dataset_folder,"/8.Result/jsd_nbzinb_array_",resid_flag,covariate_flag,fit_tag,pre_tag,"_sim_",cluster_tag,"_",file_tag,".rds"))
 
 sessionInfo()
 q(save="no")

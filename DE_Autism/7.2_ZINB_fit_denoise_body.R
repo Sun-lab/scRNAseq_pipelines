@@ -110,7 +110,7 @@ for(i_g in 1:nrow(sub_mean)){
     
   }
   sim_ind[i_g,,]=cur_sim
-  if(!is.na(covariate_flag)){
+  if(covariate_flag!=""){
     cur_sim_adj=cur_sim
     cur_sim_logresid=cur_sim
     #resid
@@ -131,7 +131,7 @@ for(i_g in 1:nrow(sub_mean)){
     #fit sim
     cur_sim_ind=as.numeric(cur_sim[meta$individual==cur_ind,])
     
-    if(!is.na(covariate_flag)){
+    if(covariate_flag!=""){
       cur_covariate=rep(log_covariate[meta$individual==cur_ind],sim_n)
       if(fit_tag==""){
         fit_ind_sub_sim[i_g,i_ind,]=fit_nbzinb(cur_sim_ind,cur_covariate)
@@ -141,7 +141,7 @@ for(i_g in 1:nrow(sub_mean)){
       }
 
     }
-    if(is.na(covariate_flag)){
+    if(covariate_flag==""){
       if(fit_tag==""){
         fit_ind_sub_sim[i_g,i_ind,]=fit_nbzinb(cur_sim_ind)
       }
@@ -164,11 +164,11 @@ for(i_g in 1:nrow(sub_mean)){
 dev.off()
 
 saveRDS(fit_ind_sub_sim,paste0("../",dataset_folder,"/7.Result/fit_ind_",covariate_flag,fit_tag,pre_tag,"_sim_",cluster_tag,"_",file_tag,".rds"))
-saveRDS(sim_ind,paste0("../",dataset_folder,"/7.Result/sim_ind_",fit_tag,pre_tag,"_sim_",cluster_tag,"_",file_tag,".rds"))
+saveRDS(sim_ind,paste0("../",dataset_folder,"/7.Result/sim_ind_",covariate_flag,fit_tag,pre_tag,"_sim_",cluster_tag,"_",file_tag,".rds"))
 saveRDS(sim_ind_adj,paste0("../",dataset_folder,"/7.Result/sim_ind_adj",covariate_flag,fit_tag,pre_tag,"_sim_",cluster_tag,"_",file_tag,".rds")) #if covariate flag works, then adj can be defined from here
 saveRDS(sim_ind_logresid,paste0("../",dataset_folder,"/7.Result/sim_ind_logresid",covariate_flag,fit_tag,pre_tag,"_sim_",cluster_tag,"_",file_tag,".rds"))
-saveRDS(covariate,paste0("../",dataset_folder,"/7.Result/covariate_",covariate_flag,fit_tag,pre_tag,"_sim_",cluster_tag,"_",file_tag,".rds"))
-saveRDS(covariate_ratio,paste0("../",dataset_folder,"/7.Result/covariate_ratio_",covariate_flag,fit_tag,pre_tag,"_sim_",cluster_tag,"_",file_tag,".rds"))
+saveRDS(covariate,paste0("../",dataset_folder,"/7.Result/covariate_",covariate_flag,pre_tag,"_sim_",cluster_tag,"_",file_tag,".rds"))
+saveRDS(covariate_ratio,paste0("../",dataset_folder,"/7.Result/covariate_ratio_",covariate_flag,pre_tag,"_sim_",cluster_tag,"_",file_tag,".rds"))
 
 
 sessionInfo()
