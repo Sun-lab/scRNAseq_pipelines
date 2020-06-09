@@ -22,11 +22,11 @@ covariate_flag=NA #c(NA, "quantile99")
 tol=10
 perm_label_seq=0:10
 sim_folder="sim_v6"
-fit_tag="nb" # ""(zinb) or "nb"
+fit_tag="" # ""(zinb) or "nb"
 covariate_flag="readdepth" #c("","readdepth","q50","q75","q100")
 sim_n=3
 
-sub_unit=1000 #sub_unit (gene num in each sub file) is used with sub_index (sub file index, defined in each head files, could be "") to separate genes for manual paralelle settings. 
+sub_unit=100 #sub_unit (gene num in each sub file) is used with sub_index (sub file index, defined in each head files, could be "") to separate genes for manual paralelle settings. 
 
 ##############functions#################
 library("ggplot2")
@@ -70,6 +70,7 @@ if(covariate_flag=="q100"){
 }
 
 #####construct reconstructed data #############
+print("start to fit")
 
 cur_individual=unique(meta$individual)
 
@@ -77,6 +78,9 @@ fit_ind=array(dim=c(nrow(sim_mean),length(cur_individual),3),
                       dimnames = list(rownames(sim_mean),cur_individual,c("logmean","dispersion","dropout_rate")))
 sim_ind=array(dim=c(nrow(sim_mean),ncol(sim_mean),sim_n),
               dimnames = list(rownames(sim_mean),colnames(sim_mean),1:sim_n))
+
+fit_ind_cor=array(dim=c(nrow(sim_mean),length(cur_individual),3),
+              dimnames = list(rownames(sim_mean),cur_individual,c("logmean","dispersion","dropout_rate"))) #for correlated cases
 
 for(i_g in 1:nrow(sim_mean)){
   cur_sim=matrix(ncol=sim_n,nrow=ncol(sim_mean))
@@ -95,33 +99,38 @@ for(i_g in 1:nrow(sim_mean)){
     #fit sim
     cur_sim_ind=as.numeric(cur_sim[meta$individual==cur_ind,])
     
-    if(covariate_flag!=""){
-      cur_covariate=rep(covariate[meta$individual==cur_ind,],sim_n)
-      if(fit_tag==""){
-        fit_ind[i_g,i_ind,]=fit_nbzinb(cur_sim_ind,cur_covariate)
-      }
-      if(fit_tag=="nb"){
-        fit_ind[i_g,i_ind,]=fit_nb(cur_sim_ind,cur_covariate)
-      }
-      
-    }
-    if(covariate_flag==""){
+
+    #if(covariate_flag==""){
       if(fit_tag==""){
         fit_ind[i_g,i_ind,]=fit_nbzinb(cur_sim_ind)
       }
       if(fit_tag=="nb"){
         fit_ind[i_g,i_ind,]=fit_nb(cur_sim_ind)
       }
+    #}
+    
+    if(covariate_flag!=""){
+      cur_covariate=rep(covariate[meta$individual==cur_ind,],sim_n)
+      if(fit_tag==""){
+        fit_ind_cor[i_g,i_ind,]=fit_nbzinb(cur_sim_ind,cur_covariate)
+      }
+      if(fit_tag=="nb"){
+        fit_ind_cor[i_g,i_ind,]=fit_nb(cur_sim_ind,cur_covariate)
+      }
+      
     }
 
   }
   print(i_g)
 }
 
-saveRDS(fit_ind,paste0("../Data_PRJNA434002/10.Result/",sim_folder,"/dca_data/fit_ind_",covariate_flag,fit_tag,r_mean,"_",r_var,"_",r_change_prop,"_",dp_minor_prop,"_",file_tag,sub_unit,".rds"))
-saveRDS(sim_ind,paste0("../Data_PRJNA434002/10.Result/",sim_folder,"/dca_data/sim_ind_",covariate_flag,fit_tag,r_mean,"_",r_var,"_",r_change_prop,"_",dp_minor_prop,"_",file_tag,sub_unit,".rds"))
-saveRDS(sim_param,paste0("../Data_PRJNA434002/10.Result/",sim_folder,"/dca_data/sim_param_",covariate_flag,fit_tag,r_mean,"_",r_var,"_",r_change_prop,"_",dp_minor_prop,"_",file_tag,sub_unit,".rds"))
+saveRDS(fit_ind,paste0("../Data_PRJNA434002/10.Result/",sim_folder,"/dca_data/fit_ind_",fit_tag,r_mean,"_",r_var,"_",r_change_prop,"_",dp_minor_prop,"_",file_tag,"_",sub_index,".rds"))
+saveRDS(sim_ind,paste0("../Data_PRJNA434002/10.Result/",sim_folder,"/dca_data/sim_ind_",fit_tag,r_mean,"_",r_var,"_",r_change_prop,"_",dp_minor_prop,"_",file_tag,"_",sub_index,".rds"))
+saveRDS(sim_param,paste0("../Data_PRJNA434002/10.Result/",sim_folder,"/dca_data/sim_param_",fit_tag,r_mean,"_",r_var,"_",r_change_prop,"_",dp_minor_prop,"_",file_tag,"_",sub_index,".rds"))
 
+if(covariate_flag!=""){
+  saveRDS(fit_ind_cor,paste0("../Data_PRJNA434002/10.Result/",sim_folder,"/dca_data/fit_ind_",covariate_flag,fit_tag,r_mean,"_",r_var,"_",r_change_prop,"_",dp_minor_prop,"_",file_tag,"_",sub_index,".rds"))
+}
 sessionInfo()
 #q(save="no")
 

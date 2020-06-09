@@ -131,6 +131,7 @@ colData(sca)$sex = as.factor(meta$sex)
 colData(sca)$RIN = as.numeric(meta$RNA.Integrity.Number)
 colData(sca)$PMI = as.numeric(meta$post.mortem.interval..hours.)
 colData(sca)$Capbatch = as.factor(meta$Capbatch)
+colData(sca)$Seqbatch = as.factor(meta$Seqbatch)
 colData(sca)$riboPercent = as.numeric(meta$RNA.ribosomal.percent)
 
 
@@ -157,45 +158,85 @@ colData(sca)
 
 
 
-print(paste0("print system details, before b0"))
-date()
-gc()
-b0 = zlm(formula = ~ diagnosis + cngeneson + age + sex + RIN + PMI + Capbatch + riboPercent, sca = sca, parallel = TRUE)
-print(paste0("print system details, before b1"))
-date()
-gc()
-b1 = zlm(formula = ~ diagnosis + ( 1 | ind ) + cngeneson + age + sex + RIN + PMI + Capbatch + riboPercent, sca = sca, method = 'glmer', 
-         ebayes = FALSE, parallel = TRUE)
-print(paste0("print system details, after b1"))
+# print(paste0("print system details, before b0"))
+# date()
+# gc()
+# b0 = zlm(formula = ~ diagnosis + cngeneson + age + sex + RIN + PMI + Capbatch + riboPercent, sca = sca, parallel = TRUE)
+# print(paste0("print system details, before b1"))
+# date()
+# gc()
+# b1 = zlm(formula = ~ diagnosis + ( 1 | ind ) + cngeneson + age + sex + RIN + PMI + Capbatch + riboPercent, sca = sca, method = 'glmer', 
+#          ebayes = FALSE, parallel = TRUE)
+# print(paste0("print system details, after b1"))
+# date()
+# gc()
+# 
+# b0
+# b1
+# print(paste0("print system details, before lrt0"))
+# date()
+# gc()
+# lrt0 = lrTest(b0, "diagnosis")
+# print(paste0("print system details, before lrt1"))
+# date()
+# gc()
+# lrt1 = lrTest(b1, "diagnosis")
+# print(paste0("print system details, after lrt1"))
+# date()
+# gc()
+# dim(lrt1)
+# lrt1[1,,]
+# 
+# MAST_pval0 = apply(lrt0, 1, function(x){x[3,3]})
+# length(MAST_pval0)
+# MAST_pval0[1:4]
+# 
+# MAST_pval1 = apply(lrt1, 1, function(x){x[3,3]})
+# length(MAST_pval1)
+# MAST_pval1[1:4]
+# 
+# saveRDS(MAST_pval0,paste0("../",dataset_folder,"/8.Result/MAST_pval/p",perm_label,"_MAST_pval0_rawcount_",cluster_tag,"_",file_tag,".rds"))
+# saveRDS(MAST_pval1,paste0("../",dataset_folder,"/8.Result/MAST_pval/p",perm_label,"_MAST_pval1_rawcount_",cluster_tag,"_",file_tag,".rds"))
+
+#############additional section, for MAST_pval2 and MAST_pval3
+
+#b2 shows the version all same with the paper except for the region, which is preremoved.
+b2=zlm(~diagnosis + (1|ind) + cngeneson + age + sex + RIN + PMI + Capbatch + Seqbatch + riboPercent, sca=sca, method = "glmer", ebayes = F, silent=T)
+
+#b3 shows the version that only have the cngeneson than the DESeq2 versions.
+b3=zlm(~diagnosis + (1|ind) + cngeneson + age + sex + Seqbatch + RIN, sca=sca, method = "glmer", ebayes = F, silent=T)
+
+print(paste0("print system details, after b3"))
 date()
 gc()
 
-b0
-b1
-print(paste0("print system details, before lrt0"))
+b2
+b3
+print(paste0("print system details, before lrt2"))
 date()
 gc()
-lrt0 = lrTest(b0, "diagnosis")
-print(paste0("print system details, before lrt1"))
+lrt2 = lrTest(b2, "diagnosis")
+print(paste0("print system details, before lrt3"))
 date()
 gc()
-lrt1 = lrTest(b1, "diagnosis")
-print(paste0("print system details, after lrt1"))
+lrt3 = lrTest(b3, "diagnosis")
+print(paste0("print system details, after lrt3"))
 date()
 gc()
-dim(lrt1)
-lrt1[1,,]
+dim(lrt3)
+lrt3[1,,]
 
-MAST_pval0 = apply(lrt0, 1, function(x){x[3,3]})
-length(MAST_pval0)
-MAST_pval0[1:4]
+MAST_pval2 = apply(lrt2, 1, function(x){x[3,3]})
+length(MAST_pval2)
+MAST_pval2[1:4]
 
-MAST_pval1 = apply(lrt1, 1, function(x){x[3,3]})
-length(MAST_pval1)
-MAST_pval1[1:4]
+MAST_pval3 = apply(lrt3, 1, function(x){x[3,3]})
+length(MAST_pval3)
+MAST_pval3[1:4]
 
-saveRDS(MAST_pval0,paste0("../",dataset_folder,"/8.Result/MAST_pval/p",perm_label,"_MAST_pval0_rawcount_",cluster_tag,"_",file_tag,".rds"))
-saveRDS(MAST_pval1,paste0("../",dataset_folder,"/8.Result/MAST_pval/p",perm_label,"_MAST_pval1_rawcount_",cluster_tag,"_",file_tag,".rds"))
+saveRDS(MAST_pval2,paste0("../",dataset_folder,"/8.Result/MAST_pval/p",perm_label,"_MAST_pval2_rawcount_",cluster_tag,"_",file_tag,".rds"))
+saveRDS(MAST_pval3,paste0("../",dataset_folder,"/8.Result/MAST_pval/p",perm_label,"_MAST_pval3_rawcount_",cluster_tag,"_",file_tag,".rds"))
+
 
 sessionInfo()
-q(save="no")
+#q(save="no")

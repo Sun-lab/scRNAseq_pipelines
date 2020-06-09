@@ -130,7 +130,7 @@ for(resid_flag in resid_flag_seq){
         }
       }
       
-      saveRDS(dist_pval,paste0("../",dataset_folder,"/8.Result/kl_pval/p",perm_label,"_",dist_method,"_",fit_method,"_",F_method,"_pval_rawcount_",ind_covariate_flag,resid_flag,covariate_flag,cluster_tag,"_",file_tag,".rds"))
+      saveRDS(dist_pval,paste0("../",dataset_folder,"/8.Result/",dist_method,"_",fit_method,"_pval/p",perm_label,"_",dist_method,"_",fit_method,"_",F_method,"_pval_rawcount_",ind_covariate_flag,resid_flag,covariate_flag,cluster_tag,"_",file_tag,".rds"))
       
       
       ####Second Chance, to see if we can get more from our method (OPTIONAL)##############################
@@ -189,7 +189,7 @@ for(resid_flag in resid_flag_seq){
         }
       }
       
-      saveRDS(dist_pval,paste0("../",dataset_folder,"/8.Result/kl_pval/p",perm_label,"_",dist_method,"_",fit_method,"_",F_method,"_pval_rawcount_",ind_covariate_flag,resid_flag,covariate_flag,cluster_tag,"_",file_tag,".rds"))
+      saveRDS(dist_pval,paste0("../",dataset_folder,"/8.Result/",dist_method,"_",fit_method,"_pval/p",perm_label,"_",dist_method,"_",fit_method,"_",F_method,"_pval_rawcount_",ind_covariate_flag,resid_flag,covariate_flag,cluster_tag,"_",file_tag,".rds"))
       
       
       

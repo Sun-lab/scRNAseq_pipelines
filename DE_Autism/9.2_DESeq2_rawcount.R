@@ -102,6 +102,9 @@ if(perm_label>0){
   cur_info[,"diagnosis"]=cur_info[perm_order,"diagnosis"]
 }
 
+
+#version1 with wei's covariates
+dds=NA
 dds=DESeqDataSetFromMatrix(countData = rawcount_matrix_bulk,
                            colData = cur_info,
                            design = ~ age + sex + Seqbatch + RNA.Integrity.Number + diagnosis)
@@ -111,6 +114,28 @@ de_ob_pval=results(dds)$pvalue
 
 saveRDS(de_ob_pval,paste0("../",dataset_folder,"/8.Result/DESeq2_pval/p",perm_label,"_DESeq2_ob_pval_",cluster_tag,"_",file_tag,".rds"))
 
+
+#version2: without any covariates
+dds=NA
+dds=DESeqDataSetFromMatrix(countData = rawcount_matrix_bulk,
+                           colData = cur_info,
+                           design = ~ diagnosis)
+
+dds=DESeq(dds)
+de_ob_pval0=results(dds)$pvalue
+
+saveRDS(de_ob_pval0,paste0("../",dataset_folder,"/8.Result/DESeq2_pval/p",perm_label,"_DESeq2_ob_pval0_",cluster_tag,"_",file_tag,".rds"))
+
+#version3: without MAST covariates
+dds=NA
+dds=DESeqDataSetFromMatrix(countData = rawcount_matrix_bulk,
+                           colData = cur_info,
+                           design = ~ diagnosis)
+
+dds=DESeq(dds)
+de_ob_pval0=results(dds)$pvalue
+
+saveRDS(de_ob_pval0,paste0("../",dataset_folder,"/8.Result/DESeq2_pval/p",perm_label,"_DESeq2_ob_pval0_",cluster_tag,"_",file_tag,".rds"))
 
 sessionInfo()
 q(save="no")

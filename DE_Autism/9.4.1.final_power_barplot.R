@@ -604,8 +604,9 @@ for(i_file in 1:length(file_tag_seq)){
       fit_tag=fit_tag_seq[i_fit]
       #png(paste0("./8.Result/fig_barplot/barplot_",F_method,"_",pre_tag,"_",file_tag,".png"),height = 300*5,width = 600*length(cluster_tag_seq))
       #op=par(mfrow=c(5,length(cluster_tag_seq)),mar=c(5,1,1,1),oma=c(1,0,0,0))
-      png(paste0("./8.Result/fig_barplot/barplot_safi_",F_method,"_",pre_tag,"_",file_tag,".png"),height = 400*5,width = 600*7)
-      op=par(mfrow=c(5,7),mar=c(10,2,2,2),oma=c(5,2,2,2))
+      #png(paste0("./8.Result/fig_barplot/barplot_safi_",F_method,"_",pre_tag,"_",file_tag,".png"),height = 400*5,width = 800*1)
+      pdf(paste0("./8.Result/fig_barplot/barplot_",F_method,"_",pre_tag,"_",file_tag,".pdf"),height = 40,width = 10)
+      op=par(mfrow=c(5,1),mar=c(10,2,2,2),oma=c(5,2,2,2))
       
       a=matrix(ncol=length(cur_file_namelist),nrow=length(cluster_tag_seq))
       for(i_cluster in 1:length(cluster_tag_seq)){
@@ -614,7 +615,7 @@ for(i_file in 1:length(file_tag_seq)){
       colnames(a)=cur_file_namelist
       a=a[,thres_index]
       #for(i_cluster in 1:length(cluster_tag_seq)){
-      for(i_cluster in c(1:3,10:12,14)){
+      for(i_cluster in c(12)){
         barplot(a[i_cluster,],cex.lab=1.5, cex.axis=1.5, cex.main=1.5, cex.sub=1.5,main="proportion of p-values <0.05, observed data",sub=cur_cluster[i_cluster],ylab="power",las=2,ylim=c(0,1))
         abline(h = 0.05, col = "red") 
       }
@@ -626,7 +627,7 @@ for(i_file in 1:length(file_tag_seq)){
         colnames(b)=cur_file_namelist
         b=b[,thres_index]
         #for(i_cluster in 1:length(cluster_tag_seq)){
-        for(i_cluster in c(1:3,10:12,14)){
+        for(i_cluster in c(12)){
           barplot(b[i_cluster,],cex.lab=1.5, cex.axis=1.5, cex.main=1.5, cex.sub=1.5,main="proportion of p-values <0.05, permutated data",sub=cur_cluster[i_cluster],ylab="type I error",las=2,ylim=c(0,1))
           abline(h = 0.05, col = "red") 
         }
@@ -646,8 +647,9 @@ for(i_file in 1:length(file_tag_seq)){
       fit_tag=fit_tag_seq[i_fit]
       #png(paste0("./8.Result/fig_barplot/barplot_safi_",F_method,"_",pre_tag,"_",file_tag,".png"),height = 300*5,width = 600*length(cluster_tag_seq))
       #op=par(mfrow=c(5,length(cluster_tag_seq)),mar=c(5,1,1,1),oma=c(1,0,0,0))
-      png(paste0("./8.Result/fig_barplot/barplot_safi_",F_method,"_",pre_tag,"_",file_tag,".png"),height = 400*5,width = 600*7)
-      op=par(mfrow=c(5,7),mar=c(10,2,2,2),oma=c(5,2,2,2))
+      #png(paste0("./8.Result/fig_barplot/barplot_safi_",F_method,"_",pre_tag,"_",file_tag,".png"),height = 400*5,width = 800*1)
+      pdf(paste0("./8.Result/fig_barplot/barplot_safi_",F_method,"_",pre_tag,"_",file_tag,".pdf"),height = 40,width = 10)
+      op=par(mfrow=c(5,1),mar=c(10,2,2,2),oma=c(5,2,2,2))
       
       a=matrix(ncol=length(cur_file_namelist),nrow=length(cluster_tag_seq))
       for(i_cluster in 1:length(cluster_tag_seq)){
@@ -656,7 +658,7 @@ for(i_file in 1:length(file_tag_seq)){
       colnames(a)=cur_file_namelist
       a=a[,thres_index]
       #for(i_cluster in 1:length(cluster_tag_seq)){
-      for(i_cluster in c(1:3,10:12,14)){
+      for(i_cluster in c(12)){
         barplot(a[i_cluster,],cex.lab=1.5, cex.axis=1.5, cex.main=1.5, cex.sub=1.5,main="# safi genes with pval<0.05, observed data",sub=cur_cluster[i_cluster],ylab="power",las=2,ylim=c(0,300))
         #abline(h = 0.05, col = "red") 
       }
@@ -668,7 +670,7 @@ for(i_file in 1:length(file_tag_seq)){
         colnames(b)=cur_file_namelist
         b=b[,thres_index]
         #for(i_cluster in 1:length(cluster_tag_seq)){
-        for(i_cluster in c(1:3,10:12,14)){
+        for(i_cluster in c(12)){
           barplot(b[i_cluster,],cex.lab=1.5, cex.axis=1.5, cex.main=1.5, cex.sub=1.5,main="# safi genes with pval<0.05, permutated data",sub=cur_cluster[i_cluster],ylab="type I error",las=2,ylim=c(0,300))
           #abline(h = 0.05, col = "red") 
         }
@@ -1343,5 +1345,362 @@ for(i_file in 1:length(file_tag_seq)){
 }
 
 
+#####################Gene level analysis#####################################
 
+##################Section 1: Gene level pval hist########################################
+pval_list=readRDS(paste0("./8.Result/final_pval_list.rds"))
+#cur pval = PFC5k of zinb fitted dca model wiht logresid adjusted cells based on cell-level readdepth
+tmeta=read.table(paste0("meta.tsv"),header = TRUE, sep = "\t",stringsAsFactors = FALSE)
+cur_cluster=unique(tmeta$cluster)
+cur_cluster
+cluster_index=17 #L23(12)
+
+#Oligo(3),OPC(4), 
+#IN-VIP(9), IN-PV(13), L4(14),AST-PP(17).
+
+pval_length=5000
+file_tag="PFC5k"
+ob_pval=pval_list[[file_tag]][,1,cluster_index,2,2,1,,]
+perm_pval=pval_list[[file_tag]][,1,cluster_index,2,2,2,,]
+
+add_val=min(ob_pval[ob_pval>0],perm_pval[perm_pval>0],na.rm = TRUE)
+
+ob_log_pval=-log10(ob_pval+add_val)
+perm_log_pval=-log10(perm_pval+add_val)
+
+
+#png(paste0("./8.Result/fig_pval_hist/pval_hist_total_PFC5k_logresidreaddepth_",pre_tag,"_",file_tag,"_",cluster_index,"_",meth,".png"),height = 600*8,width = 600*4,res=200)
+#op=par(mfrow=c(8,4))
+for(i_m in 1:length(method_seq)){
+  meth=method_seq[i_m]
+  if(sum(!is.na(ob_pval[,i_m,]))>0){
+    png(paste0("./8.Result/fig_pval_hist/pval_hist_total_PFC5k_logresidreaddepth_",F_method,"_",pre_tag,"_",file_tag,"_",cluster_index,"_",meth,".png"),height = 600*2,width = 600*2,res=200)
+    op=par(mfrow=c(2,2))
+    for(i_F in 1:length(F_method_seq)){
+      F_method=F_method_seq[i_F]
+      tryCatch({hist(ob_pval[i_F,i_m,],breaks=100,
+                     sub=paste0("correlation xy ",round(cor(1:pval_length,ob_pval[i_F,i_m,],use="complete.obs"),3),
+                                ",NAp prop ",round(sum(is.na(ob_pval[i_F,i_m,]))/pval_length,4)),
+                     main=paste0("ob pval of ",meth,", ",F_method,", ",cur_cluster[cluster_index]),
+                     ylab="-log10 pval",xlab="genes in order",cex=.1,col=rgb(0,0,0,0.8))}, error = function(e) {NA} )
+      tryCatch({abline(v=0.05,col="red",lwd=2)}, error = function(e) {NA} )
+      tryCatch({hist(perm_pval[i_F,i_m,],breaks=100,
+                     sub=paste0("correlation xy ",round(cor(1:pval_length,perm_pval[i_F,i_m,],use="complete.obs"),3),
+                                ",NAp prop ",round(sum(is.na(perm_pval[i_F,i_m,]))/pval_length,4)),
+                     main=paste0("perm pval of ",meth,", ",F_method,", ",cur_cluster[cluster_index]),
+                     ylab="-log10 pval",xlab="genes in order",cex=.1,col=rgb(0,0,0,0.8))}, error = function(e) {NA} )
+      tryCatch({abline(v=0.05,col="red",lwd=2)}, error = function(e) {NA} )
+    }
+    par(op)
+    dev.off()
+  }
+  #par(op)
+  #dev.off()
+  
+  #png(paste0("./8.Result/fig_pval_hist/pval_hist_subcompare_PFC5k_logresidreaddepth_",F_method,"_",pre_tag,"_",file_tag,"_",cluster_index,"_",meth,".png"),height = 600*8,width = 600*4,res=200)
+  #op=par(mfrow=c(8,4))
+  for(i_m in 1:length(method_seq)){
+    meth=method_seq[i_m]
+    png(paste0("./8.Result/fig_pval_hist/pval_hist_subcompare_PFC5k_logresidreaddepth_",F_method,"_",pre_tag,"_",file_tag,"_",cluster_index,"_",meth,".png"),height = 600*4,width = 600*2,res=200)
+    op=par(mfrow=c(4,2))
+    for(i_F in 1:length(F_method_seq)){
+      cur_ob_pval=NA
+      cur_perm_pval=NA
+      F_method=F_method_seq[i_F]
+      cur_ob_pval=ob_pval[,,1:1000]
+      cur_perm_pval=perm_pval[,,1:1000]
+      tryCatch({hist(cur_ob_pval[i_F,i_m,],breaks=50,
+                     sub=paste0("correlation xy ",round(cor(1:1000,cur_ob_pval[i_F,i_m,],use="complete.obs"),3),
+                                ",NAp prop ",round(sum(is.na(cur_ob_pval[i_F,i_m,]))/1000,4)),
+                     main=paste0("ob pval 1k-th of ",meth,", ",F_method,", ",cur_cluster[cluster_index]),
+                     ylab="-log10 pval",xlab="genes in order",cex=.1,col=rgb(0,0,0,0.8))}, error = function(e) {NA} )
+      tryCatch({abline(v=0.05,col="red",lwd=2)}, error = function(e) {NA} )
+      tryCatch({hist(cur_perm_pval[i_F,i_m,],breaks=50,
+                     sub=paste0("correlation xy ",round(cor(1:1000,cur_perm_pval[i_F,i_m,],use="complete.obs"),3),
+                                ",NAp prop ",round(sum(is.na(cur_perm_pval[i_F,i_m,]))/1000,4)),
+                     main=paste0("perm pval 1k-th of ",meth,", ",F_method,", ",cur_cluster[cluster_index]),
+                     ylab="-log10 pval",xlab="genes in order",cex=.1,col=rgb(0,0,0,0.8))}, error = function(e) {NA} )
+      tryCatch({abline(v=0.05,col="red",lwd=2)}, error = function(e) {NA} )
+      
+      cur_ob_pval=NA
+      cur_perm_pval=NA
+      cur_ob_pval=ob_pval[,,4001:5000]
+      cur_perm_pval=perm_pval[,,4001:5000]
+      tryCatch({hist(cur_ob_pval[i_F,i_m,],breaks=50,
+                     sub=paste0("correlation xy ",round(cor(1:1000,cur_ob_pval[i_F,i_m,],use="complete.obs"),3),
+                                ",NAp prop ",round(sum(is.na(cur_ob_pval[i_F,i_m,]))/1000,4)),
+                     main=paste0("ob 4-5k-th pval of ",meth,", ",F_method,", ",cur_cluster[cluster_index]),
+                     ylab="-log10 pval",xlab="genes in order",cex=.1,col=rgb(0,0,0,0.8))}, error = function(e) {NA} )
+      tryCatch({abline(v=0.05,col="red",lwd=2)}, error = function(e) {NA} )
+      tryCatch({hist(cur_perm_pval[i_F,i_m,],breaks=50,
+                     sub=paste0("correlation xy ",round(cor(1:1000,cur_perm_pval[i_F,i_m,],use="complete.obs"),3),
+                                ",NAp prop ",round(sum(is.na(cur_perm_pval[i_F,i_m,]))/1000,4)),
+                     main=paste0("perm 4-5k-th pval of ",meth,", ",F_method,", ",cur_cluster[cluster_index]),
+                     ylab="-log10 pval",xlab="genes in order",cex=.1,col=rgb(0,0,0,0.8))}, error = function(e) {NA} )
+        tryCatch({abline(v=0.05,col="red",lwd=2)}, error = function(e) {NA} )
+    }
+    par(op)
+    dev.off()
+  }
+}
+#par(op)
+#dev.off()
+
+#png(paste0("./8.Result/fig_pval_scatter/pval_scatter_gene_order_PFC5k_logresidreaddepth_",pre_tag,"_",file_tag,"_",cluster_index,".png"),height = 600*8,width = 600*4,res=200)
+#op=par(mfrow=c(8,4))
+for(i_m in 1:length(method_seq)){
+  meth=method_seq[i_m]
+  if(sum(!is.na(ob_pval[,i_m,]))>0){
+    png(paste0("./8.Result/fig_pval_scatter/pval_scatter_gene_order_PFC5k_logresidreaddepth_",pre_tag,"_",file_tag,"_",cluster_index,"_",meth,".png"),height = 600*2,width = 600*2,res=200)
+    op=par(mfrow=c(2,2))
+    for(i_F in 1:length(F_method_seq)){
+      F_method=F_method_seq[i_F]
+      tryCatch({plot(1:pval_length,ob_log_pval[i_F,i_m,],
+                     sub=paste0("correlation xy ",round(cor(1:pval_length,ob_log_pval[i_F,i_m,],use="complete.obs"),3),
+                                ",NA p prop ",round(sum(is.na(ob_log_pval[i_F,i_m,]))/pval_length,4)),
+                     main=paste0("ob pval of ",meth,", ",F_method,", ",cur_cluster[cluster_index]),
+                     ylab="-log10 pval",xlab="genes in order",cex=.1,col=rgb(0,0,0,0.8))}, error = function(e) {NA} )
+      tryCatch({abline(h=-log10(0.05),col="red",lwd=2)}, error = function(e) {NA} )
+      tryCatch({plot(1:pval_length,perm_log_pval[i_F,i_m,],
+                     sub=paste0("correlation xy ",round(cor(1:pval_length,perm_log_pval[i_F,i_m,],use="complete.obs"),3),
+                                ",NA p prop ",round(sum(is.na(perm_log_pval[i_F,i_m,]))/pval_length,4)),
+                     main=paste0("perm pval of ",meth,", ",F_method,", ",cur_cluster[cluster_index]),
+                     ylab="-log10 pval",xlab="genes in order",cex=.1,col=rgb(0,0,0,0.8))}, error = function(e) {NA} )
+      tryCatch({abline(h=-log10(0.05),col="red",lwd=2)}, error = function(e) {NA} )
+    }
+    par(op)
+    dev.off()
+  }
+  
+}
+#par(op)
+#dev.off()
+
+png(paste0("./8.Result/fig_pval_scatter/pval_scatter_vsMast_PFC5k_logresidreaddepth_",pre_tag,"_",file_tag,"_",cluster_index,".png"),height = 600*8,width = 600*4,res=200)
+op=par(mfrow=c(8,4))
+for(i_m in 1:length(method_seq)){
+  for(i_F in 1:length(F_method_seq)){
+    meth=method_seq[i_m]
+    F_method=F_method_seq[i_F]
+    tryCatch({plot(ob_log_pval[i_F,2,],ob_log_pval[i_F,i_m,],
+         sub=paste0("correlation xy ",round(cor(ob_log_pval[i_F,2,],ob_log_pval[i_F,i_m,],use="complete.obs"),3),
+                    ",NA p prop ",round(sum(is.na(ob_log_pval[i_F,i_m,]))/pval_length,4)),
+         main=paste0("ob pval of MAST vs ",meth,", ",F_method,", ",cur_cluster[cluster_index]),
+         ylab=paste0(meth," -log10 pval"),xlab="MAST -log10 pval",cex=.1,col=rgb(0,0,0,0.8))}, error = function(e) {NA} )
+    tryCatch({lines(c(0,10),c(0,10),col="red",lwd=1)}, error = function(e) {NA} )
+    tryCatch({plot(perm_log_pval[i_F,2,],perm_log_pval[i_F,i_m,],
+         sub=paste0("correlation xy ",round(cor(perm_log_pval[i_F,2,],perm_log_pval[i_F,i_m,],use="complete.obs"),3),
+                    ",NA p prop ",round(sum(is.na(perm_log_pval[i_F,i_m,]))/pval_length,4)),
+         main=paste0("perm pval of MAST vs ",meth,", ",F_method,", ",cur_cluster[cluster_index]),
+         ylab=paste0(meth," -log10 pval"),xlab="MAST -log10 pval",cex=.1,col=rgb(0,0,0,0.8))}, error = function(e) {NA} )
+      tryCatch({lines(c(0,10),c(0,10),col="red",lwd=1)}, error = function(e) {NA} )
+  }
+}
+par(op)
+dev.off()
+
+png(paste0("./8.Result/fig_pval_scatter/pval_scatter_vs_jsd_direct_PFC5k_logresidreaddepth_",pre_tag,"_",file_tag,"_",cluster_index,".png"),height = 600*8,width = 600*4,res=200)
+op=par(mfrow=c(8,4))
+for(i_m in 1:length(method_seq)){
+  for(i_F in 1:length(F_method_seq)){
+    meth=method_seq[i_m]
+    F_method=F_method_seq[i_F]
+    tryCatch({plot(ob_log_pval[i_F,7,],ob_log_pval[i_F,i_m,],
+         sub=paste0("correlation xy ",round(cor(ob_log_pval[i_F,7,],ob_log_pval[i_F,i_m,],use="complete.obs"),3),
+                    ",NA p prop ",round(sum(is.na(ob_log_pval[i_F,i_m,]))/pval_length,4)),
+         main=paste0("ob pval of jsd_direct vs ",meth,", ",F_method,", ",cur_cluster[cluster_index]),
+         ylab=paste0(meth," -log10 pval"),xlab="jsd_direct -log10 pval",cex=.1,col=rgb(0,0,0,0.8))}, error = function(e) {NA} )
+    tryCatch({lines(c(0,10),c(0,10),col="red",lwd=1)}, error = function(e) {NA} )
+    tryCatch({plot(perm_log_pval[i_F,7,],perm_log_pval[i_F,i_m,],
+         sub=paste0("correlation xy ",round(cor(perm_log_pval[i_F,7,],perm_log_pval[i_F,i_m,],use="complete.obs"),3),
+                    ",NA p prop ",round(sum(is.na(perm_log_pval[i_F,i_m,]))/pval_length,4)),
+         main=paste0("perm pval of jsd_direct vs ",meth,", ",F_method,", ",cur_cluster[cluster_index]),
+         ylab=paste0(meth," -log10 pval"),xlab="jsd_direct -log10 pval",cex=.1,col=rgb(0,0,0,0.8))}, error = function(e) {NA} )
+    tryCatch({lines(c(0,10),c(0,10),col="red",lwd=1)}, error = function(e) {NA} )
+  }
+}
+par(op)
+dev.off()
+
+png(paste0("./8.Result/fig_pval_scatter/pval_scatter_vs_jsd_empirical_PFC5k_logresidreaddepth_",pre_tag,"_",file_tag,"_",cluster_index,".png"),height = 600*8,width = 600*4,res=200)
+op=par(mfrow=c(8,4))
+for(i_m in 1:length(method_seq)){
+  for(i_F in 1:length(F_method_seq)){
+    meth=method_seq[i_m]
+    F_method=F_method_seq[i_F]
+    tryCatch({plot(ob_log_pval[i_F,3,],ob_log_pval[i_F,i_m,],
+         sub=paste0("correlation xy ",round(cor(ob_log_pval[i_F,3,],ob_log_pval[i_F,i_m,],use="complete.obs"),3),
+                    ",NA p prop ",round(sum(is.na(ob_log_pval[i_F,i_m,]))/pval_length,4)),
+         main=paste0("ob pval of jsd_empirical vs ",meth,", ",F_method,", ",cur_cluster[cluster_index]),
+         ylab=paste0(meth," -log10 pval"),xlab="jsd_empirical -log10 pval",cex=.1,col=rgb(0,0,0,0.8))}, error = function(e) {NA} )
+    tryCatch({lines(c(0,10),c(0,10),col="red",lwd=1)}, error = function(e) {NA} )
+    tryCatch({plot(perm_log_pval[i_F,3,],perm_log_pval[i_F,i_m,],
+         sub=paste0("correlation xy ",round(cor(perm_log_pval[i_F,3,],perm_log_pval[i_F,i_m,],use="complete.obs"),3),
+                    ",NA p prop ",round(sum(is.na(perm_log_pval[i_F,i_m,]))/pval_length,4)),
+         main=paste0("perm pval of jsd_empirical vs ",meth,", ",F_method,", ",cur_cluster[cluster_index]),
+         ylab=paste0(meth," -log10 pval"),xlab="jsd_empirical -log10 pval",cex=.1,col=rgb(0,0,0,0.8))}, error = function(e) {NA} )
+      tryCatch({lines(c(0,10),c(0,10),col="red",lwd=1)}, error = function(e) {NA} )
+  }
+}
+par(op)
+dev.off()
+
+png(paste0("./8.Result/fig_pval_scatter/pval_scatter_vs_jsd_zinb_PFC5k_logresidreaddepth_",pre_tag,"_",file_tag,"_",cluster_index,".png"),height = 600*8,width = 600*4,res=200)
+op=par(mfrow=c(8,4))
+for(i_m in 1:length(method_seq)){
+  for(i_F in 1:length(F_method_seq)){
+    meth=method_seq[i_m]
+    F_method=F_method_seq[i_F]
+    tryCatch({plot(ob_log_pval[i_F,5,],ob_log_pval[i_F,i_m,],
+         sub=paste0("correlation xy ",round(cor(ob_log_pval[i_F,5,],ob_log_pval[i_F,i_m,],use="complete.obs"),3),
+                    ",NA p prop ",round(sum(is.na(ob_log_pval[i_F,i_m,]))/pval_length,4)),
+         main=paste0("ob pval of jsd_zinb vs ",meth,", ",F_method,", ",cur_cluster[cluster_index]),
+         ylab=paste0(meth," -log10 pval"),xlab="jsd_zinb -log10 pval",cex=.1,col=rgb(0,0,0,0.8))}, error = function(e) {NA} )
+    tryCatch({lines(c(0,10),c(0,10),col="red",lwd=1)}, error = function(e) {NA} )
+    tryCatch({plot(perm_log_pval[i_F,5,],perm_log_pval[i_F,i_m,],
+         sub=paste0("correlation xy ",round(cor(perm_log_pval[i_F,5,],perm_log_pval[i_F,i_m,],use="complete.obs"),3),
+                    ",NA p prop ",round(sum(is.na(perm_log_pval[i_F,i_m,]))/pval_length,4)),
+         main=paste0("perm pval of jsd_zinb vs ",meth,", ",F_method,", ",cur_cluster[cluster_index]),
+         ylab=paste0(meth," -log10 pval"),xlab="jsd_zinb -log10 pval",cex=.1,col=rgb(0,0,0,0.8))}, error = function(e) {NA} )
+    tryCatch({lines(c(0,10),c(0,10),col="red",lwd=1)}, error = function(e) {NA} )
+  }
+}
+par(op)
+dev.off()
+
+##################Section 1: Gene level pval hist(END)###################################
+
+##################Section 2: Some details of certain genes ##############################
+library("ggplot2")
+method_seq=c("DESeq","MAST","jsd_empirical","klmean_empirical","jsd_zinb","klmean_zinb","jsd_direct","klmean_direct")
+pval_list=readRDS(paste0("./8.Result/final_pval_list.rds"))
+#cur pval = PFC5k of zinb fitted dca model wiht logresid adjusted cells based on cell-level readdepth
+tmeta=read.table(paste0("meta.tsv"),header = TRUE, sep = "\t",stringsAsFactors = FALSE)
+tmeta=tmeta[tmeta$region=="PFC",]
+cur_cluster=unique(tmeta$cluster)
+cur_cluster
+cluster_index=12 #L23(12)
+
+#Oligo(3),OPC(4), 
+#IN-VIP(9), IN-PV(13), L4(14),AST-PP(17).
+
+meta=tmeta[tmeta$cluster==cur_cluster[cluster_index],]
+cur_individual=unique(meta$individual)
+
+ind=meta$individual
+phenotype=meta$diagnosis
+phenotype=as.factor(phenotype)
+
+
+#pval preparation
+pval_length=5000
+file_tag="PFC5k"
+ob_pval=pval_list[[file_tag]][,1,cluster_index,2,2,1,,]
+
+sig_score_all=apply(ob_pval<=0.05,3,sum) #sig score shows the # of sig methods based on each gene. 0-16
+sig_score_DESeq=as.integer(ob_pval[1,1,]<=0.05)
+sig_score_MAST=as.integer(ob_pval[1,2,]<=0.05)
+sig_score_Fstat=apply(ob_pval[,3:8,]<=0.05,3,sum)
+
+sig10_all=which(sig_score_all>11)[1:10]
+sig10_onlyDESeq2=which(sig_score_MAST==0 & sig_score_DESeq==1 & sig_score_Fstat==0)[1:10]
+sig10_onlyMAST=which(sig_score_MAST==1 & sig_score_DESeq==0 & sig_score_Fstat==0)[1:10]
+sig10_onlyFstat=which(sig_score_MAST==0 & sig_score_DESeq==0 & sig_score_Fstat==1)[1:10]
+
+
+#kernel plot input matrix
+sim_data=readRDS(paste0("./7.Result/sim_ind_logresidreaddepthdca_sim_",cluster_index,"_",file_tag,".rds"))
+rawM=readRDS(paste0("./7.Result/rawM_readdepth",cluster_index,"_",file_tag,".rds"))
+rawM_resid=readRDS(paste0("./7.Result/rawM_logresidreaddepth",cluster_index,"_",file_tag,".rds"))
+
+
+
+#sig10_all
+pdf(paste0("./8.Result/fig_sig_gene_indlevel_distr/sig10_all_inddisr_logresidreaddepthdca_",file_tag,"_",cluster_index,".pdf"),width = 5,height=3)
+for(ig in sig10_all){
+  #count=sim_matrix[ig,]
+  #count_adj=sim_matrix_adj[ig,]
+  sim_count_logresid=sim_data[ig,,]
+  raw_count_log=log(rawM[ig,]+1)
+  raw_count_logresid=rawM_resid[ig,]
+  
+  cur_df=data.frame(raw_count_log,raw_count_logresid,ind,phenotype)
+  p1=ggplot(cur_df, aes(x=raw_count_log, color=phenotype, group=ind)) +geom_density(bw=.2) + ggtitle(paste0("raw_count_log: sig10_all gene", ig))
+  p2=ggplot(cur_df, aes(x=raw_count_logresid, color=phenotype, group=ind)) +geom_density(bw=.2) + ggtitle(paste0("raw_count_logresid: sig10_all gene", ig))
+  
+  cur_df=data.frame(c(sim_count_logresid),rep(ind,times=10),rep(phenotype,times=10))
+  colnames(cur_df)=c("sim_count_logresid","ind","phenotype")
+  p3=ggplot(cur_df, aes(x=sim_count_logresid, color=phenotype, group=ind)) +geom_density(bw=.2) + ggtitle(paste0("sim_count_logresid: sig10_all gene", ig))
+  print(p1)
+  print(p2)
+  print(p3)
+}
+dev.off()
+
+#sig10_onlyDESeq2
+pdf(paste0("./8.Result/fig_sig_gene_indlevel_distr/sig10_onlyDESeq2_inddisr_logresidreaddepthdca_",file_tag,"_",cluster_index,".pdf"),width = 5,height=3)
+for(ig in sig10_onlyDESeq2){
+  #count=sim_matrix[ig,]
+  #count_adj=sim_matrix_adj[ig,]
+  sim_count_logresid=sim_data[ig,,]
+  raw_count_log=log(rawM[ig,]+1)
+  raw_count_logresid=rawM_resid[ig,]
+  
+  cur_df=data.frame(raw_count_log,raw_count_logresid,ind,phenotype)
+  p1=ggplot(cur_df, aes(x=raw_count_log, color=phenotype, group=ind)) +geom_density(bw=.2) + ggtitle(paste0("raw_count_log: sig10_onlyDESeq2 gene", ig))
+  p2=ggplot(cur_df, aes(x=raw_count_logresid, color=phenotype, group=ind)) +geom_density(bw=.2) + ggtitle(paste0("raw_count_logresid: sig10_onlyDESeq2 gene", ig))
+  
+  cur_df=data.frame(c(sim_count_logresid),rep(ind,times=10),rep(phenotype,times=10))
+  colnames(cur_df)=c("sim_count_logresid","ind","phenotype")
+  p3=ggplot(cur_df, aes(x=sim_count_logresid, color=phenotype, group=ind)) +geom_density(bw=.2) + ggtitle(paste0("sim_count_logresid: sig10_onlyDESeq2 gene", ig))
+  print(p1)
+  print(p2)
+  print(p3)
+}
+dev.off()
+
+#sig10_onlyMAST
+pdf(paste0("./8.Result/fig_sig_gene_indlevel_distr/sig10_onlyMAST_inddisr_logresidreaddepthdca_",file_tag,"_",cluster_index,".pdf"),width = 5,height=3)
+for(ig in sig10_onlyMAST){
+  #count=sim_matrix[ig,]
+  #count_adj=sim_matrix_adj[ig,]
+  sim_count_logresid=sim_data[ig,,]
+  raw_count_log=log(rawM[ig,]+1)
+  raw_count_logresid=rawM_resid[ig,]
+  
+  cur_df=data.frame(raw_count_log,raw_count_logresid,ind,phenotype)
+  p1=ggplot(cur_df, aes(x=raw_count_log, color=phenotype, group=ind)) +geom_density(bw=.2) + ggtitle(paste0("raw_count_log: sig10_onlyMAST gene", ig))
+  p2=ggplot(cur_df, aes(x=raw_count_logresid, color=phenotype, group=ind)) +geom_density(bw=.2) + ggtitle(paste0("raw_count_logresid: sig10_onlyMAST gene", ig))
+  
+  cur_df=data.frame(c(sim_count_logresid),rep(ind,times=10),rep(phenotype,times=10))
+  colnames(cur_df)=c("sim_count_logresid","ind","phenotype")
+  p3=ggplot(cur_df, aes(x=sim_count_logresid, color=phenotype, group=ind)) +geom_density(bw=.2) + ggtitle(paste0("sim_count_logresid: sig10_onlyMAST gene", ig))
+  print(p1)
+  print(p2)
+  print(p3)
+}
+dev.off()
+
+#sig10_onlyFstat
+pdf(paste0("./8.Result/fig_sig_gene_indlevel_distr/sig10_onlyFstat_inddisr_logresidreaddepthdca_",file_tag,"_",cluster_index,".pdf"),width = 5,height=3)
+for(ig in sig10_onlyFstat){
+  #count=sim_matrix[ig,]
+  #count_adj=sim_matrix_adj[ig,]
+  sim_count_logresid=sim_data[ig,,]
+  raw_count_log=log(rawM[ig,]+1)
+  raw_count_logresid=rawM_resid[ig,]
+  
+  cur_df=data.frame(raw_count_log,raw_count_logresid,ind,phenotype)
+  p1=ggplot(cur_df, aes(x=raw_count_log, color=phenotype, group=ind)) +geom_density(bw=.2) + ggtitle(paste0("raw_count_log: sig10_onlyFstat gene", ig))
+  p2=ggplot(cur_df, aes(x=raw_count_logresid, color=phenotype, group=ind)) +geom_density(bw=.2) + ggtitle(paste0("raw_count_logresid: sig10_onlyFstat gene", ig))
+  
+  cur_df=data.frame(c(sim_count_logresid),rep(ind,times=10),rep(phenotype,times=10))
+  colnames(cur_df)=c("sim_count_logresid","ind","phenotype")
+  p3=ggplot(cur_df, aes(x=sim_count_logresid, color=phenotype, group=ind)) +geom_density(bw=.2) + ggtitle(paste0("sim_count_logresid: sig10_onlyFstat gene", ig))
+  print(p1)
+  print(p2)
+  print(p3)
+}
+dev.off()
+##################Section 2: Some details of certain genes (END)#########################
 
