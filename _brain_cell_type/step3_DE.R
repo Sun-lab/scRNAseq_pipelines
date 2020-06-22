@@ -331,7 +331,7 @@ ct_genes = list()
 for(ct in cell_types){
 	# ct = cell_types[1]
 	print(ct)
-	rds_fn = paste0("ssd_nG",num_genes,"_cell",ct,".rds")
+	rds_fn = file.path(s3de_dir,paste0("ssd_nG",num_genes,"_cell",ct,".rds"))
 	rds = readRDS(rds_fn)
 	rds = smart_merge(rds,dat,all.x=TRUE)
 	rds = rds[which(rds$logFC > logFC_thres 
