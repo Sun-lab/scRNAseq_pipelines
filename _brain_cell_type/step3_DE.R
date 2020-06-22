@@ -274,13 +274,15 @@ num_genes = nrow(sce)
 # ------------------------------------------------------------
 # Run job with at least 90GBs
 for(ct in cell_types){
-	cat(sprintf("%s: Start\n",date()))
 	print(ct)
-	MAST_DEgenes(work_dir = MTG_dir,
-				num_genes = num_genes,
-				sce_obj = sce,
-				one_cell_type = ct)
-	cat(sprintf("%s: End\n",date()))
+	if(FALSE){
+		cat(sprintf("%s: Start\n",date()))
+		MAST_DEgenes(work_dir = MTG_dir,
+					num_genes = num_genes,
+					sce_obj = sce,
+					one_cell_type = ct)
+		cat(sprintf("%s: End\n",date()))
+	}
 }
 
 # ------------------------------------------------------------
