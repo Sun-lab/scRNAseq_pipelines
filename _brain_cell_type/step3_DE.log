@@ -1,0 +1,2 @@
+/nas/longleaf/home/pllittle/downloads/R-3.5.1/lib64/R/bin/BATCH: line 60: 140761 Killed                  ${R_HOME}/bin/R -f ${in} ${opts} ${R_BATCH_OPTIONS} > ${out} 2>&1
+slurmstepd: error: Detected 1 oom-kill event(s) in step 62621961.batch cgroup. Some of your processes may have been killed by the cgroup out-of-memory handler.

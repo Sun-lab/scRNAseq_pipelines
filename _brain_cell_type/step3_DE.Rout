@@ -1,0 +1,456 @@
+> 
+> # scRNAseq differential expression
+> # NOTE: the code require large amount of memory and may not work 
+> #       on a laptop or a desktop. 
+> 
+> # ------------------------------------------------------------
+> # Shortcuts
+> # ------------------------------------------------------------
+> 
+> rm(list=ls())
+> 
+> sc_dir = "/pine/scr/p/l/pllittle/CS_eQTL/scRNAseq_pipelines"
+> source(file.path(sc_dir,"SOURCE.R"))
+> 
+> # ------------------------------------------------------------
+> # a raw data needed for the analysis is too large ()
+> # final_sce_filtered_by_kmeans.rds
+> # ------------------------------------------------------------
+> 
+> # rawData_dir = "human_MTG_gene_expression_matrices_2018-06-14"
+> # rawData_dir = file.path("~/research/scRNAseq/data/Allen_BI/", rawData_dir)
+> # rawData_dir
+> 
+> MTG_dir = file.path(sc_dir,"MTG")
+> # MTG_dir = rawData_dir
+> 
+> setwd(MTG_dir)
+> s3de_dir = file.path(sc_dir,"_brain_cell_type","step3_DE_output")
+> if( !dir.exists(s3de_dir) ) dir.create(s3de_dir)
+> 
+> # ------------------------------------------------------------
+> # Libraries/Functions
+> # ------------------------------------------------------------
+> 
+> if( !("BiocManager" %in% installed.packages()[,"Package"]) ){
++   install.packages("BiocManager",repos = "https://mirrors.nics.utk.edu/cran/")
++ }
+> 
+> if( !("MAST" %in% installed.packages()[,"Package"]) ){
++   # MAST = Model-based Analysis of Single Cell Transcriptomics
++   BiocManager::install("MAST")
++ }
+> 
+> library(ggplot2)
+> library(data.table)
+> library(scater)
+Loading required package: SingleCellExperiment
+Loading required package: SummarizedExperiment
+Loading required package: GenomicRanges
+Loading required package: stats4
+Loading required package: BiocGenerics
+Loading required package: parallel
+
+Attaching package: ‘BiocGenerics’
+
+The following objects are masked from ‘package:parallel’:
+
+    clusterApply, clusterApplyLB, clusterCall, clusterEvalQ,
+    clusterExport, clusterMap, parApply, parCapply, parLapply,
+    parLapplyLB, parRapply, parSapply, parSapplyLB
+
+The following objects are masked from ‘package:stats’:
+
+    IQR, mad, sd, var, xtabs
+
+The following objects are masked from ‘package:base’:
+
+    anyDuplicated, append, as.data.frame, basename, cbind, colMeans,
+    colnames, colSums, dirname, do.call, duplicated, eval, evalq,
+    Filter, Find, get, grep, grepl, intersect, is.unsorted, lapply,
+    lengths, Map, mapply, match, mget, order, paste, pmax, pmax.int,
+    pmin, pmin.int, Position, rank, rbind, Reduce, rowMeans, rownames,
+    rowSums, sapply, setdiff, sort, table, tapply, union, unique,
+    unsplit, which, which.max, which.min
+
+Loading required package: S4Vectors
+
+Attaching package: ‘S4Vectors’
+
+The following objects are masked from ‘package:data.table’:
+
+    first, second
+
+The following object is masked from ‘package:base’:
+
+    expand.grid
+
+Loading required package: IRanges
+
+Attaching package: ‘IRanges’
+
+The following object is masked from ‘package:data.table’:
+
+    shift
+
+Loading required package: GenomeInfoDb
+Loading required package: Biobase
+Welcome to Bioconductor
+
+    Vignettes contain introductory material; view with
+    'browseVignettes()'. To cite Bioconductor, see
+    'citation("Biobase")', and for packages 'citation("pkgname")'.
+
+Loading required package: DelayedArray
+Loading required package: matrixStats
+
+Attaching package: ‘matrixStats’
+
+The following objects are masked from ‘package:Biobase’:
+
+    anyMissing, rowMedians
+
+Loading required package: BiocParallel
+
+Attaching package: ‘DelayedArray’
+
+The following objects are masked from ‘package:matrixStats’:
+
+    colMaxs, colMins, colRanges, rowMaxs, rowMins, rowRanges
+
+The following objects are masked from ‘package:base’:
+
+    aperm, apply
+
+
+Attaching package: ‘scater’
+
+The following object is masked from ‘package:S4Vectors’:
+
+    rename
+
+The following object is masked from ‘package:stats’:
+
+    filter
+
+> 
+> GTF_calc_gene_length = function(work_dir,rsem_gtf_fn){
++ 	if(FALSE){
++ 		work_dir = MTG_dir
++ 		rsem_gtf_fn = file.path(work_dir, "rsem_GRCh38.p2.gtf")
++ 	}
++ 
++   rsem_gtf_fn = file.path(work_dir, "rsem_GRCh38.p2.gtf")
++   
++ 	# Download GTF file
++ 	if( !file.exists(rsem_gtf_fn) ){
++ 		gtf_link = "http://celltypes.brain-map.org/api/v2/well_known_file_download/502175284"
++ 		gtf_fn = strsplit(gtf_link,"/")[[1]]
++ 		gtf_fn = gtf_fn[length(gtf_fn)]
++ 		gtf_fn = file.path(work_dir,gtf_fn)
++ 		system(sprintf("cd %s; wget %s; unzip %s",work_dir,gtf_link,gtf_fn))
++ 	}
++   
++ 	# Get mapping from gene_id to gene_symbol
++ 	gtf = data.table::fread(rsem_gtf_fn,header = FALSE,data.table = FALSE)
++ 	dim(gtf); gtf[1:3,]
++ 	names(gtf) = c("seqname","source","feature",
++ 				"start_position","end_position",
++ 				"score","strand","frame","attributes")
++ 	gtf = gtf[which(gtf$feature %in% c("gene")),]
++ 	gtf$gene_id = sapply(gtf$attributes,function(xx) 
++ 		gsub("\"","",gsub("gene_id ","",strsplit(xx,";")[[1]][1])),
++ 		USE.NAMES = !TRUE)
++ 	gtf$gene_symbol = sapply(gtf$attributes,function(xx) 
++ 		gsub("\"","",gsub(" gene_symbol ","",strsplit(xx,";")[[1]][2])),
++ 		USE.NAMES = !TRUE)
++   
++ 	# Import gtf to database
++ 	library(GenomicRanges)
++ 	library(GenomicFeatures)
++ 	cat("Make TxDb...\n")
++ 	exdb = suppressWarnings(GenomicFeatures::makeTxDbFromGFF(
++ 		file = rsem_gtf_fn,format = "gtf"))
++ 	exons_list_per_gene = GenomicFeatures::exonsBy(exdb,by = "gene")
++   
++ 	# Get intersection
++ 	gene_intersect = intersect(gtf$gene_id,names(exons_list_per_gene))
++ 	exons_list_per_gene = exons_list_per_gene[names(exons_list_per_gene) %in% gene_intersect]
++ 	gtf = gtf[which(gtf$gene_id %in% gene_intersect),]
++   
++ 	# Calculate exonic gene lengths
++ 	tmp_df = smart_df(gene_id = names(exons_list_per_gene),
++ 		gene_length = as.numeric(sum(width(GenomicRanges::reduce(exons_list_per_gene)))))
++ 	tmp_df = tmp_df[match(gtf$gene_id,tmp_df$gene_id),]
++ 	all(gtf$gene_id == tmp_df$gene_id)
++ 	gtf$gene_length = tmp_df$gene_length
++   
++ 	# Output
++ 	gtf
++ }
+> MAST_DEgenes = function(work_dir,num_genes=NULL,sce_obj,one_cell_type){
++   
++ 	if(FALSE){
++ 		work_dir = MTG_dir
++ 		num_genes = NULL
++ 		sce_obj = sce
++ 		one_cell_type = c("Astro","Exc","Inh","Micro","Oligo","OPC")[1]
++ 		# fdr_thres = 1e-3; logFC_thres = log(2)
++ 	}
++ 
++ 	setwd(work_dir)
++ 	
++ 	# Subset Genes and make SingleCellAssay object
++ 	if( is.null(num_genes) ){
++ 		num_genes = nrow(sce_obj)
++ 	}
++ 	sca = MAST::SceToSingleCellAssay(sce = sce_obj[seq(num_genes),])
++   
++ 	# Exclude any subjects with no gene counts
++ 	sca = sca[,colSums(counts(sca)) > 0]
++   
++ 	# Make ET assay log2(TPM+1)
++ 	## Calculate log2(TPM+1)
++ 	cat("Calculating log2(TPM+1)...\n")
++ 	calc_count_to_log2_TPM_1 = function(vec_count,vec_lengths){
++ 		xx = vec_count / vec_lengths
++ 		xx = xx / sum(xx)
++ 		TPM = xx * 1e6
++ 		log2(1 + TPM)
++ 	}
++   
++ 	assay(sca,"Et") = apply(counts(sca),2,function(xx) 
++ 		calc_count_to_log2_TPM_1(xx,rowData(sca)$gene_length))
++ 	assay(sca,"counts") = NULL
++ 	assay(sca,"logcounts") = NULL
++   
++ 	# Calculate CDS, only after Et assay is created
++ 	colData(sca)$cngeneson = scale(colSums(assay(sca,"Et") > 0))
++   
++ 	# Calculate Group
++ 	ref_group = paste0("not_",one_cell_type)
++ 	colData(sca)$Group = ifelse(colData(sca)$cell_type == one_cell_type,
++ 		one_cell_type,ref_group)
++ 	colData(sca)$Group = factor(colData(sca)$Group,
++ 		levels = c(ref_group,one_cell_type))
++   
++ 	# zlm analysis: Model log-transformed expression as function 
++ 	#	of clustered cell type and num detected genes
++ 	print(date())
++ 	zlm_output = MAST::zlm(formula = ~ Group + cngeneson,sca = sca)
++ 	print(date())
++ 
++ 	# Perform LRT of one cell_type against all others
++ 	cat("Running LRT by excluding the cell_type covariate ...\n")
++ 	print(date())
++ 	ssc = MAST::summary(object = zlm_output,
++ 		doLRT = paste0("Group",one_cell_type))
++ 	print(date())
++ 	ssd0 = smart_df(ssc$datatable)
++ 	ssd = ssd0[which(ssd0$component == "H"),]
++ 	ssd = name_change(ssd,"Pr..Chisq.","pvalue")
++ 	ssd = name_change(ssd,"primerid","gene")
++ 	ssd = ssd[,c("gene","pvalue")]
++ 	tmp_index = which(ssd0$component == "logFC"
++ 		& ssd0$contrast == paste0("Group",one_cell_type))
++ 	ssd$logFC = ssd0$coef[tmp_index]
++ 	ssd$z = ssd0$z[tmp_index]
++ 	ssd = ssd[which(!is.na(ssd$logFC)),]
++ 	ssd$FDR_qvalue = p.adjust(p = ssd$pvalue,method = "fdr")
++ 	ssd = ssd[order(ssd$FDR_qvalue),]
++ 	ssd = smart_df(cell_type = one_cell_type,ssd)
++   
++ 	# Output
++ 	ssd_fn = file.path(s3de_dir,paste0("ssd_nG",num_genes,"_cell",one_cell_type,".rds"))
++ 	cat(paste0("Saving image in ",ssd_fn," ...\n"))
++ 	saveRDS(ssd,ssd_fn)
++   
++ 	return(NULL)
++ }
+> 
+> # ICeDT related Functions
+> q90 = function(vv){
++ 	qs = quantile(vv, probs=c(0.10, 0.90))
++ 	qs[2] - qs[1]
++ }
+> plot_log1p = function(x, y, ...) {
++ 	smoothScatter(log(x+1e-5), log(y+1e-5), xlim=c(-5, 10), ylim=c(-5, 10), ...)
++ 	legend("bottom",bty="n",legend=sprintf("Pearson correlation = %.2f",
++ 		cor(log(x+1e-5), log(y+1e-5))))
++ }
+> ICeDT_consistency = function(sig,bulk,ICeDT_out){
++ 
++ 	p1 = ICeDT_out$cProb
++ 	prop_icedt = t(ICeDT_out$rho)[,-1]
++ 	# dim(p1)
++ 	p1 = data.matrix(p1)
++ 	
++ 	par(mfrow=c(2,3),mar=c(4,4,1,0.5),bty="n")
++ 	# par(mfrow=c(1,3))
++ 	plot(density(c(p1))$y,main="",xlim=c(0,1),xlab="probability consistent",
++ 		ylab="density",type="n")
++ 	lines(density(c(p1)), lty=1, col="black")
++ 	legend("topright", c("no weight"), lty=c(1,2),col=c("black"), bty="n")
++ 	plot(apply(p1,1,median),apply(p1,1,q90),xlab="median prob. consistent",
++ 		ylab="90 percentile - 10 percentile",main="Gene Consistency across subjects",
++ 		xlim=c(0,1),ylim=c(0,1))
++ 	boxplot(prop_icedt,main = "Simulation - ICeDT")
++ 	# par(mfrow=c(1,1))
++   
++ 	predicted_bulk_w0 = sig %*% t(prop_icedt)
++ 	p1_cutoffs = quantile(p1,c(1/3,2/3)); p1_cutoffs
++   
++ 	# par(mfrow=c(1,3))
++ 	plot_log1p(x = c(predicted_bulk_w0)[p1 < p1_cutoffs[1]],
++ 		y = c(bulk)[p1 < p1_cutoffs[1]], 
++ 		xlab = "Predicted gene expression",ylab = "Observed gene expression",
++ 		sub = "model w/ weight",main = "low prob of being consistent")
++ 	plot_log1p(x = c(predicted_bulk_w0)[p1 >= p1_cutoffs[1] & p1 <= p1_cutoffs[2]],
++ 		y = c(bulk)[p1 >= p1_cutoffs[1] & p1 <= p1_cutoffs[2]], 
++ 		xlab = "Predicted gene expression",ylab = "Observed gene expression",
++ 		sub = "model w/ weight",main = "med prob of being consistent")
++ 	plot_log1p(x = c(predicted_bulk_w0)[p1 > p1_cutoffs[2]],
++ 		y = c(bulk)[p1 > p1_cutoffs[2]],
++ 		xlab = "Predicted gene expression",ylab = "Observed gene expression",
++ 		sub = "model w/ weight",main = "high prob of being consistent")
++ 	par(mfrow=c(1,1),mar=c(5,4,4,2)+0.1,bty="o")
++ }
+> 
+> 
+> # ------------------------------------------------------------
+> # Import and Prep Data
+> # ------------------------------------------------------------
+> # Import gtf with gene lengths
+> rsem_fn = "rsem_GRCh38.p2.gtf"
+> gtf = GTF_calc_gene_length(work_dir = MTG_dir,rsem_gtf_fn = rsem_fn)
+Loading required package: AnnotationDbi
+Make TxDb...
+Import genomic features from the file as a GRanges object ... OK
+Prepare the 'metadata' data frame ... OK
+Make the TxDb object ... OK
+> dim(gtf)
+[1] 50267    12
+> head(gtf)
+        seqname     source feature start_position end_position score strand
+1  NC_000001.11 BestRefSeq    gene          11874        14409     .      +
+6  NC_000001.11 BestRefSeq    gene          14362        29370     .      -
+19 NC_000001.11 BestRefSeq    gene          17369        17436     .      -
+26 NC_000001.11 BestRefSeq    gene          30366        30503     .      +
+31 NC_000001.11 BestRefSeq    gene          34611        36081     .      -
+36 NC_000001.11     Gnomon    gene          51943        53959     .      +
+   frame
+1      .
+6      .
+19     .
+26     .
+31     .
+36     .
+                                                                   attributes
+1       gene_id "100287102"; gene_symbol "DDX11L1"; transcript_id "100287102"
+6              gene_id "653635"; gene_symbol "WASH7P"; transcript_id "653635"
+19    gene_id "102466751"; gene_symbol "MIR6859-1"; transcript_id "102466751"
+26    gene_id "100302278"; gene_symbol "MIR1302-2"; transcript_id "100302278"
+31            gene_id "645520"; gene_symbol "FAM138A"; transcript_id "645520"
+36 gene_id "105379212"; gene_symbol "LOC105379212"; transcript_id "105379212"
+     gene_id  gene_symbol gene_length
+1  100287102      DDX11L1        1652
+6     653635       WASH7P        1769
+19 102466751    MIR6859-1          68
+26 100302278    MIR1302-2         138
+31    645520      FAM138A        1130
+36 105379212 LOC105379212         730
+> 
+> # sce = readRDS(file.path(rawData_dir,"final_sce_filtered_by_kmeans.rds"))
+> sce = readRDS(file.path(MTG_dir,"final_sce_filtered_by_kmeans.rds"))
+> sce
+Error in (function (x)  : attempt to apply non-function
+class: SingleCellExperiment 
+dim: 37657 15481 
+metadata(1): log.exprs.offset
+assays(2): counts logcounts
+rownames(37657): 5-HT3C2 A1BG ... bA255A11.4 bA395L14.12
+rowData names(12): gene chromosome ... total_counts log10_total_counts
+colnames(15481): F1S4_160106_001_B01 F1S4_160106_002_G01 ...
+  F1S4_170329_129_H01 F2S4_161123_018_H01
+colData names(44): sample_name sample_id ...
+  pct_counts_in_top_200_features pct_counts_in_top_500_features
+reducedDimNames(0):
+spikeNames(0):
+Warning message:
+call dbDisconnect() when finished working with a connection 
+> 
+> # Append gene_lengths to sce
+> inter_genes = intersect(rownames(sce),gtf$gene_symbol)
+> length(inter_genes)
+[1] 37643
+> 
+> sce = sce[inter_genes,]
+> gtf = gtf[which(gtf$gene_symbol %in% inter_genes),]
+> gtf = gtf[match(rownames(sce),gtf$gene_symbol),]
+> rowData(sce)$gene_length = gtf$gene_length
+> 
+> # Subset cell_types with enough cells: Exclude Endo
+> smart_table(colData(sce)$cell_type)
+
+Astro  Endo   Exc   Inh Micro Oligo   OPC 
+  287     7 10451  4130    62   310   234 
+> sce = sce[,colData(sce)$cell_type != "Endo"]
+> smart_table(colData(sce)$cell_type)
+
+Astro   Exc   Inh Micro Oligo   OPC 
+  287 10451  4130    62   310   234 
+> dim(sce)
+[1] 37643 15474
+> cell_types 	= c("Astro","Exc","Inh","Micro","Oligo","OPC")
+> num_genes = nrow(sce)
+> 
+> 
+> # ------------------------------------------------------------
+> # Outlined Steps
+> # ------------------------------------------------------------
+> # Run MAST to get differentially expressed genes
+> # Get disjoint set of marker genes per cell type (filter on logFC and qvalue), 
+> #    subset approximately 100 genes per cell type
+> # Use sce counts and exonic gene lengths to calculate TPM counts
+> # Bulk RNAseq deconvolution: Run CIBERSORT, ICEDT
+> 
+> 
+> # ------------------------------------------------------------
+> # Run MAST: Run each cell type as it's own job
+> # ------------------------------------------------------------
+> # Run job with at least 90GBs
+> for(ct in cell_types){
++ 	cat(sprintf("%s: Start\n",date()))
++ 	print(ct)
++ 	MAST_DEgenes(work_dir = MTG_dir,
++ 				num_genes = num_genes,
++ 				sce_obj = sce,
++ 				one_cell_type = ct)
++ 	cat(sprintf("%s: End\n",date()))
++ }
+Mon Jun 22 01:50:14 2020: Start
+[1] "Astro"
+`fData` has no primerid.  I'll make something up.
+`cData` has no wellKey.  I'll make something up.
+Assuming data assay in position 2, with name logcounts is log-transformed.
+Calculating log2(TPM+1)...
+[1] "Mon Jun 22 01:56:06 2020"
+
+Done!
+[1] "Mon Jun 22 03:01:40 2020"
+Running LRT by excluding the cell_type covariate ...
+[1] "Mon Jun 22 03:01:40 2020"
+Combining coefficients and standard errors
+Calculating log-fold changes
+Calculating likelihood ratio tests
+Refitting on reduced model...
+
+Done!
+[1] "Mon Jun 22 04:17:35 2020"
+Saving image in /pine/scr/p/l/pllittle/CS_eQTL/scRNAseq_pipelines/_brain_cell_type/step3_DE_output/ssd_nG37643_cellAstro.rds ...
+Mon Jun 22 04:17:35 2020: End
+Mon Jun 22 04:17:35 2020: Start
+[1] "Exc"
+`fData` has no primerid.  I'll make something up.
+`cData` has no wellKey.  I'll make something up.
+Assuming data assay in position 2, with name logcounts is log-transformed.
