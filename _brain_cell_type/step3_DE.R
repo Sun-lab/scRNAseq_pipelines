@@ -476,9 +476,9 @@ ee = biomaRt::useDataset("hsapiens_gene_ensembl",mart = ensembl)
 # aa = biomaRt::listAttributes(ee); dim(aa); aa[1:5,]
 
 attr_string = c("hgnc_symbol","ensembl_gene_id","external_gene_name",
-				"entrezgene","chromosome_name","start_position",
+				"entrezgene_id","chromosome_name","start_position",
 				"end_position","strand","gene_biotype")
-filters = c("hgnc_symbol","chromosome_name","entrezgene")
+filters = c("hgnc_symbol","chromosome_name","entrezgene_id")
 values = list(dat$gene_symbol,dat$chromosome,dat$entrez_id)
 gene_anno = biomaRt::getBM(attributes = attr_string,
 						filters = filters, 
