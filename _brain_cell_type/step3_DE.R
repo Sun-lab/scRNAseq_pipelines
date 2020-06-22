@@ -364,7 +364,7 @@ num_mgene_per_ct = 120 # number of marker genes selected per cell type
 for(ct in cell_types){
 	# ct = cell_types[1]
 	cat(paste0(ct,": "))
-	rds_fn = paste0("ssd_nG",num_genes,"_cell",ct,".rds")
+	rds_fn = file.path(s3de_dir,paste0("ssd_nG",num_genes,"_cell",ct,".rds"))
 	rds = readRDS(rds_fn)
 	rds = rds[which(rds$logFC > logFC_thres 
 					& rds$FDR_qvalue < fdr_thres
