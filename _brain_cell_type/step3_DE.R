@@ -299,7 +299,7 @@ gtf$prop_express = as.numeric(apply(assay(sce),1,function(xx) mean(xx > 0)))
 for(ct in cell_types){
 	# ct = cell_types[1]
 	cat(paste0(ct," "))
-	tmp_df = readRDS(paste0("ssd_nG",num_genes,"_cell",ct,".rds"))
+	tmp_df = readRDS(file.path(s3de_dir,paste0("ssd_nG",num_genes,"_cell",ct,".rds")))
 	tmp_df = tmp_df[,c("gene","pvalue","logFC","FDR_qvalue")]
 	tmp_df = name_change(tmp_df,"gene","gene_symbol")
 	names(tmp_df)[-1] = paste0(names(tmp_df)[-1],".",ct)
