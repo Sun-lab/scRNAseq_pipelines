@@ -9,23 +9,24 @@
 
 rm(list=ls())
 
-# repo_dir = "/pine/scr/p/l/pllittle/CS_eQTL/s3_Real/scRNAseq_pipelines"
-repo_dir = file.path("..") # relative path of repo directory from this R code
-source(file.path(repo_dir,"SOURCE.R"))
+sc_dir = "/pine/scr/p/l/pllittle/CS_eQTL/scRNAseq_pipelines"
+source(file.path(sc_dir,"SOURCE.R"))
 
 # ------------------------------------------------------------
 # a raw data needed for the analysis is too large ()
 # final_sce_filtered_by_kmeans.rds
 # ------------------------------------------------------------
 
-rawData_dir = "human_MTG_gene_expression_matrices_2018-06-14"
-rawData_dir = file.path("~/research/scRNAseq/data/Allen_BI/", rawData_dir)
-rawData_dir
+# rawData_dir = "human_MTG_gene_expression_matrices_2018-06-14"
+# rawData_dir = file.path("~/research/scRNAseq/data/Allen_BI/", rawData_dir)
+# rawData_dir
 
-# MTG_dir = file.path(repo_dir,"MTG")
-MTG_dir = rawData_dir
+MTG_dir = file.path(sc_dir,"MTG")
+# MTG_dir = rawData_dir
 
 setwd(MTG_dir)
+s3de_dir = file.path(sc_dir,"_brain_cell_type","step3_DE_output")
+if( !dir.exists(s3de_dir) ) dir.create(s3de_dir)
 
 # ------------------------------------------------------------
 # Libraries/Functions
@@ -98,7 +99,6 @@ GTF_calc_gene_length = function(work_dir,rsem_gtf_fn){
 	# Output
 	gtf
 }
-
 MAST_DEgenes = function(work_dir,num_genes=NULL,sce_obj,one_cell_type){
   
 	if(FALSE){
@@ -172,7 +172,7 @@ MAST_DEgenes = function(work_dir,num_genes=NULL,sce_obj,one_cell_type){
 	ssd = smart_df(cell_type = one_cell_type,ssd)
   
 	# Output
-	ssd_fn = paste0("ssd","_nG",num_genes,"_cell",one_cell_type,".rds")
+	ssd_fn = file.path(s3de_dir,paste0("ssd_nG",num_genes,"_cell",one_cell_type,".rds"))
 	cat(paste0("Saving image in ",ssd_fn," ...\n"))
 	saveRDS(ssd,ssd_fn)
   
@@ -272,14 +272,15 @@ num_genes = nrow(sce)
 # ------------------------------------------------------------
 # Run MAST: Run each cell type as it's own job
 # ------------------------------------------------------------
+# Run job with at least 90GBs
 for(ct in cell_types){
+	cat(sprintf("%s: Start\n",date()))
 	print(ct)
-	if(FALSE){
 	MAST_DEgenes(work_dir = MTG_dir,
 				num_genes = num_genes,
 				sce_obj = sce,
-				one_cell_type = one_ct)
-	}
+				one_cell_type = ct)
+	cat(sprintf("%s: End\n",date()))
 }
 
 # ------------------------------------------------------------
@@ -312,7 +313,8 @@ for(ct in cell_types){
 	gtf = cbind(gtf,bb[,names(bb) != "gene_symbol"])
 	rm(tmp_df,bb)
 }
-saveRDS(gtf,"DE_gene_anno.rds")
+rds_fn = file.path(s3de_dir,"DE_gene_anno.rds")
+saveRDS(gtf,rds_fn)
 
 
 # ------------------------------------------------------------
@@ -337,7 +339,8 @@ for(ct in cell_types){
 	ct_genes[[ct]] = rds$gene; rm(rds)
 }
 sapply(ct_genes,length)
-saveRDS(ct_genes,"ct_genes.rds")
+rds_fn = file.path(s3de_dir,"ct_genes.rds")
+saveRDS(ct_genes,rds_fn)
 
 # Get each cell type's disjoint set of differentially expressed genes
 cts_genes = list()
@@ -348,7 +351,8 @@ for(ct in cell_types){
 		unique(unlist(ct_genes[which(names(ct_genes) != ct)]))))
 }
 sapply(cts_genes,length)
-saveRDS(cts_genes,"cts_genes.rds")
+rds_fn = file.path(s3de_dir,"cts_genes.rds")
+saveRDS(cts_genes,rds_fn)
 
 # Get approximate top 120 marker genes per cell type
 ## Rather than arbitrarily selecting 100 genes, I apply 
@@ -386,10 +390,12 @@ for(ct in cell_types){
 	mark_genes[[ct]] = rds$gene; rm(rds)
 }
 sapply(mark_genes,length)
-saveRDS(mark_genes,"mark_genes.rds")
+rds_fn = file.path(s3de_dir,"mark_genes.rds")
+saveRDS(mark_genes,rds_fn)
 
 smart_pack("venn")
-pdf("ct_genes_MTG.pdf",width=8,height=8)
+pdf_fn = file.path(s3de_dir,"ct_genes_MTG.pdf")
+pdf(pdf_fn,width=8,height=8)
 venn(x = ct_genes,ilabels = TRUE,zcolor = "style")
 dev.off()
 
@@ -406,7 +412,8 @@ summary(read.depth)
 n.expressed.genes = colSums(counts(sce) > 0)
 summary(n.expressed.genes)
 
-pdf("total_expression_vs_cell_type.pdf", width=5, height=6)
+pdf_fn = file.path(s3de_dir,"total_expression_vs_cell_type.pdf")
+pdf(pdf_fn, width=5, height=6)
 par(mfrow=c(2,1), mar=c(5,4,1,1), bty="n")
 boxplot(log10(read.depth) ~ colData(sce)$cell_type)
 boxplot(log10(n.expressed.genes) ~ colData(sce)$cell_type)
@@ -439,13 +446,14 @@ cor_between_cell_types = median(cor_log_SIG[1:6,1:6], na.rm=TRUE)
 cor_between_cell_type_and_gene_length = median(cor_log_SIG[1:6, 7], na.rm=TRUE)
 mean_log_gene_length = mean(log_SIG[,"gene_length"], na.rm=TRUE)
 sd_log_gene_length = sd(log_SIG[,"gene_length"], na.rm=TRUE)
+rds_fn = file.path(s3de_dir,"all_genes_MTG.rds")
 saveRDS(list(anno = rowData(sce),
              SIG = SIG,
              cor_between_cell_types = cor_between_cell_types,
              cor_between_cell_type_and_gene_length = cor_between_cell_type_and_gene_length,
              mean_log_gene_length = mean_log_gene_length,
              sd_log_gene_length = sd_log_gene_length),
-        "all_genes_MTG.rds")
+        rds_fn)
 
 # Subset marker genes
 SIG = SIG[sort(as.character(unlist(mark_genes))),]
@@ -495,7 +503,8 @@ dim(gene_anno)
 head(gene_anno)
 
 # Output
-saveRDS(list(anno = gene_anno,SIG = SIG),"signature_MTG.rds")
+rds_fn = file.path(s3de_dir,"signature_MTG.rds")
+saveRDS(list(anno = gene_anno,SIG = SIG),rds_fn)
 
 
 # ------------------------------------------------------------
@@ -514,7 +523,7 @@ all(tmp_df$ensembl_gene_id %in% rownames(bulk))
 all(tmp_df$ensembl_gene_id == rownames(bulk))
 
 # Subset/Order marker genes
-gene_anno 		= readRDS("signature_MTG.rds")$anno
+gene_anno 		= readRDS(file.path(s3de_dir,"signature_MTG.rds"))$anno
 inter_genes2 	= intersect(tmp_df$ensembl_gene_id,gene_anno$ensembl_gene_id)
 gene_anno2 		= gene_anno[which(gene_anno$ensembl_gene_id %in% inter_genes2),]
 bulk 					= bulk[which(rownames(bulk) %in% inter_genes2),]
@@ -522,15 +531,16 @@ bulk 					= bulk[match(gene_anno2$ensembl_gene_id,rownames(bulk)),]
 tmp_df 				= tmp_df[which(tmp_df$ensembl_gene_id %in% inter_genes2),]
 tmp_df 				= tmp_df[match(gene_anno2$ensembl_gene_id,tmp_df$ensembl_gene_id),]
 
-saveRDS(list(anno = tmp_df,bulk = bulk),"bulk_marker_MTG.rds")
+rds_fn = file.path(s3de_dir,"bulk_marker_MTG.rds")
+saveRDS(list(anno = tmp_df,bulk = bulk),rds_fn)
 
 
 # ------------------------------------------------------------
 # Deconvolution: Based on Chong Jin's deconvolution.Rmd code
 # ------------------------------------------------------------
 # Refer to EPIC paper for variable definitions (bb = bulk,cc = signature,pp = cell type proportions)
-bulk_rds 	= readRDS("bulk_marker_MTG.rds")
-sig_rds 	= readRDS("signature_MTG.rds")
+bulk_rds 	= readRDS(file.path(s3de_dir,"bulk_marker_MTG.rds"))
+sig_rds 	= readRDS(file.path(s3de_dir,"signature_MTG.rds"))
 inter_genes3 	= intersect(bulk_rds$anno$ensembl_gene_id,sig_rds$anno$ensembl_gene_id)
 bulk_rds$anno = bulk_rds$anno[which(bulk_rds$anno$ensembl_gene_id %in% inter_genes3),]
 bulk_rds$bulk = bulk_rds$bulk[which(rownames(bulk_rds$bulk) %in% inter_genes3),]
@@ -565,8 +575,8 @@ summary(pp_bar_icedt)
 summary(pp_hat_icedt)
 
 # Run CIBERSORT
-sig_fn = file.path(MTG_dir,"signature_MTG.txt")
-mix_fn = file.path(MTG_dir,"mixture_CMC.txt")
+sig_fn = file.path(s3de_dir,"signature_MTG.txt")
+mix_fn = file.path(s3de_dir,"mixture_CMC.txt")
 write.table(cbind(rowname=rownames(cc_tpm),cc_tpm),
 	file = sig_fn,sep = "\t",quote = FALSE,row.names = FALSE)
 write.table(cbind(rowname=rownames(bb_tpm),bb_tpm),
@@ -594,7 +604,8 @@ summary(pp_bar_ciber)
 summary(pp_hat_ciber)
 
 # Output MTG deconvolution results
-pdf("MTG_bulk_deconvolution_summary.pdf",height=8,width=12)
+pdf_fn = file.path(s3de_dir,"MTG_bulk_deconvolution_summary.pdf")
+pdf(pdf_fn,height=8,width=12)
 	
 	ICeDT_consistency(sig = cc_tpm,bulk = bb_tpm,ICeDT_out = fit)
 	
@@ -628,8 +639,10 @@ pdf("MTG_bulk_deconvolution_summary.pdf",height=8,width=12)
 	
 dev.off()
 
-saveRDS(list(ICeDT = pp_hat_icedt,CIBERSORT = pp_hat_ciber),"prop_MTG.rds")
+rds_fn = file.path(s3de_dir,"prop_MTG.rds")
+saveRDS(list(ICeDT = pp_hat_icedt,CIBERSORT = pp_hat_ciber),rds_fn)
 
+q("no")
 
 # ------------------------------------------------------------
 # Run deconvolution using Chong's psychENCODE scRNA clustering results (copying small lines of code from signature_genes.Rmd)

@@ -36,11 +36,15 @@ knitr::opts_chunk$set(echo = TRUE)
 
 ```{r load_libraries, warning = FALSE, message = FALSE}
 bio_packs = c("SingleCellExperiment","biomaRt","scater","scran","SC3")
-source("https://bioconductor.org/biocLite.R")
+# source("https://bioconductor.org/biocLite.R")
 # biocLite("BiocUpgrade",suppressUpdates = TRUE)
+if (!requireNamespace("BiocManager", quietly = TRUE))
+	install.packages("BiocManager")
+
 for(pack1 in bio_packs){
 	if( !pack1 %in% installed.packages()[,"Package"]){
-		biocLite(pack1, suppressUpdates = TRUE)
+		# biocLite(pack1, suppressUpdates = TRUE)
+		BiocManager::install(pack1)
 	}
 }
 
@@ -65,13 +69,16 @@ library(SC3)
 
 Before running this R markdown, please first download the datafile human_MTG_gene_expression_matrices_2018-06-14.zip from  http://celltypes.brain-map.org/api/v2/well_known_file_download/694416044 to your local computer, and unzip the file. Then in the following code chunk, set the working directory to be the directory of the unzipped folder. 
 
-```{r eval = FALSE, echo = FALSE}
+```{r eval = TRUE, echo = TRUE}
+sc_dir 		= "/pine/scr/p/l/pllittle/CS_eQTL/scRNAseq_pipelines"
+work_dir 	= file.path(sc_dir,"MTG")
+if( !dir.exists(sc_dir) ) dir.create(sc_dir)
+if( !dir.exists(work_dir) ) dir.create(work_dir)
+setwd(work_dir)
+
 url_name = "http://celltypes.brain-map.org/api/v2/well_known_file_download/694416044"
 url_file = strsplit(url_name,"/")[[1]]
 url_file = url_file[length(url_file)]
-repo_dir = "/pine/scr/p/l/pllittle/CS_eQTL/s3_Real/scRNAseq_pipelines"
-work_dir = file.path(repo_dir,"MTG")
-setwd(work_dir)
 if( !file.exists(url_file) ) system(sprintf("wget %s",url_name))
 system(sprintf("unzip -o %s",url_file))
 
@@ -80,17 +87,12 @@ system(sprintf("unzip -o %s",url_file))
 You can modify the following code to determine if the analysis will be conducted with exon counts only(`exon_only = TRUE`) or with both exon and intron counts summed together (`exon_only = FALSE`).  We have requested 7 cores (`num_cores = 7`) to improve SC3 runtime. 
 
 ```{r input}
-# work_dir = "~/research/scRNAseq/data/Allen_BI/"
-# work_dir = paste0(work_dir, "human_MTG_gene_expression_matrices_2018-06-14")
-# repo_dir = "~/research/GitHub/scRNAseq_pipelines"
-
-repo_dir = "/pine/scr/p/l/pllittle/CS_eQTL/s3_Real/scRNAseq_pipelines"
-work_dir = file.path(repo_dir,"MTG")
-source(file.path(repo_dir,"SOURCE.R"))
+source(file.path(sc_dir,"SOURCE.R"))
 
 exon_only = TRUE
-run_sc3   = TRUE
-num_cores = ifelse(run_sc3,7,1)
+run_sc3   = !TRUE
+num_cores = Sys.getenv("SLURM_JOB_CPUS_PER_NODE")
+num_cores = ifelse(num_cores == "",1,as.numeric(num_cores))
 
 exons_fn    = "human_MTG_2018-06-14_exon-matrix.csv"
 introns_fn  = "human_MTG_2018-06-14_intron-matrix.csv"
@@ -504,7 +506,7 @@ gc()
 
 Next we compare the clustering results from SC3 and cell types.
 
-```{r load_data_sc3, eval=FALSE, echo=FALSE}
+```{r load_data_sc3,eval = run_sc3,echo = FALSE}
 # run this section if need to laod pre-saved R data. 
 r1 = readRDS(file.path(work_dir, "post_HVG_sc3.rds"))
 r2 = readRDS(file.path(work_dir, "post_redDim_HVG.rds"))
@@ -542,6 +544,7 @@ sc3_plot_markers(sce_hvg,k = one_ks,
 ```
 
 Finally we save the sce object, sce_hvg object, and the clustering results.
+
 ```{r save_objects}
 saveRDS(sce, file.path(work_dir, "final_sce.rds"))
 saveRDS(sce_hvg, file.path(work_dir, "final_sce_hvg.rds"))

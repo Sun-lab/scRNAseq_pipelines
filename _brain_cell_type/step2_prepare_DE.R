@@ -12,7 +12,7 @@ MTG_dir 	= "/pine/scr/p/l/pllittle/CS_eQTL/s3_Real/scRNAseq_pipelines/MTG"
 
 setwd(MTG_dir)
 
-sce			= readRDS("final_sce.rds")
+sce				= readRDS("final_sce.rds")
 clusters	= readRDS("final_hvg_clust.rds")
 
 dim(sce)
