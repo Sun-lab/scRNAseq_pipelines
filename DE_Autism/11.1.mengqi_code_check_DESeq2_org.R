@@ -88,7 +88,7 @@ dds=DESeqDataSetFromMatrix(countData = rawcount_matrix_bulk,
 
 dds=DESeq(dds)
 de_pval=results(dds)$pvalue
-
+names(de_pval)=dimnames(rawcount_data)[[1]]
 quantile(de_pval)
 saveRDS(de_pval,paste0("/fh/fast/sun_w/mengqi/1.Testing_scRNAseq/Command/11.1.mengqi_code_check/p",perm_label,"_DESeq2_pval_cov_",cluster_tag,"_",file_tag,".rds"))
 
@@ -100,7 +100,7 @@ dds=DESeqDataSetFromMatrix(countData = rawcount_matrix_bulk,
 
 dds=DESeq(dds)
 de_pval0=results(dds)$pvalue
-
+names(de_pval0)=dimnames(rawcount_data)[[1]]
 quantile(de_pval0)
 saveRDS(de_pval0,paste0("/fh/fast/sun_w/mengqi/1.Testing_scRNAseq/Command/11.1.mengqi_code_check/p",perm_label,"_DESeq2_pval_no_cov_",cluster_tag,"_",file_tag,".rds"))
 
