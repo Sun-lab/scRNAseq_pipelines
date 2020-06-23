@@ -9,8 +9,12 @@ perm_label=0
 perm_method="" #c("","b") 
 sim_folder="sim_v6"
 
+max_n=50
 n_seq=c(50,30,20,10,5)
+
 ncell_seq=c(800,400,200,100,50,20)
+
+noise_flag="0.01_10" #("",0.05_10,0.01_10,0.01_5,0.05_5)
 
 #setwd("~/Desktop/fh/1.Testing_scRNAseq/")
 #setwd("/Users/mzhang24/Desktop/fh/1.Testing_scRNAseq/")
@@ -21,6 +25,23 @@ library("DESeq2")
 sim_matrix_bulk=readRDS(paste0("../Data_PRJNA434002/10.Result/",sim_folder,"/sim_data/sim_matrix_bulk_",r_mean,"_",r_var,"_",r_change_prop,"_",dp_minor_prop,"_",file_tag,".rds"))
 meta=readRDS(paste0("../Data_PRJNA434002/10.Result/",sim_folder,"/sim_data/sim_meta_",r_mean,"_",r_var,"_",r_change_prop,"_",dp_minor_prop,"_",file_tag,".rds"))
 
+
+if(noise_flag!=""){
+  cur_individual = unique(meta$individual)
+  sim_matrix=readRDS(paste0("../Data_PRJNA434002/10.Result/",sim_folder,"/sim_data/sim_matrix_",r_mean,"_",r_var,"_",r_change_prop,"_",dp_minor_prop,"_",file_tag,".rds"))
+  sim_matrix_extreme_flag=readRDS(paste0("../Data_PRJNA434002/10.Result/",sim_folder,"/sim_data/sim_matrix_extreme_flag_",noise_flag,"_",r_mean,"_",r_var,"_",r_change_prop,"_",dp_minor_prop,"_",file_tag,".rds"))
+  sim_matrix=sim_matrix*sim_matrix_extreme_flag
+  
+  sim_matrix_bulk = matrix(nrow = nrow(sim_matrix),
+                           ncol = length(cur_individual))
+  rownames(sim_matrix_bulk) = rownames(sim_matrix)
+  colnames(sim_matrix_bulk) = cur_individual
+  for (i_ind in 1:length(cur_individual)) {
+    cur_ind = cur_individual[i_ind]
+    cur_ind_m = sim_matrix[, meta$individual == cur_ind]
+    sim_matrix_bulk[, i_ind] = rowSums(cur_ind_m, na.rm = TRUE)
+  }
+}
 
 # We calculate bulk information by summing up raw counts of
 # all cells(of certain cluster) of an individual within a genes
@@ -43,9 +64,9 @@ mult_index=readRDS(paste0("../Data_PRJNA434002/10.Result/",sim_folder,"/de_label
 
 
 for(n in n_seq){
-  selected_index=sample.int(max(n_seq),n)
-  sub_sim_matrix_bulk=sim_matrix_bulk[,c(selected_index,(max(n_seq)+selected_index))]
-  sub_cur_info=cur_info[c(selected_index,(max(n_seq)+selected_index)),]
+  selected_index=sample.int(max_n,n)
+  sub_sim_matrix_bulk=sim_matrix_bulk[,c(selected_index,max_n+selected_index)]
+  sub_cur_info=cur_info[c(selected_index,(max_n+selected_index)),]
   
   if(perm_label>0){
     if(perm_method=="b"){
@@ -72,7 +93,7 @@ for(n in n_seq){
   # observed pvalue calculation
   dds = DESeq(dds)
   deseq_pval = results(dds)$pvalue
-  saveRDS(deseq_pval,paste0("../Data_PRJNA434002/10.Result/",sim_folder,"/DESeq2_pval/p",perm_label,perm_method,"_DESeq2_pval_",r_mean,"_",r_var,"_",r_change_prop,"_",dp_minor_prop,"_",file_tag,"_",(2*n),".rds"))
+  saveRDS(deseq_pval,paste0("../Data_PRJNA434002/10.Result/",sim_folder,"/DESeq2_pval/p",perm_label,perm_method,"_DESeq2_pval_",noise_flag,r_mean,"_",r_var,"_",r_change_prop,"_",dp_minor_prop,"_",file_tag,"_",(2*n),".rds"))
   
   
   #additional analysis
@@ -93,11 +114,11 @@ for(n in n_seq){
   deseq_mult_pval = results(dds_mult)$pvalue
   deseq_none_pval = results(dds_none)$pvalue
   
-  saveRDS(deseq_mean_pval,paste0("../Data_PRJNA434002/10.Result/",sim_folder,"/DESeq2_pval/p",perm_label,perm_method,"_DESeq2_pval_",r_mean,"_",r_var,"_",r_change_prop,"_",dp_minor_prop,"_",file_tag,"_",(2*n),"_mean.rds"))
-  saveRDS(deseq_var_pval,paste0("../Data_PRJNA434002/10.Result/",sim_folder,"/DESeq2_pval/p",perm_label,perm_method,"_DESeq2_pval_",r_mean,"_",r_var,"_",r_change_prop,"_",dp_minor_prop,"_",file_tag,"_",(2*n),"_var.rds"))
-  saveRDS(deseq_dp_pval,paste0("../Data_PRJNA434002/10.Result/",sim_folder,"/DESeq2_pval/p",perm_label,perm_method,"_DESeq2_pval_",r_mean,"_",r_var,"_",r_change_prop,"_",dp_minor_prop,"_",file_tag,"_",(2*n),"_dp.rds"))
-  saveRDS(deseq_mult_pval,paste0("../Data_PRJNA434002/10.Result/",sim_folder,"/DESeq2_pval/p",perm_label,perm_method,"_DESeq2_pval_",r_mean,"_",r_var,"_",r_change_prop,"_",dp_minor_prop,"_",file_tag,"_",(2*n),"_mult.rds"))
-  saveRDS(deseq_none_pval,paste0("../Data_PRJNA434002/10.Result/",sim_folder,"/DESeq2_pval/p",perm_label,perm_method,"_DESeq2_pval_",r_mean,"_",r_var,"_",r_change_prop,"_",dp_minor_prop,"_",file_tag,"_",(2*n),"_none.rds"))
+  saveRDS(deseq_mean_pval,paste0("../Data_PRJNA434002/10.Result/",sim_folder,"/DESeq2_pval/p",perm_label,perm_method,"_DESeq2_pval_",noise_flag,r_mean,"_",r_var,"_",r_change_prop,"_",dp_minor_prop,"_",file_tag,"_",(2*n),"_mean.rds"))
+  saveRDS(deseq_var_pval,paste0("../Data_PRJNA434002/10.Result/",sim_folder,"/DESeq2_pval/p",perm_label,perm_method,"_DESeq2_pval_",noise_flag,r_mean,"_",r_var,"_",r_change_prop,"_",dp_minor_prop,"_",file_tag,"_",(2*n),"_var.rds"))
+  saveRDS(deseq_dp_pval,paste0("../Data_PRJNA434002/10.Result/",sim_folder,"/DESeq2_pval/p",perm_label,perm_method,"_DESeq2_pval_",noise_flag,r_mean,"_",r_var,"_",r_change_prop,"_",dp_minor_prop,"_",file_tag,"_",(2*n),"_dp.rds"))
+  saveRDS(deseq_mult_pval,paste0("../Data_PRJNA434002/10.Result/",sim_folder,"/DESeq2_pval/p",perm_label,perm_method,"_DESeq2_pval_",noise_flag,r_mean,"_",r_var,"_",r_change_prop,"_",dp_minor_prop,"_",file_tag,"_",(2*n),"_mult.rds"))
+  saveRDS(deseq_none_pval,paste0("../Data_PRJNA434002/10.Result/",sim_folder,"/DESeq2_pval/p",perm_label,perm_method,"_DESeq2_pval_",noise_flag,r_mean,"_",r_var,"_",r_change_prop,"_",dp_minor_prop,"_",file_tag,"_",(2*n),"_none.rds"))
   
   deseq_sep_pval=matrix(1,nrow=length(deseq_pval),ncol=1)
   names(deseq_sep_pval)=names(deseq_pval)
@@ -106,7 +127,7 @@ for(n in n_seq){
   deseq_sep_pval[which(dp_index==1)]=results(dds_dp)$pvalue
   deseq_sep_pval[which(mult_index==1)]=results(dds_mult)$pvalue
   deseq_sep_pval[which(mean_index+var_index+dp_index+mult_index==0)]=results(dds_none)$pvalue
-  saveRDS(deseq_sep_pval,paste0("../Data_PRJNA434002/10.Result/",sim_folder,"/DESeq2_pval/p",perm_label,perm_method,"_DESeq2_pval_",r_mean,"_",r_var,"_",r_change_prop,"_",dp_minor_prop,"_",file_tag,"_",(2*n),"_sep.rds"))
+  saveRDS(deseq_sep_pval,paste0("../Data_PRJNA434002/10.Result/",sim_folder,"/DESeq2_pval/p",perm_label,perm_method,"_DESeq2_pval_",noise_flag,r_mean,"_",r_var,"_",r_change_prop,"_",dp_minor_prop,"_",file_tag,"_",(2*n),"_sep.rds"))
 }
 
 

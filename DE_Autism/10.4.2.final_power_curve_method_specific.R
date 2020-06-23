@@ -25,8 +25,8 @@ param_tag=1
 
 factor_len=c(5,5,4,5)
 cell_seq=c(20,50,100,200,400)
-cell_seq=400
-ind_seq=10
+cell_seq=50
+ind_seq=20
 file_tag=1
 #SO
 i_file=1

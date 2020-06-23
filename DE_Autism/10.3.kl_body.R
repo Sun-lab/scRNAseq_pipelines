@@ -42,7 +42,9 @@ resid_flag_seq=c("","resid")
 #covariate_flag_seq="readdepth" #c("","readdepth","q50","q75","q100")
 #resid_flag_seq=""#c("","resid")
 
-pre_tag_seq="dca"
+#pre_tag_seq="dca"
+#noise_flag="0.01_10" #("",0.05_10,0.01_10,0.01_5,0.05_5)
+noise_flag=""
 
 for(pre_tag in pre_tag_seq){
   for(fit_tag in fit_tag_seq){
@@ -95,6 +97,18 @@ for(pre_tag in pre_tag_seq){
         }
         
         
+        if(noise_flag!=""){
+          sim_matrix_extreme_flag=readRDS(paste0("../Data_PRJNA434002/10.Result/",sim_folder,"/sim_data/sim_matrix_extreme_flag_",noise_flag,"_",r_mean,"_",r_var,"_",r_change_prop,"_",dp_minor_prop,"_",file_tag,".rds"))
+          if(length(dim(t_sim_matrix))==2){
+            t_sim_matrix=t_sim_matrix*sim_matrix_extreme_flag
+          }
+          if(length(dim(t_sim_matrix))==3){
+            for(i_sim in 1:dim(t_sim_matrix)[[3]]){
+              t_sim_matrix[,,i_sim] =t_sim_matrix[,,i_sim]*sim_matrix_extreme_flag
+            }
+          }
+        }
+        
         ##############functions#################
         library("ggplot2")
         library("emdbook")
@@ -135,45 +149,47 @@ for(pre_tag in pre_tag_seq){
 
         
         ########################## resid pre-covariate adjustment ############################
-        
-        if(resid_flag=="resid"){
-          sim_matrix_y  = log(sim_matrix+1)
-          sim_param_y  = log(sim_param[,,1])
-          
-          sim_matrix_resid   =sim_matrix_y
-          sim_matrix_resid[] =NA
-          sim_param_resid    =sim_param_y
-          sim_param_resid[]  =NA
-          
-
-          for(ig in 1:nrow(sim_matrix_y)){
-            if(length(dim(sim_matrix_y))==2){
-              sim_matrix_resid[ig,] = lm(sim_matrix_y[ig,]~log(covariate))$residuals
-            }
-            if(length(dim(sim_matrix_y))==3){
-              for(i_sim in 1:dim(sim_matrix_y)[[3]]){
-                sim_matrix_resid[ig,,i_sim] = lm(sim_matrix_y[ig,,i_sim]~log(covariate))$residuals
+        if(fit_tag!="zinb"){
+          if(resid_flag=="resid"){
+            sim_matrix_y  = log(sim_matrix+1)
+            sim_param_y  = log(sim_param[,,1])
+            
+            sim_matrix_resid   =sim_matrix_y
+            sim_matrix_resid[] =NA
+            sim_param_resid    =sim_param_y
+            sim_param_resid[]  =NA
+            
+            
+            for(ig in 1:nrow(sim_matrix_y)){
+              if(length(dim(sim_matrix_y))==2){
+                sim_matrix_resid[ig,] = lm(sim_matrix_y[ig,]~log(covariate))$residuals
               }
+              if(length(dim(sim_matrix_y))==3){
+                for(i_sim in 1:dim(sim_matrix_y)[[3]]){
+                  sim_matrix_resid[ig,,i_sim] = lm(sim_matrix_y[ig,,i_sim]~log(covariate))$residuals
+                }
+              }
+              sim_param_resid[ig,]  = lm(sim_param_y[ig,]~log(covariate))$residuals
             }
-            sim_param_resid[ig,]  = lm(sim_param_y[ig,]~log(covariate))$residuals
+            
+            sim_matrix=exp(sim_matrix_resid) # only for empirical method, we didn't log transformed back 
+            sim_param[,,1]=exp(sim_param_resid)
+            
           }
-
         }
         
-        if(resid_flag!="resid"){
+        if(resid_flag=="adj"){
           if(covariate_flag!=""){
-            if(fit_tag!="zinb"){
-              for(ig in 1:nrow(sim_matrix)){
-                if(length(dim(sim_matrix))==2){
-                  sim_matrix[ig,] = sim_matrix[ig,]/covariate*10000
-                }
-                if(length(dim(sim_matrix))==3){
-                  for(i_sim in 1:dim(sim_matrix_y)[[3]]){
-                    sim_matrix[ig,,i_sim] = sim_matrix[ig,,i_sim]/covariate*10000
-                  }
-                }
-                sim_param[ig,,1]  = sim_param[ig,,1]/covariate*10000
+            for(ig in 1:nrow(sim_matrix)){
+              if(length(dim(sim_matrix))==2){
+                sim_matrix[ig,] = sim_matrix[ig,]/covariate*10000
               }
+              if(length(dim(sim_matrix))==3){
+                for(i_sim in 1:dim(sim_matrix_y)[[3]]){
+                  sim_matrix[ig,,i_sim] = sim_matrix[ig,,i_sim]/covariate*10000
+                }
+              }
+              sim_param[ig,,1]  = sim_param[ig,,1]/covariate*10000
             }
           }
         }
@@ -229,7 +245,7 @@ for(pre_tag in pre_tag_seq){
               dev.off()
               
               sim_fit[,,1]=exp(sim_fit[,,1]) #change the log mean to mean!!!
-              saveRDS(sim_fit,paste0("../Data_PRJNA434002/10.Result/",sim_folder,"/sim_data/",dist_method,"_",fit_method,"_sim_fit_",resid_flag,covariate_flag,pre_tag,fit_tag,r_mean,"_",r_var,"_",r_change_prop,"_",dp_minor_prop,"_",file_tag,"_",(2*n),"_",ncell,".rds"))
+              saveRDS(sim_fit,paste0("../Data_PRJNA434002/10.Result/",sim_folder,"/sim_data/",dist_method,"_",fit_method,"_sim_fit_",noise_flag,resid_flag,covariate_flag,pre_tag,fit_tag,r_mean,"_",r_var,"_",r_change_prop,"_",dp_minor_prop,"_",file_tag,"_",(2*n),"_",ncell,".rds"))
             }
             
             ###################calculation t#################################
@@ -344,7 +360,7 @@ for(pre_tag in pre_tag_seq){
             }
             
             
-            saveRDS(dist_array,paste0("../Data_PRJNA434002/10.Result/",sim_folder,"/dist_array/",dist_method,"_",fit_method,"_dist_array_",resid_flag,covariate_flag,pre_tag,fit_tag,r_mean,"_",r_var,"_",r_change_prop,"_",dp_minor_prop,"_",file_tag,"_",(2*n),"_",ncell,".rds"))
+            saveRDS(dist_array,paste0("../Data_PRJNA434002/10.Result/",sim_folder,"/dist_array/",dist_method,"_",fit_method,"_dist_array_",noise_flag,resid_flag,covariate_flag,pre_tag,fit_tag,r_mean,"_",r_var,"_",r_change_prop,"_",dp_minor_prop,"_",file_tag,"_",(2*n),"_",ncell,".rds"))
           }
           
         }
@@ -405,7 +421,7 @@ for(pre_tag in pre_tag_seq){
           
           
           
-          # png(paste0("../Data_PRJNA434002/10.Result/",sim_folder,"/fig_Fstat/p",perm_label,perm_method,"_",dist_method,"_",fit_method,"_",resid_flag,covariate_flag,pre_tag,fit_tag,r_mean,"_",r_var,"_",r_change_prop,"_",dp_minor_prop,"_",file_tag,"_",(2*n),"_",ncell,"_Fperm.png"),height = 900,width = 1800,type="cairo")
+          # png(paste0("../Data_PRJNA434002/10.Result/",sim_folder,"/fig_Fstat/p",perm_label,perm_method,"_",dist_method,"_",fit_method,"_",noise_flag,resid_flag,covariate_flag,pre_tag,fit_tag,r_mean,"_",r_var,"_",r_change_prop,"_",dp_minor_prop,"_",file_tag,"_",(2*n),"_",ncell,"_Fperm.png"),height = 900,width = 1800,type="cairo")
           # op=par(mfrow = c(2, 4))
           # pval_order=order(dist_pval)[c(1:4,100,200,300,400)]
           # for(iplot in pval_order){
@@ -415,7 +431,7 @@ for(pre_tag in pre_tag_seq){
           # par(op)
           # dev.off()
           # 
-          # png(paste0("../Data_PRJNA434002/10.Result/",sim_folder,"/fig_Fstat/p",perm_label,perm_method,"_",dist_method,"_",fit_method,"_",resid_flag,covariate_flag,pre_tag,fit_tag,r_mean,"_",r_var,"_",r_change_prop,"_",dp_minor_prop,"_",file_tag,"_",(2*n),"_",ncell,"_Fob.png"),height = 600,width = 1200,type="cairo")
+          # png(paste0("../Data_PRJNA434002/10.Result/",sim_folder,"/fig_Fstat/p",perm_label,perm_method,"_",dist_method,"_",fit_method,"_",noise_flag,resid_flag,covariate_flag,pre_tag,fit_tag,r_mean,"_",r_var,"_",r_change_prop,"_",dp_minor_prop,"_",file_tag,"_",(2*n),"_",ncell,"_Fob.png"),height = 600,width = 1200,type="cairo")
           # hist(F_ob0,main=paste0("Fstat distr of gene, Fob"),breaks=50)
           # dev.off()
           # 
@@ -444,7 +460,7 @@ for(pre_tag in pre_tag_seq){
           
           #dist_pval=apply(dist_array,1,function(x){tryCatch(return(cal_permanova_pval(x,cur_phenotype)), error = function(e) {NA} )})
           if(perm_label==0){
-            saveRDS(dist_pval,paste0("../Data_PRJNA434002/10.Result/",sim_folder,"/",dist_method,"_",fit_method,"_pval/p",perm_label,perm_method,"_",dist_method,"_",fit_method,"_raw_pval_",resid_flag,covariate_flag,pre_tag,fit_tag,r_mean,"_",r_var,"_",r_change_prop,"_",dp_minor_prop,"_",file_tag,"_",(2*n),"_",ncell,".rds"))
+            saveRDS(dist_pval,paste0("../Data_PRJNA434002/10.Result/",sim_folder,"/",dist_method,"_",fit_method,"_pval/p",perm_label,perm_method,"_",dist_method,"_",fit_method,"_raw_pval_",noise_flag,resid_flag,covariate_flag,pre_tag,fit_tag,r_mean,"_",r_var,"_",r_change_prop,"_",dp_minor_prop,"_",file_tag,"_",(2*n),"_",ncell,".rds"))
             
             
             # #########start pre analysis calculation #########################
@@ -452,10 +468,10 @@ for(pre_tag in pre_tag_seq){
             # anova_centroid_pval=apply(dist_array,1,function(x){tryCatch(cal_betadisper_pval(x,label = cur_phenotype_ind,disper_type = "centroid",div_method="anova"), error = function(e) {NA} )}) 
             # tukey_median_pval=apply(dist_array,1,function(x){tryCatch(cal_betadisper_pval(x,label = cur_phenotype_ind,disper_type = "median",div_method="TukeyHSD"), error = function(e) {NA} )})
             # anova_median_pval=apply(dist_array,1,function(x){tryCatch(cal_betadisper_pval(x,label = cur_phenotype_ind,disper_type = "median",div_method="anova"), error = function(e) {NA} )}) 
-            # saveRDS(tukey_centroid_pval,paste0("../Data_PRJNA434002/10.Result/",sim_folder,"/tukey_centroid_pval/p",perm_label,perm_method,"_",dist_method,"_",fit_method,"_tukey_centroid_pval_",resid_flag,covariate_flag,pre_tag,fit_tag,r_mean,"_",r_var,"_",r_change_prop,"_",dp_minor_prop,"_",file_tag,"_",(2*n),"_",ncell,".rds"))
-            # saveRDS(anova_centroid_pval,paste0("../Data_PRJNA434002/10.Result/",sim_folder,"/anova_centroid_pval/p",perm_label,perm_method,"_",dist_method,"_",fit_method,"_anova_centroid_pval_",resid_flag,covariate_flag,pre_tag,fit_tag,r_mean,"_",r_var,"_",r_change_prop,"_",dp_minor_prop,"_",file_tag,"_",(2*n),"_",ncell,".rds"))
-            # saveRDS(tukey_median_pval,paste0("../Data_PRJNA434002/10.Result/",sim_folder,"/tukey_median_pval/p",perm_label,perm_method,"_",dist_method,"_",fit_method,"_tukey_median_pval_",resid_flag,covariate_flag,pre_tag,fit_tag,r_mean,"_",r_var,"_",r_change_prop,"_",dp_minor_prop,"_",file_tag,"_",(2*n),"_",ncell,".rds"))
-            # saveRDS(anova_median_pval,paste0("../Data_PRJNA434002/10.Result/",sim_folder,"/anova_median_pval/p",perm_label,perm_method,"_",dist_method,"_",fit_method,"_anova_median_pval_",resid_flag,covariate_flag,pre_tag,fit_tag,r_mean,"_",r_var,"_",r_change_prop,"_",dp_minor_prop,"_",file_tag,"_",(2*n),"_",ncell,".rds"))
+            # saveRDS(tukey_centroid_pval,paste0("../Data_PRJNA434002/10.Result/",sim_folder,"/tukey_centroid_pval/p",perm_label,perm_method,"_",dist_method,"_",fit_method,"_tukey_centroid_pval_",noise_flag,resid_flag,covariate_flag,pre_tag,fit_tag,r_mean,"_",r_var,"_",r_change_prop,"_",dp_minor_prop,"_",file_tag,"_",(2*n),"_",ncell,".rds"))
+            # saveRDS(anova_centroid_pval,paste0("../Data_PRJNA434002/10.Result/",sim_folder,"/anova_centroid_pval/p",perm_label,perm_method,"_",dist_method,"_",fit_method,"_anova_centroid_pval_",noise_flag,resid_flag,covariate_flag,pre_tag,fit_tag,r_mean,"_",r_var,"_",r_change_prop,"_",dp_minor_prop,"_",file_tag,"_",(2*n),"_",ncell,".rds"))
+            # saveRDS(tukey_median_pval,paste0("../Data_PRJNA434002/10.Result/",sim_folder,"/tukey_median_pval/p",perm_label,perm_method,"_",dist_method,"_",fit_method,"_tukey_median_pval_",noise_flag,resid_flag,covariate_flag,pre_tag,fit_tag,r_mean,"_",r_var,"_",r_change_prop,"_",dp_minor_prop,"_",file_tag,"_",(2*n),"_",ncell,".rds"))
+            # saveRDS(anova_median_pval,paste0("../Data_PRJNA434002/10.Result/",sim_folder,"/anova_median_pval/p",perm_label,perm_method,"_",dist_method,"_",fit_method,"_anova_median_pval_",noise_flag,resid_flag,covariate_flag,pre_tag,fit_tag,r_mean,"_",r_var,"_",r_change_prop,"_",dp_minor_prop,"_",file_tag,"_",(2*n),"_",ncell,".rds"))
             
           }
           
@@ -474,14 +490,14 @@ for(pre_tag in pre_tag_seq){
         
         
         if(perm_label>0){
-          saveRDS(pval_perm,paste0("../Data_PRJNA434002/10.Result/",sim_folder,"/",dist_method,"_",fit_method,"_pval/p",perm_label,perm_method,"_",dist_method,"_",fit_method,"_perm_pval_",resid_flag,covariate_flag,pre_tag,fit_tag,r_mean,"_",r_var,"_",r_change_prop,"_",dp_minor_prop,"_",file_tag,"_",(2*n),"_",ncell,".rds"))
-          saveRDS(perm_order,paste0("../Data_PRJNA434002/10.Result/",sim_folder,"/perm_order/p",perm_label,perm_method,"_",dist_method,"_",fit_method,"_perm_pval_",resid_flag,covariate_flag,pre_tag,fit_tag,r_mean,"_",r_var,"_",r_change_prop,"_",dp_minor_prop,"_",file_tag,"_",(2*n),"_",ncell,".rds"))
+          saveRDS(pval_perm,paste0("../Data_PRJNA434002/10.Result/",sim_folder,"/",dist_method,"_",fit_method,"_pval/p",perm_label,perm_method,"_",dist_method,"_",fit_method,"_perm_pval_",noise_flag,resid_flag,covariate_flag,pre_tag,fit_tag,r_mean,"_",r_var,"_",r_change_prop,"_",dp_minor_prop,"_",file_tag,"_",(2*n),"_",ncell,".rds"))
+          saveRDS(perm_order,paste0("../Data_PRJNA434002/10.Result/",sim_folder,"/perm_order/p",perm_label,perm_method,"_",dist_method,"_",fit_method,"_perm_pval_",noise_flag,resid_flag,covariate_flag,pre_tag,fit_tag,r_mean,"_",r_var,"_",r_change_prop,"_",dp_minor_prop,"_",file_tag,"_",(2*n),"_",ncell,".rds"))
           
           # 
-          # saveRDS(perm_tukey_centroid_pval,paste0("../Data_PRJNA434002/10.Result/",sim_folder,"/tukey_centroid_pval/p",perm_label,perm_method,"_",dist_method,"_",fit_method,"_perm_tukey_centroid_pval_",resid_flag,covariate_flag,pre_tag,fit_tag,r_mean,"_",r_var,"_",r_change_prop,"_",dp_minor_prop,"_",file_tag,"_",(2*n),"_",ncell,".rds"))
-          # saveRDS(perm_anova_centroid_pval,paste0("../Data_PRJNA434002/10.Result/",sim_folder,"/anova_centroid_pval/p",perm_label,perm_method,"_",dist_method,"_",fit_method,"_perm_anova_centroid_pval_",resid_flag,covariate_flag,pre_tag,fit_tag,r_mean,"_",r_var,"_",r_change_prop,"_",dp_minor_prop,"_",file_tag,"_",(2*n),"_",ncell,".rds"))
-          # saveRDS(perm_tukey_median_pval,paste0("../Data_PRJNA434002/10.Result/",sim_folder,"/tukey_median_pval/p",perm_label,perm_method,"_",dist_method,"_",fit_method,"_perm_tukey_median_pval_",resid_flag,covariate_flag,pre_tag,fit_tag,r_mean,"_",r_var,"_",r_change_prop,"_",dp_minor_prop,"_",file_tag,"_",(2*n),"_",ncell,".rds"))
-          # saveRDS(perm_anova_median_pval,paste0("../Data_PRJNA434002/10.Result/",sim_folder,"/anova_median_pval/p",perm_label,perm_method,"_",dist_method,"_",fit_method,"_perm_anova_median_pval_",resid_flag,covariate_flag,pre_tag,fit_tag,r_mean,"_",r_var,"_",r_change_prop,"_",dp_minor_prop,"_",file_tag,"_",(2*n),"_",ncell,".rds"))
+          # saveRDS(perm_tukey_centroid_pval,paste0("../Data_PRJNA434002/10.Result/",sim_folder,"/tukey_centroid_pval/p",perm_label,perm_method,"_",dist_method,"_",fit_method,"_perm_tukey_centroid_pval_",noise_flag,resid_flag,covariate_flag,pre_tag,fit_tag,r_mean,"_",r_var,"_",r_change_prop,"_",dp_minor_prop,"_",file_tag,"_",(2*n),"_",ncell,".rds"))
+          # saveRDS(perm_anova_centroid_pval,paste0("../Data_PRJNA434002/10.Result/",sim_folder,"/anova_centroid_pval/p",perm_label,perm_method,"_",dist_method,"_",fit_method,"_perm_anova_centroid_pval_",noise_flag,resid_flag,covariate_flag,pre_tag,fit_tag,r_mean,"_",r_var,"_",r_change_prop,"_",dp_minor_prop,"_",file_tag,"_",(2*n),"_",ncell,".rds"))
+          # saveRDS(perm_tukey_median_pval,paste0("../Data_PRJNA434002/10.Result/",sim_folder,"/tukey_median_pval/p",perm_label,perm_method,"_",dist_method,"_",fit_method,"_perm_tukey_median_pval_",noise_flag,resid_flag,covariate_flag,pre_tag,fit_tag,r_mean,"_",r_var,"_",r_change_prop,"_",dp_minor_prop,"_",file_tag,"_",(2*n),"_",ncell,".rds"))
+          # saveRDS(perm_anova_median_pval,paste0("../Data_PRJNA434002/10.Result/",sim_folder,"/anova_median_pval/p",perm_label,perm_method,"_",dist_method,"_",fit_method,"_perm_anova_median_pval_",noise_flag,resid_flag,covariate_flag,pre_tag,fit_tag,r_mean,"_",r_var,"_",r_change_prop,"_",dp_minor_prop,"_",file_tag,"_",(2*n),"_",ncell,".rds"))
           
           
         }

@@ -57,6 +57,7 @@ sim_ind=array(dim=c(nrow(sub_mean),ncol(sub_mean),sim_n),
                       dimnames = list(rownames(sub_mean),colnames(sub_mean),1:sim_n))
 fit_coefficient_adj=fit_coefficient
 sim_ind_adj=sim_ind #adj for covariate
+sim_ind_logresid=sim_ind #adj for covariate
 if("quantile99" %in% covariate_flag){ #only 1 covaraite allowed
   quantile99=apply(sub_mean,2,function(x)return(quantile(x,0.99)+1))
   covariate=as.matrix(quantile99)
@@ -78,7 +79,7 @@ covariate_ratio=covariate/median(covariate)
 for(i_g in 1:nrow(sub_mean)){
   cur_sim=matrix(ncol=sim_n,nrow=ncol(sub_mean))
   cur_sim_adj=cur_sim
-  
+  cur_sim_logresid=cur_sim
   for(i_s in 1:ncol(sub_mean)){
     if(fit_tag==""){
       cur_sim[i_s,]=emdbook::rzinbinom(sim_n,sub_mean[i_g,i_s], sub_dispersion[i_g,i_s], sub_dropout[i_g,i_s])
@@ -88,8 +89,15 @@ for(i_g in 1:nrow(sub_mean)){
     }
     cur_sim_adj[i_s,]=cur_sim[i_s,]/covariate_ratio[i_s]
   }
+  #resid
+  for(i_sim in 1:sim_n){
+    cur_sim_logresid[,i_sim]=lm(log(cur_sim[,i_sim]+1)~log_covariate)$residuals
+  }
+  
   sim_ind[i_g,,]=cur_sim
   sim_ind_adj[i_g,,]=cur_sim_adj
+  sim_ind_logresid[i_g,,]=cur_sim_logresid
+  
   for(i_ind in 1:length(cur_individual)){
     cur_ind=cur_individual[i_ind]
     
@@ -103,11 +111,15 @@ for(i_g in 1:nrow(sub_mean)){
     cur_covariate=rep(log_covariate[meta$individual==cur_ind],sim_n)
     cur_model=MASS::glm.nb(cur_sim_ind~cur_covariate)
     fit_coefficient_adj[i_g,i_ind,]=c(cur_model$coefficients,cur_model$theta)
+    
+    #fit sim resid
+    
+    
   }
   print(i_g)
 }
 
-pdf("~/Desktop/github/scRNAseq_pipelines/DE_Autism/11.check/11.check_ind_count_vs_cellreaddepth_PFCL23.pdf",width=15,height=10)
+pdf("~/Desktop/github/scRNAseq_pipelines/DE_Autism/11.check/11.check_ind_count_vs_cellreaddepth_fit_coefficient_PFCL23.pdf",width=12,height=8)
 op=par(mfrow = c(2, 3))
 hist(fit_coefficient[,,2],main="fit NB intercept of sim_count") #if ratio=1
 hist(fit_coefficient[,,1],main="fit NB beta log_covariate of sim_count") #intercept, showing gene level differences.
@@ -116,15 +128,23 @@ hist(fit_coefficient[,,3],breaks=100,main="fit NB dispersion(fitting quality) of
 hist(fit_coefficient_adj[,,2],main="fit NB intercept of sim_count_cellreaddepth_adj") #if ratio=1
 hist(fit_coefficient_adj[,,1],main="fit NB beta log_covariate of sim_count_cellreaddepth_adj") #intercept, showing gene level differences.
 hist(fit_coefficient_adj[,,3],breaks=100,main="fit NB dispersion(fitting quality) of sim_count_cellreaddepth_adj") #fit NB dispersion, showing fitting
-
-for(i_g in c(1:30,151:180)){
-  plot(sim_ind[i_g,,],rep(log(covariate),sim_n),cex=.1,col=rgb(0,0,0,0.3),xlab="log sim_count",ylab="log covariate",main=paste0("count vs readdepth, log-transformed, gene ",i_g))
-  plot(sim_ind_adj[i_g,,],rep(log(covariate),sim_n),cex=.1,col=rgb(0,0,0,0.3),xlab="log sim_count",ylab="log covariate",main=paste0("adj count vs readdepth, log-transformed, gene ",i_g))
-}
-
 par(op)
 dev.off()
 
+png("~/Desktop/github/scRNAseq_pipelines/DE_Autism/11.check/11.check_ind_count_vs_cellreaddepth_cor_scatter_PFCL23.png",width=16,height=24,units="in",res=300)
+op=par(mfrow = c(6, 4))
+for(i_g in 1:6){
+  plot(log(sim_ind[i_g,,]+1),rep(log(covariate),sim_n),cex=.1,col=rgb(0,0,0,0.3),xlab="log sim_count",ylab="log covariate",main=paste0("count vs readdepth, log-transformed, gene ",i_g))
+  #abline(0,1,col="red")
+  plot(log(sim_ind_adj[i_g,,]+1),rep(log(covariate),sim_n),cex=.1,col=rgb(0,0,0,0.3),xlab="log sim_count_adj",ylab="log covariate",main=paste0("adj count vs readdepth, log-transformed, gene ",i_g))
+  #abline(0,1,col="red")
+  plot(log(sim_ind[i_g,,]+1),log(sim_ind_adj[i_g,,]+1),cex=.1,col=rgb(0,0,0,0.3),xlab="log sim_count",ylab="log sim_count_adj",main=paste0("count vs count_adj, log-transformed, gene ",i_g))
+  abline(0,1,col="red")
+  plot(log(sim_ind[i_g,,]+1),sim_ind_logresid[i_g,,],cex=.1,col=rgb(0,0,0,0.3),xlab="log sim_count",ylab="log sim_count_resid",main=paste0("count vs count_resid, log-transformed, gene ",i_g))
+  abline(0,1,col="red")
+}
+par(op)
+dev.off()
 
 
 

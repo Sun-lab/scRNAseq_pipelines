@@ -108,7 +108,7 @@ if(covariate_flag!=""){
     for(i_g in 1:nrow(sub_mean)){
       sub_mean_adj[ig,]=lm(log(sub_mean[ig,]+0.1)~log(covariate))$residuals
     }
-    sub_mean=sub_mean_adj
+    sub_mean=exp(sub_mean_adj)
   }
 }
 

@@ -25,6 +25,7 @@ fit_method_seq=c("empirical","zinb","direct")
 #perm_method_seq=""
 #pre_tag_seq=""
 
+fit_tag_seq="" 
 
 for(pre_tag in pre_tag_seq){
   for(fit_tag in fit_tag_seq){
@@ -42,7 +43,8 @@ for(pre_tag in pre_tag_seq){
               
               ind_seq=c(10,20,40,60,100)
               cell_seq=c(20,50,100,200,400)
-
+              ind_seq=c(10,20,40)
+              cell_seq=c(100,200,400)
               r_change_prop_seq=5:9/10
               dp_minor_prop_seq=1:4/10
               

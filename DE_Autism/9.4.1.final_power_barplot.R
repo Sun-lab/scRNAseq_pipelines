@@ -15,7 +15,7 @@ F_method_seq=c("p","ps")
 fit_tag_seq=c("","nb") #"","nb","zinb"
 resid_flag_seq=c("", "logresid","adj")
 covariate_flag_seq=c("", "readdepth")
-
+file_tag="PFC5k"
 pre_tag="dca" #c("dca","scvi")
 
 perm_label_seq=0:10
@@ -27,7 +27,24 @@ method_seq=c("DESeq","MAST","jsd_empirical","klmean_empirical","jsd_zinb","klmea
 
 #get some data info
 #get meta info
-tmeta=read.table(paste0("meta.tsv"),header = TRUE, sep = "\t",stringsAsFactors = FALSE)
+#input phenotype #note!!!Here we have to first deal with PFC
+if(length(grep("PFC",file_tag))>0){
+  if(is.na(unlist(strsplit(file_tag,"k"))[2])){
+    tmeta=readRDS(paste0("./meta_PFC.rds"))
+  }
+  if(!is.na(unlist(strsplit(file_tag,"k"))[2])){
+    tmeta=readRDS(paste0("./meta",unlist(strsplit(file_tag,"k"))[2],"_PFC.rds"))
+  }
+}
+if(length(grep("PFC",file_tag))==0){
+  if(is.na(unlist(strsplit(file_tag,"k"))[2])){
+    tmeta=read.table(paste0("./meta.tsv"),header = TRUE, sep = "\t")
+  }
+  if(!is.na(unlist(strsplit(file_tag,"k"))[2])){
+    tmeta=readRDS(paste0("./meta",unlist(strsplit(file_tag,"k"))[2],".rds"))
+  }
+}
+
 cur_cluster=unique(tmeta$cluster)
 #get gene name
 sim_matrix_bulk_dca_sim_12_PFC5k=readRDS("7.Result/rawcount_matrix_bulk_12_PFC5k.rds")
@@ -521,7 +538,9 @@ scatter_8v8=function(b,a,...){
 
 ############# Plot preparation #######################
 power_array=readRDS(paste0("./8.Result/final_power_array.rds"))
-
+i_file=2
+i_F=2
+i_cluster=4
 cur_file_namelist=power_array[i_file,i_F,,i_cluster,,,1,]
 #for(i_file in 1:length(file_tag_seq)){
 #for(i_F in 1:length(F_method_seq)){
@@ -561,7 +580,7 @@ for(i_file in 1:length(file_tag_seq)){
       file_tag=file_tag_seq[i_file]
       F_method=F_method_seq[i_F]
       
-      png(paste0("./8.Result/fig_boxplot_power/boxplot_power_",F_method,"_",ind_covariate_flag,pre_tag,"_",file_tag,".png"),height = 400*(length(perm_label_seq)+1),width = 800)
+      png(paste0("./8.Result/fig_boxplot_power/boxplot_power_",F_method,"_",ind_covariate_flag,pre_tag,"_",file_tag,"_",i_cluster,".png"),height = 400*(length(perm_label_seq)+1),width = 800)
       op=par(mfrow=c(5,1),mar=c(5,1,1,1),oma=c(1,0,0,0))
       
       a=matrix(ncol=length(cur_file_namelist),nrow=length(cluster_tag_seq))
@@ -602,10 +621,10 @@ for(i_file in 1:length(file_tag_seq)){
       file_tag=file_tag_seq[i_file]
       F_method=F_method_seq[i_F]
       fit_tag=fit_tag_seq[i_fit]
-      #png(paste0("./8.Result/fig_barplot/barplot_",F_method,"_",pre_tag,"_",file_tag,".png"),height = 300*5,width = 600*length(cluster_tag_seq))
+      #png(paste0("./8.Result/fig_barplot/barplot_",F_method,"_",pre_tag,"_",file_tag,"_",i_cluster,".png"),height = 300*5,width = 600*length(cluster_tag_seq))
       #op=par(mfrow=c(5,length(cluster_tag_seq)),mar=c(5,1,1,1),oma=c(1,0,0,0))
-      #png(paste0("./8.Result/fig_barplot/barplot_safi_",F_method,"_",pre_tag,"_",file_tag,".png"),height = 400*5,width = 800*1)
-      pdf(paste0("./8.Result/fig_barplot/barplot_",F_method,"_",pre_tag,"_",file_tag,".pdf"),height = 40,width = 10)
+      #png(paste0("./8.Result/fig_barplot/barplot_safi_",F_method,"_",pre_tag,"_",file_tag,"_",i_cluster,".png"),height = 400*5,width = 800*1)
+      pdf(paste0("./8.Result/fig_barplot/barplot_",F_method,"_",pre_tag,"_",file_tag,"_",i_cluster,".pdf"),height = 40,width = 10)
       op=par(mfrow=c(5,1),mar=c(10,2,2,2),oma=c(5,2,2,2))
       
       a=matrix(ncol=length(cur_file_namelist),nrow=length(cluster_tag_seq))
@@ -615,7 +634,7 @@ for(i_file in 1:length(file_tag_seq)){
       colnames(a)=cur_file_namelist
       a=a[,thres_index]
       #for(i_cluster in 1:length(cluster_tag_seq)){
-      for(i_cluster in c(12)){
+      for(i_cluster in c(1,2,4,8,11,14,16)){
         barplot(a[i_cluster,],cex.lab=1.5, cex.axis=1.5, cex.main=1.5, cex.sub=1.5,main="proportion of p-values <0.05, observed data",sub=cur_cluster[i_cluster],ylab="power",las=2,ylim=c(0,1))
         abline(h = 0.05, col = "red") 
       }
@@ -627,7 +646,7 @@ for(i_file in 1:length(file_tag_seq)){
         colnames(b)=cur_file_namelist
         b=b[,thres_index]
         #for(i_cluster in 1:length(cluster_tag_seq)){
-        for(i_cluster in c(12)){
+        for(i_cluster in c(1,2,4,8,11,14,16)){
           barplot(b[i_cluster,],cex.lab=1.5, cex.axis=1.5, cex.main=1.5, cex.sub=1.5,main="proportion of p-values <0.05, permutated data",sub=cur_cluster[i_cluster],ylab="type I error",las=2,ylim=c(0,1))
           abline(h = 0.05, col = "red") 
         }
@@ -645,10 +664,10 @@ for(i_file in 1:length(file_tag_seq)){
       file_tag=file_tag_seq[i_file]
       F_method=F_method_seq[i_F]
       fit_tag=fit_tag_seq[i_fit]
-      #png(paste0("./8.Result/fig_barplot/barplot_safi_",F_method,"_",pre_tag,"_",file_tag,".png"),height = 300*5,width = 600*length(cluster_tag_seq))
+      #png(paste0("./8.Result/fig_barplot/barplot_safi_",F_method,"_",pre_tag,"_",file_tag,"_",i_cluster,".png"),height = 300*5,width = 600*length(cluster_tag_seq))
       #op=par(mfrow=c(5,length(cluster_tag_seq)),mar=c(5,1,1,1),oma=c(1,0,0,0))
-      #png(paste0("./8.Result/fig_barplot/barplot_safi_",F_method,"_",pre_tag,"_",file_tag,".png"),height = 400*5,width = 800*1)
-      pdf(paste0("./8.Result/fig_barplot/barplot_safi_",F_method,"_",pre_tag,"_",file_tag,".pdf"),height = 40,width = 10)
+      #png(paste0("./8.Result/fig_barplot/barplot_safi_",F_method,"_",pre_tag,"_",file_tag,"_",i_cluster,".png"),height = 400*5,width = 800*1)
+      pdf(paste0("./8.Result/fig_barplot/barplot_safi_",F_method,"_",pre_tag,"_",file_tag,"_",i_cluster,".pdf"),height = 40,width = 10)
       op=par(mfrow=c(5,1),mar=c(10,2,2,2),oma=c(5,2,2,2))
       
       a=matrix(ncol=length(cur_file_namelist),nrow=length(cluster_tag_seq))
@@ -658,7 +677,7 @@ for(i_file in 1:length(file_tag_seq)){
       colnames(a)=cur_file_namelist
       a=a[,thres_index]
       #for(i_cluster in 1:length(cluster_tag_seq)){
-      for(i_cluster in c(12)){
+      for(i_cluster in c(1,2,4,8,11,14,16)){
         barplot(a[i_cluster,],cex.lab=1.5, cex.axis=1.5, cex.main=1.5, cex.sub=1.5,main="# safi genes with pval<0.05, observed data",sub=cur_cluster[i_cluster],ylab="power",las=2,ylim=c(0,300))
         #abline(h = 0.05, col = "red") 
       }
@@ -670,7 +689,7 @@ for(i_file in 1:length(file_tag_seq)){
         colnames(b)=cur_file_namelist
         b=b[,thres_index]
         #for(i_cluster in 1:length(cluster_tag_seq)){
-        for(i_cluster in c(12)){
+        for(i_cluster in c(1,2,4,8,11,14,16)){
           barplot(b[i_cluster,],cex.lab=1.5, cex.axis=1.5, cex.main=1.5, cex.sub=1.5,main="# safi genes with pval<0.05, permutated data",sub=cur_cluster[i_cluster],ylab="type I error",las=2,ylim=c(0,300))
           #abline(h = 0.05, col = "red") 
         }
@@ -685,13 +704,6 @@ for(i_file in 1:length(file_tag_seq)){
 for(i_file in 1:length(file_tag_seq)){
   file_tag=file_tag_seq[i_file]
   
-  ###calculate cell num
-  if(is.na(unlist(strsplit(file_tag,"k"))[2])){
-    tmeta=read.table("./meta.tsv",header = TRUE, sep = "\t")
-  }
-  if(!is.na(unlist(strsplit(file_tag,"k"))[2])){
-    tmeta=readRDS(paste0("./meta",unlist(strsplit(file_tag,"k"))[2],".rds"))
-  }
   cur_cluster=as.character(unique(tmeta$cluster))
   cell_num=table(tmeta$cluster)
   cell_num=as.numeric(cell_num[match(cur_cluster,names(cell_num))])
@@ -703,7 +715,7 @@ for(i_file in 1:length(file_tag_seq)){
       F_method=F_method_seq[i_F]
       fit_tag=fit_tag_seq[i_fit]
       
-      png(paste0("./8.Result/fig_scatter_power/scatter_power_",F_method,"_",ind_covariate_flag,resid_flag,covariate_flag,fit_tag,pre_tag,"_",file_tag,".png"),height = 1200,width = 500*length(perm_label_seq))
+      png(paste0("./8.Result/fig_scatter_power/scatter_power_",F_method,"_",ind_covariate_flag,resid_flag,covariate_flag,fit_tag,pre_tag,"_",file_tag,"_",i_cluster,".png"),height = 1200,width = 500*length(perm_label_seq))
       op=par(mfrow=c(length(perm_label_seq),3))
 
       a=power_array[i_file,i_F,i_fit,,i_resid,i_cov,1,]
@@ -767,7 +779,7 @@ for(i_file in 1:length(file_tag_seq)){
       file_tag=file_tag_seq[i_file]
       F_method=F_method_seq[i_F]
       fit_tag=fit_tag_seq[i_fit]
-      png(paste0("./8.Result/fig_boxplot_ks/boxplot_ks_",F_method,"_",ind_covariate_flag,resid_flag,covariate_flag,fit_tag,pre_tag,"_",file_tag,".png"),height = 400*(1+length(perm_label_seq)),width = 500)
+      png(paste0("./8.Result/fig_boxplot_ks/boxplot_ks_",F_method,"_",ind_covariate_flag,resid_flag,covariate_flag,fit_tag,pre_tag,"_",file_tag,"_",i_cluster,".png"),height = 400*(1+length(perm_label_seq)),width = 500)
       op=par(mfrow=c((length(perm_label_seq)+1),1))
       a=ks_array[i_file,i_F,i_fit,,i_resid,i_cov,1,]
       boxplot(a,cex.lab=1.5, cex.axis=1.5, cex.main=1.5, cex.sub=1.5,main="ks test for distribution of pvalues, observed data",ylab="ks pval",ylim=c(0,1))
@@ -792,12 +804,6 @@ for(i_file in 1:length(file_tag_seq)){
   file_tag=file_tag_seq[i_file]
   
   ###calculate cell num
-  if(is.na(unlist(strsplit(file_tag,"k"))[2])){
-    tmeta=read.table("./meta.tsv",header = TRUE, sep = "\t")
-  }
-  if(!is.na(unlist(strsplit(file_tag,"k"))[2])){
-    tmeta=readRDS(paste0("./meta",unlist(strsplit(file_tag,"k"))[2],".rds"))
-  }
   cur_cluster=as.character(unique(tmeta$cluster))
   cell_num=table(tmeta$cluster)
   cell_num=as.numeric(cell_num[match(cur_cluster,names(cell_num))])
@@ -809,7 +815,7 @@ for(i_file in 1:length(file_tag_seq)){
       F_method=F_method_seq[i_F]
       fit_tag=fit_tag_seq[i_fit]
       
-      png(paste0("./8.Result/fig_scatter_ks/scatter_ks_",F_method,"_",ind_covariate_flag,resid_flag,covariate_flag,fit_tag,pre_tag,"_",file_tag,".png"),height = 500,width = 500*length(perm_label_seq))
+      png(paste0("./8.Result/fig_scatter_ks/scatter_ks_",F_method,"_",ind_covariate_flag,resid_flag,covariate_flag,fit_tag,pre_tag,"_",file_tag,"_",i_cluster,".png"),height = 500,width = 500*length(perm_label_seq))
       op=par(mfrow=c(length(perm_label_seq),3))
 
       a=-log10(ks_array[i_file,i_F,i_fit,,i_resid,i_cov,1,]+min(ks_array[ks_array>0],na.rm = TRUE))
@@ -838,12 +844,6 @@ cor_scatter_plot=function(cur_array,cur_label){
     file_tag=file_tag_seq[i_file]
     
     ###calculate cell num
-    if(is.na(unlist(strsplit(file_tag,"k"))[2])){
-      tmeta=read.table("./meta.tsv",header = TRUE, sep = "\t")
-    }
-    if(!is.na(unlist(strsplit(file_tag,"k"))[2])){
-      tmeta=readRDS(paste0("./meta",unlist(strsplit(file_tag,"k"))[2],".rds"))
-    }
     cur_cluster=as.character(unique(tmeta$cluster))
     cell_num=table(tmeta$cluster)
     cell_num=as.numeric(cell_num[match(cur_cluster,names(cell_num))])
@@ -855,7 +855,7 @@ cor_scatter_plot=function(cur_array,cur_label){
         F_method=F_method_seq[i_F]
         fit_tag=fit_tag_seq[i_fit]
         
-        png(paste0("./8.Result/fig_scatter_",cur_label,"/scatter_",cur_label,"_",F_method,"_",ind_covariate_flag,resid_flag,covariate_flag,fit_tag,pre_tag,"_",file_tag,".png"),height = 1200,width = 500*dim(cur_array)[4])
+        png(paste0("./8.Result/fig_scatter_",cur_label,"/scatter_",cur_label,"_",F_method,"_",ind_covariate_flag,resid_flag,covariate_flag,fit_tag,pre_tag,"_",file_tag,"_",i_cluster,".png"),height = 1200,width = 500*dim(cur_array)[4])
         op=par(mfrow=c(3,dim(cur_array)[4]))
         
         a=cur_array[i_file,i_F,i_fit,,i_resid,i_cov,1,]
@@ -1015,12 +1015,6 @@ for(i_file in 1:length(file_tag_seq)){
   file_tag=file_tag_seq[i_file]
   pval_array=pval_list[[file_tag]]
   ###calculate cell num
-  if(is.na(unlist(strsplit(file_tag,"k"))[2])){
-    tmeta=read.table("./meta.tsv",header = TRUE, sep = "\t")
-  }
-  if(!is.na(unlist(strsplit(file_tag,"k"))[2])){
-    tmeta=readRDS(paste0("./meta",unlist(strsplit(file_tag,"k"))[2],".rds"))
-  }
   cur_cluster=as.character(unique(tmeta$cluster))
   cell_num=table(tmeta$cluster)
   cell_num=as.numeric(cell_num[match(cur_cluster,names(cell_num))])
@@ -1051,11 +1045,11 @@ for(i_file in 1:length(file_tag_seq)){
           }
         }
         
-        saveRDS(cor_obperm,paste0("./8.Result/cor_pval_obperm_",F_method,"_",ind_covariate_flag,resid_flag,covariate_flag,fit_tag,pre_tag,"_",file_tag,".rds"))
-        saveRDS(cor_obob,paste0("./8.Result/cor_pval_obob_",F_method,"_",ind_covariate_flag,resid_flag,covariate_flag,fit_tag,pre_tag,"_",file_tag,".rds"))
-        saveRDS(cor_permperm,paste0("./8.Result/cor_pval_permperm_",F_method,"_",ind_covariate_flag,resid_flag,covariate_flag,fit_tag,pre_tag,"_",file_tag,".rds"))
+        saveRDS(cor_obperm,paste0("./8.Result/cor_pval_obperm_",F_method,"_",ind_covariate_flag,resid_flag,covariate_flag,fit_tag,pre_tag,"_",file_tag,"_",i_cluster,".rds"))
+        saveRDS(cor_obob,paste0("./8.Result/cor_pval_obob_",F_method,"_",ind_covariate_flag,resid_flag,covariate_flag,fit_tag,pre_tag,"_",file_tag,"_",i_cluster,".rds"))
+        saveRDS(cor_permperm,paste0("./8.Result/cor_pval_permperm_",F_method,"_",ind_covariate_flag,resid_flag,covariate_flag,fit_tag,pre_tag,"_",file_tag,"_",i_cluster,".rds"))
         #plot cor pval ob vs perm
-        png(paste0("./8.Result/fig_scatter_cor_pval/scatter_cor_pval_",F_method,"_",ind_covariate_flag,resid_flag,covariate_flag,fit_tag,pre_tag,"_",file_tag,".png"),height = 400,width = 500)
+        png(paste0("./8.Result/fig_scatter_cor_pval/scatter_cor_pval_",F_method,"_",ind_covariate_flag,resid_flag,covariate_flag,fit_tag,pre_tag,"_",file_tag,"_",i_cluster,".png"),height = 400,width = 500)
         plot(cell_num,cor_obperm[,1],type="p",pch=3,cex=1.1, col="red",xlab="cell number of each cell type",ylab="-log10 pval_cor",cex.lab=1.5, cex.axis=1.5, cex.main=1.5, cex.sub=1.5,main="correlation between observed and permutation -log10 pvalues",,ylim=c(-1,1))
         abline(h = -log10(0.05), col = "red")
         points(cell_num,cor_obperm[,2],pch=4,cex=1.1, col="blue")
@@ -1072,8 +1066,8 @@ for(i_file in 1:length(file_tag_seq)){
         
         for(cluster_tag in 1:dim(log10_perm_pval)[1]){
           
-          fit_data=readRDS(paste0("./7.Result/fit_",ind_covariate_flag,resid_flag,covariate_flag,fit_tag,pre_tag,"_sim_",cluster_tag,"_",file_tag,".rds"))
-          sim_data=readRDS(paste0("./7.Result/sim_",ind_covariate_flag,resid_flag,covariate_flag,fit_tag,pre_tag,"_sim_",cluster_tag,"_",file_tag,".rds"))
+          fit_data=readRDS(paste0("./7.Result/fit_",ind_covariate_flag,resid_flag,covariate_flag,fit_tag,pre_tag,"_sim_",cluster_tag,"_",file_tag,"_",i_cluster,".rds"))
+          sim_data=readRDS(paste0("./7.Result/sim_",ind_covariate_flag,resid_flag,covariate_flag,fit_tag,pre_tag,"_sim_",cluster_tag,"_",file_tag,"_",i_cluster,".rds"))
           
           #permutation phenotype
           cur_phenotype=tmeta$diagnosis[tmeta$cluster==cur_cluster[cluster_tag]]!="Control"
@@ -1106,7 +1100,7 @@ for(i_file in 1:length(file_tag_seq)){
           
           #plot first 4 smallest permutated data's pval's gene's re-constructed expression distribution vs the median pvals
           print("sig_gene_count")
-          png(paste0("./8.Result/fig_sig_gene_count/sig_gene_count_",F_method,"_",ind_covariate_flag,resid_flag,covariate_flag,fit_tag,pre_tag,"_",cluster_tag,"_",file_tag,".png"),height = 2400,width =3200)
+          png(paste0("./8.Result/fig_sig_gene_count/sig_gene_count_",F_method,"_",ind_covariate_flag,resid_flag,covariate_flag,fit_tag,pre_tag,"_",cluster_tag,"_",file_tag,"_",i_cluster,".png"),height = 2400,width =3200)
           op=par(mfrow = c(6, 8))
           for(i_pval in 1:dim(log10_perm_pval)[2]){
             #sig pval
@@ -1143,7 +1137,7 @@ for(i_file in 1:length(file_tag_seq)){
           #plot first 4 smallest permutated data's pval's gene's re-constructed expression distribution vs the median pvals with individual info
           
           print("sig_gene_count_ind")
-          png(paste0("./8.Result/fig_sig_gene_count_ind/sig_gene_count_ind_",F_method,"_",ind_covariate_flag,resid_flag,covariate_flag,fit_tag,pre_tag,"_",cluster_tag,"_",file_tag,".png"),height = 4500,width =6000)
+          png(paste0("./8.Result/fig_sig_gene_count_ind/sig_gene_count_ind_",F_method,"_",ind_covariate_flag,resid_flag,covariate_flag,fit_tag,pre_tag,"_",cluster_tag,"_",file_tag,"_",i_cluster,".png"),height = 4500,width =6000)
           op=par(mfrow = c(12, 16))
           for(i_pval in 1:dim(log10_perm_pval)[2]){
             #sig pval
@@ -1307,7 +1301,7 @@ for(i_file in 1:length(file_tag_seq)){
       file_tag=file_tag_seq[i_file]
       F_method=F_method_seq[i_F]
       fit_tag=fit_tag_seq[i_fit]
-      png(paste0("./8.Result/fig_barplot/barplot_",F_method,"_",pre_tag,"_",file_tag,".png"),height = 300*5,width = 600*length(cluster_tag_seq))
+      png(paste0("./8.Result/fig_barplot/barplot_",F_method,"_",pre_tag,"_",file_tag,"_",i_cluster,".png"),height = 300*5,width = 600*length(cluster_tag_seq))
       op=par(mfrow=c(5,length(cluster_tag_seq)),mar=c(5,1,1,1),oma=c(1,0,0,0))
       
       a=matrix(ncol=length(cur_file_namelist),nrow=length(cluster_tag_seq))
@@ -1350,12 +1344,11 @@ for(i_file in 1:length(file_tag_seq)){
 ##################Section 1: Gene level pval hist########################################
 pval_list=readRDS(paste0("./8.Result/final_pval_list.rds"))
 #cur pval = PFC5k of zinb fitted dca model wiht logresid adjusted cells based on cell-level readdepth
-tmeta=read.table(paste0("meta.tsv"),header = TRUE, sep = "\t",stringsAsFactors = FALSE)
 cur_cluster=unique(tmeta$cluster)
 cur_cluster
 cluster_index=17 #L23(12)
 
-#Oligo(3),OPC(4), 
+#Oligo(3),OPc(1,2,4,8,11,14,16), 
 #IN-VIP(9), IN-PV(13), L4(14),AST-PP(17).
 
 pval_length=5000
@@ -1574,15 +1567,16 @@ dev.off()
 library("ggplot2")
 method_seq=c("DESeq","MAST","jsd_empirical","klmean_empirical","jsd_zinb","klmean_zinb","jsd_direct","klmean_direct")
 pval_list=readRDS(paste0("./8.Result/final_pval_list.rds"))
-#cur pval = PFC5k of zinb fitted dca model wiht logresid adjusted cells based on cell-level readdepth
-tmeta=read.table(paste0("meta.tsv"),header = TRUE, sep = "\t",stringsAsFactors = FALSE)
-tmeta=tmeta[tmeta$region=="PFC",]
+
 cur_cluster=unique(tmeta$cluster)
 cur_cluster
-cluster_index=12 #L23(12)
 
-#Oligo(3),OPC(4), 
-#IN-VIP(9), IN-PV(13), L4(14),AST-PP(17).
+cluster_index=16 #L23(4)
+cur_cluster[cluster_index]
+
+#Oligo(2),OPC(8), 
+#IN-VIP(14), IN-PV(16), L4(11),AST-PP(1).
+
 
 meta=tmeta[tmeta$cluster==cur_cluster[cluster_index],]
 cur_individual=unique(meta$individual)
