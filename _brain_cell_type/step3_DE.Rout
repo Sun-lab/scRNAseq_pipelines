@@ -420,37 +420,633 @@ Astro   Exc   Inh Micro Oligo   OPC
 > # ------------------------------------------------------------
 > # Run job with at least 90GBs
 > for(ct in cell_types){
-+ 	cat(sprintf("%s: Start\n",date()))
 + 	print(ct)
-+ 	MAST_DEgenes(work_dir = MTG_dir,
-+ 				num_genes = num_genes,
-+ 				sce_obj = sce,
-+ 				one_cell_type = ct)
-+ 	cat(sprintf("%s: End\n",date()))
++ 	if(FALSE){
++ 		cat(sprintf("%s: Start\n",date()))
++ 		MAST_DEgenes(work_dir = MTG_dir,
++ 					num_genes = num_genes,
++ 					sce_obj = sce,
++ 					one_cell_type = ct)
++ 		cat(sprintf("%s: End\n",date()))
++ 	}
 + }
-Mon Jun 22 01:50:14 2020: Start
 [1] "Astro"
-`fData` has no primerid.  I'll make something up.
-`cData` has no wellKey.  I'll make something up.
-Assuming data assay in position 2, with name logcounts is log-transformed.
-Calculating log2(TPM+1)...
-[1] "Mon Jun 22 01:56:06 2020"
-
-Done!
-[1] "Mon Jun 22 03:01:40 2020"
-Running LRT by excluding the cell_type covariate ...
-[1] "Mon Jun 22 03:01:40 2020"
-Combining coefficients and standard errors
-Calculating log-fold changes
-Calculating likelihood ratio tests
-Refitting on reduced model...
-
-Done!
-[1] "Mon Jun 22 04:17:35 2020"
-Saving image in /pine/scr/p/l/pllittle/CS_eQTL/scRNAseq_pipelines/_brain_cell_type/step3_DE_output/ssd_nG37643_cellAstro.rds ...
-Mon Jun 22 04:17:35 2020: End
-Mon Jun 22 04:17:35 2020: Start
 [1] "Exc"
-`fData` has no primerid.  I'll make something up.
-`cData` has no wellKey.  I'll make something up.
-Assuming data assay in position 2, with name logcounts is log-transformed.
+[1] "Inh"
+[1] "Micro"
+[1] "Oligo"
+[1] "OPC"
+> 
+> # ------------------------------------------------------------
+> # Combine all genes with annotations and proportion of 
+> # expressed cells per cell type
+> # ------------------------------------------------------------
+> # Get gene annotations
+> all(rowData(sce)$gene == gtf$gene_symbol)
+[1] TRUE
+> gtf$chromosome = rowData(sce)$chromosome
+> gtf = name_change(gtf,"gene_id","entrez_id")
+> gtf$prop_express = as.numeric(apply(assay(sce),1,function(xx) mean(xx > 0)))
+> 
+> # For each cell type, gather logFC, qvalues, prop cells expressed in genes
+> for(ct in cell_types){
++ 	# ct = cell_types[1]
++ 	cat(paste0(ct," "))
++ 	tmp_df = readRDS(file.path(s3de_dir,paste0("ssd_nG",num_genes,"_cell",ct,".rds")))
++ 	tmp_df = tmp_df[,c("gene","pvalue","logFC","FDR_qvalue")]
++ 	tmp_df = name_change(tmp_df,"gene","gene_symbol")
++ 	names(tmp_df)[-1] = paste0(names(tmp_df)[-1],".",ct)
++ 	# Calculating proportion of cells expressed in a gene and cell_type
++ 	bb = apply(assay(sce[,colData(sce)$cell_type == ct]),1,
++ 		function(xx) mean(xx > 0))
++ 	bb = smart_df(gene_symbol = names(bb),prop_express = as.numeric(bb))
++ 	names(bb)[2] = paste0(names(bb)[2],".",ct)
++ 	bb = smart_merge(bb,tmp_df,all.x=TRUE)
++ 	all(bb$gene_symbol == gtf$gene_symbol)
++ 	bb = bb[match(gtf$gene_symbol,bb$gene_symbol),]
++ 	all(bb$gene_symbol == gtf$gene_symbol)
++ 	gtf = cbind(gtf,bb[,names(bb) != "gene_symbol"])
++ 	rm(tmp_df,bb)
++ }
+Astro Exc Inh Micro Oligo OPC > rds_fn = file.path(s3de_dir,"DE_gene_anno.rds")
+> saveRDS(gtf,rds_fn)
+> 
+> 
+> # ------------------------------------------------------------
+> # Get marker genes per cell type
+> # ------------------------------------------------------------
+> dat = smart_df(rowData(sce)[,c("gene","chromosome","entrez_id")])
+> fdr_thres 		= 1e-3
+> logFC_thres	 	= log(2)
+> 
+> # Get each cell type's differentially expressed genes
+> ct_genes = list()
+> for(ct in cell_types){
++ 	# ct = cell_types[1]
++ 	print(ct)
++ 	rds_fn = file.path(s3de_dir,paste0("ssd_nG",num_genes,"_cell",ct,".rds"))
++ 	rds = readRDS(rds_fn)
++ 	rds = smart_merge(rds,dat,all.x=TRUE)
++ 	rds = rds[which(rds$logFC > logFC_thres 
++ 					& rds$FDR_qvalue < fdr_thres
++ 					& rds$chromosome %in% c(1:22,"X","Y")
++ 					& !grepl("^LOC10",rds$gene)),]
++ 	ct_genes[[ct]] = rds$gene; rm(rds)
++ }
+[1] "Astro"
+[1] "Exc"
+[1] "Inh"
+[1] "Micro"
+[1] "Oligo"
+[1] "OPC"
+> sapply(ct_genes,length)
+Astro   Exc   Inh Micro Oligo   OPC 
+ 1890  1262  1233   843  1335  1022 
+> rds_fn = file.path(s3de_dir,"ct_genes.rds")
+> saveRDS(ct_genes,rds_fn)
+> 
+> # Get each cell type's disjoint set of differentially expressed genes
+> cts_genes = list()
+> for(ct in cell_types){
++ 	# ct = cell_types[1]
++ 	print(ct)
++ 	cts_genes[[ct]] = sort(setdiff(ct_genes[[ct]],
++ 		unique(unlist(ct_genes[which(names(ct_genes) != ct)]))))
++ }
+[1] "Astro"
+[1] "Exc"
+[1] "Inh"
+[1] "Micro"
+[1] "Oligo"
+[1] "OPC"
+> sapply(cts_genes,length)
+Astro   Exc   Inh Micro Oligo   OPC 
+ 1167   881   992   566   741   423 
+> rds_fn = file.path(s3de_dir,"cts_genes.rds")
+> saveRDS(cts_genes,rds_fn)
+> 
+> # Get approximate top 120 marker genes per cell type
+> ## Rather than arbitrarily selecting 100 genes, I apply 
+> ##	a quantile threshold on both logFC and FDR_qvalue to 
+> ##	select approximately 100 genes per cell type.
+> set.seed(1)
+> mark_genes = list()
+> num_mgene_per_ct = 120 # number of marker genes selected per cell type
+> for(ct in cell_types){
++ 	# ct = cell_types[1]
++ 	cat(paste0(ct,": "))
++ 	rds_fn = file.path(s3de_dir,paste0("ssd_nG",num_genes,"_cell",ct,".rds"))
++ 	rds = readRDS(rds_fn)
++ 	rds = rds[which(rds$logFC > logFC_thres 
++ 					& rds$FDR_qvalue < fdr_thres
++ 					& rds$gene %in% cts_genes[[ct]]),]
++ 	# dim(rds)
++ 	low_bound = 0
++ 	while(TRUE){
++ 		# qu = 0.25
++ 		qu = runif(1,low_bound,1)
++ 		num_rows = nrow(rds[which(rds$logFC > quantile(rds$logFC,qu) 
++ 			& rds$FDR_qvalue < quantile(rds$FDR_qvalue,1-qu)),])
++ 		if( num_rows > num_mgene_per_ct ){
++ 			# Tighten bounds
++ 			low_bound = qu # mean(c(low_bound[1],qu))
++ 			cat(paste0(round(low_bound,3)," "))
++ 			if( num_rows <= num_mgene_per_ct+10 ) break
++ 		}
++ 	}
++ 	cat("\n")
++ 	opt_qu = qu
++ 	rds = rds[which(rds$logFC > quantile(rds$logFC,opt_qu) 
++ 					& rds$FDR_qvalue < quantile(rds$FDR_qvalue,1-opt_qu)),]
++ 	mark_genes[[ct]] = rds$gene; rm(rds)
++ }
+Astro: 0.266 0.539 0.803 0.843 0.852 
+Exc: 0.206 0.346 0.795 0.821 
+Inh: 0.267 0.55 0.556 0.726 0.819 0.839 
+Micro: 0.411 0.425 0.677 
+Oligo: 0.245 0.298 0.368 0.568 0.744 0.765 
+OPC: 0.339 0.568 0.594 
+> sapply(mark_genes,length)
+Astro   Exc   Inh Micro Oligo   OPC 
+  128   124   122   122   130   126 
+> rds_fn = file.path(s3de_dir,"mark_genes.rds")
+> saveRDS(mark_genes,rds_fn)
+> 
+> smart_pack("venn")
+> pdf_fn = file.path(s3de_dir,"ct_genes_MTG.pdf")
+> pdf(pdf_fn,width=8,height=8)
+> venn(x = ct_genes,ilabels = TRUE,zcolor = "style")
+> dev.off()
+null device 
+          1 
+> 
+> 
+> # ------------------------------------------------------------
+> # Calculate TPM and get signature matrix: Based on Chong Jin's code
+> # ------------------------------------------------------------
+> 
+> table(colData(sce)$cell_type)
+
+Astro   Exc   Inh Micro Oligo   OPC 
+  287 10451  4130    62   310   234 
+> 
+> read.depth = colSums(counts(sce))
+> summary(read.depth)
+   Min. 1st Qu.  Median    Mean 3rd Qu.    Max. 
+  89854  617265  752646  764125  892178 3711955 
+> 
+> n.expressed.genes = colSums(counts(sce) > 0)
+> summary(n.expressed.genes)
+   Min. 1st Qu.  Median    Mean 3rd Qu.    Max. 
+   1136    4525    5458    5494    6623   11994 
+> 
+> pdf_fn = file.path(s3de_dir,"total_expression_vs_cell_type.pdf")
+> pdf(pdf_fn, width=5, height=6)
+> par(mfrow=c(2,1), mar=c(5,4,1,1), bty="n")
+> boxplot(log10(read.depth) ~ colData(sce)$cell_type)
+> boxplot(log10(n.expressed.genes) ~ colData(sce)$cell_type)
+> dev.off()
+null device 
+          1 
+> 
+> # Construct signature matrix
+> SIG = matrix(nrow = nrow(sce),ncol = length(cell_types))
+> colnames(SIG) = cell_types
+> rownames(SIG) = rownames(sce)
+> for(ct in cell_types){
++ 	print(ct)
++ 	# SIG[,ct] = rowSums(counts(sce)[,colData(sce)$cell_type == ct])
++ 	SIG[,ct] = rowMeans(counts(sce)[,colData(sce)$cell_type == ct])
++ }
+[1] "Astro"
+[1] "Exc"
+[1] "Inh"
+[1] "Micro"
+[1] "Oligo"
+[1] "OPC"
+> dim(SIG)
+[1] 37643     6
+> head(SIG)
+                Astro        Exc        Inh        Micro      Oligo
+5-HT3C2   0.055749129  0.2499282  0.3910412 4.838710e-02  0.2516129
+A1BG      0.191637631  5.2354799  3.9065375 3.951613e+00 20.5838710
+A1BG-AS1  0.003484321  0.8080566  0.6682809 1.612903e-02  1.1580645
+A1CF      1.240418118  1.0479380  0.7261501 1.612903e-02  0.2387097
+A2M      18.160278746 13.9063248 11.3520581 1.436952e+03 20.7225806
+A2M-AS1   8.529616725  3.6900775  3.4348668 3.516129e+00 10.3290323
+                  OPC
+5-HT3C2   1.264957265
+A1BG      0.000000000
+A1BG-AS1  0.004273504
+A1CF      0.149572650
+A2M      27.311965812
+A2M-AS1   1.935897436
+> 
+> # Some statistics about all MTG genes that does not involve zeros.
+> # We need them to simulate data.
+> # We have verified that gene lengths are strictly positive and roughly log-normal
+> # Pearson correlation among genes that do not have zero expression:
+> log_SIG = log(cbind(SIG, gene_length = rowData(sce)$gene_length))
+> log_SIG[!is.finite(log_SIG)] = NA
+> log_SIG = na.omit(log_SIG)
+> dim(log_SIG)
+[1] 18884     7
+> cor_log_SIG = cor(log_SIG)
+> cor_log_SIG
+                Astro       Exc       Inh     Micro     Oligo       OPC
+Astro       1.0000000 0.7554319 0.7770107 0.5542015 0.7347420 0.7728006
+Exc         0.7554319 1.0000000 0.9465953 0.5476596 0.7585675 0.7993979
+Inh         0.7770107 0.9465953 1.0000000 0.5562546 0.7756131 0.8295855
+Micro       0.5542015 0.5476596 0.5562546 1.0000000 0.5671851 0.5494750
+Oligo       0.7347420 0.7585675 0.7756131 0.5671851 1.0000000 0.7605355
+OPC         0.7728006 0.7993979 0.8295855 0.5494750 0.7605355 1.0000000
+gene_length 0.3495914 0.4081825 0.4028691 0.2288951 0.3246572 0.3599758
+            gene_length
+Astro         0.3495914
+Exc           0.4081825
+Inh           0.4028691
+Micro         0.2288951
+Oligo         0.3246572
+OPC           0.3599758
+gene_length   1.0000000
+> diag(cor_log_SIG) = NA
+> cor_between_cell_types = median(cor_log_SIG[1:6,1:6], na.rm=TRUE)
+> cor_between_cell_type_and_gene_length = median(cor_log_SIG[1:6, 7], na.rm=TRUE)
+> mean_log_gene_length = mean(log_SIG[,"gene_length"], na.rm=TRUE)
+> sd_log_gene_length = sd(log_SIG[,"gene_length"], na.rm=TRUE)
+> rds_fn = file.path(s3de_dir,"all_genes_MTG.rds")
+> saveRDS(list(anno = rowData(sce),
++              SIG = SIG,
++              cor_between_cell_types = cor_between_cell_types,
++              cor_between_cell_type_and_gene_length = cor_between_cell_type_and_gene_length,
++              mean_log_gene_length = mean_log_gene_length,
++              sd_log_gene_length = sd_log_gene_length),
++         rds_fn)
+> 
+> # Subset marker genes
+> SIG = SIG[sort(as.character(unlist(mark_genes))),]
+> dim(SIG)
+[1] 752   6
+> head(SIG)
+           Astro        Exc         Inh        Micro        Oligo        OPC
+ABAT   49.790941 54.5048321 163.5036320   0.06451613 1.669032e+01 79.4957265
+ABCA2  35.017422 28.3344178  23.1740920   3.58064516 5.164839e+02 20.3803419
+ABCA8   2.470383  0.4862693   0.7748184   1.88709677 8.072548e+02  0.1324786
+ABCC4  17.390244  7.5581284   5.6917676 215.46774194 5.935484e-01 19.6837607
+ACACB 100.794425  1.0399962   2.1179177   8.08064516 1.150968e+01  8.2435897
+ACOX2  70.585366  0.3436035   0.5351090   0.00000000 9.677419e-03  0.0000000
+> summary(SIG)
+     Astro                Exc                 Inh               Micro          
+ Min.   :   0.0000   Min.   :   0.0100   Min.   :   0.000   Min.   :   0.0000  
+ 1st Qu.:   0.4425   1st Qu.:   0.8211   1st Qu.:   1.005   1st Qu.:   0.0323  
+ Median :   5.7840   Median :   7.2520   Median :   9.561   Median :   6.4435  
+ Mean   :  62.5889   Mean   :  47.1611   Mean   :  62.123   Mean   :  79.3773  
+ 3rd Qu.:  49.8441   3rd Qu.:  46.5920   3rd Qu.:  67.981   3rd Qu.:  52.7056  
+ Max.   :2947.2404   Max.   :1213.3403   Max.   :2338.262   Max.   :3113.1774  
+     Oligo                OPC           
+ Min.   :    0.000   Min.   :   0.0000  
+ 1st Qu.:    0.440   1st Qu.:   0.6656  
+ Median :    4.353   Median :   9.4124  
+ Mean   :  123.244   Mean   :  55.3172  
+ 3rd Qu.:   51.628   3rd Qu.:  49.6838  
+ Max.   :15319.474   Max.   :1245.9145  
+> 
+> # Get ENSG id
+> dat	= gtf[,c("gene_symbol","chromosome","entrez_id")]
+> rownames(dat) = NULL
+> dat = dat[match(rownames(SIG),dat$gene_symbol),]
+> biomaRt::listEnsembl()
+             biomart                version
+1            ensembl      Ensembl Genes 100
+2 ENSEMBL_MART_MOUSE      Mouse strains 100
+3                snp  Ensembl Variation 100
+4         regulation Ensembl Regulation 100
+> ensembl = biomaRt::useMart("ensembl")
+> dd = biomaRt::listDatasets(ensembl); dim(dd); dd[1:5,]
+[1] 203   3
+                     dataset                      description    version
+1   acalliptera_gene_ensembl Eastern happy genes (fAstCal1.2) fAstCal1.2
+2 acarolinensis_gene_ensembl   Anole lizard genes (AnoCar2.0)  AnoCar2.0
+3  acchrysaetos_gene_ensembl  Golden eagle genes (bAquChr1.2) bAquChr1.2
+4  acitrinellus_gene_ensembl   Midas cichlid genes (Midas_v5)   Midas_v5
+5  amelanoleuca_gene_ensembl            Panda genes (ailMel1)    ailMel1
+> dd[grep("hsap",dd$dataset),]
+                 dataset              description    version
+79 hsapiens_gene_ensembl Human genes (GRCh38.p13) GRCh38.p13
+> ee = biomaRt::useDataset("hsapiens_gene_ensembl",mart = ensembl)
+> # ff = biomaRt::listFilters(ee); dim(ff); ff[1:5,]
+> # aa = biomaRt::listAttributes(ee); dim(aa); aa[1:5,]
+> 
+> attr_string = c("hgnc_symbol","ensembl_gene_id","external_gene_name",
++ 				"entrezgene_id","chromosome_name","start_position",
++ 				"end_position","strand","gene_biotype")
+> filters = c("hgnc_symbol","chromosome_name","entrezgene_id")
+> values = list(dat$gene_symbol,dat$chromosome,dat$entrez_id)
+> gene_anno = biomaRt::getBM(attributes = attr_string,
++ 						filters = filters, 
++ 						values = values,
++ 						mart = ee)
+> gene_anno = unique(gene_anno)
+> dim(gene_anno); gene_anno[1:5,]
+[1] 693   9
+  hgnc_symbol ensembl_gene_id external_gene_name entrezgene_id chromosome_name
+1        CDH6 ENSG00000113361               CDH6          1004               5
+2       CDH13 ENSG00000140945              CDH13          1012              16
+3       ARL4C ENSG00000188042              ARL4C         10123               2
+4      FAM13A ENSG00000138640             FAM13A         10144               4
+5       DHRS9 ENSG00000073737              DHRS9         10170               2
+  start_position end_position strand   gene_biotype
+1       31193686     31329146      1 protein_coding
+2       82626965     83800640      1 protein_coding
+3      234493041    234497081     -1 protein_coding
+4       88725955     89111398     -1 protein_coding
+5      169064789    169096167      1 protein_coding
+> smart_table(rownames(SIG) %in% gene_anno$hgnc_symbol)
+
+FALSE  TRUE 
+   59   693 
+> 
+> # What are the missing genes?
+> miss_genes = setdiff(rownames(SIG),gene_anno$hgnc_symbol)
+> miss_genes
+ [1] "C2orf82"    "C8orf4"     "CELF2-AS2"  "CYP4F24P"   "DLEU7-AS1" 
+ [6] "DLGAP1-AS4" "DLX6-AS1"   "DPY19L2P1"  "DSCAM-IT1"  "EIF4BP6"   
+[11] "EMX2OS"     "ENTPD3-AS1" "FAM105A"    "FAM65B"     "FLJ46906"  
+[16] "FYB"        "GRIK1-AS2"  "HLA-DRB6"   "HMP19"      "HRASLS"    
+[21] "ITGB2-AS1"  "KIAA1211"   "KRT17P1"    "LINC00282"  "LINC00499" 
+[26] "LINC00507"  "LINC00643"  "LINC00710"  "LINC00844"  "LINC00925" 
+[31] "LINC00928"  "LINC00982"  "LINC00996"  "LINC01202"  "LINC01268" 
+[36] "LINCR-0002" "LOC285626"  "LOC440896"  "LOC646522"  "LY86-AS1"  
+[41] "MFSD4"      "MIR137HG"   "MIR223"     "MIR548F2"   "MKL2"      
+[46] "NBEAP2"     "NUPL2"      "PART1"      "PCA3"       "PLA2G16"   
+[51] "PPAP2C"     "PRKCQ-AS1"  "PTCSC3"     "RPL13P12"   "RPL29P4"   
+[56] "RPS20P22"   "SEPP1"      "VAC14-AS1"  "VTRNA1-1"  
+> 
+> # Subset and order genes
+> inter_genes = intersect(rownames(SIG),gene_anno$hgnc_symbol)
+> gene_anno = gene_anno[which(gene_anno$hgnc_symbol %in% inter_genes),]
+> gtf = gtf[which(gtf$gene_symbol %in% inter_genes),]
+> SIG = SIG[which(rownames(SIG) %in% inter_genes),]
+> gtf2 = gtf[,c("gene_symbol","gene_length")]
+> 	gtf2 = name_change(gtf2,"gene_symbol","hgnc_symbol")
+> gene_anno = smart_merge(gene_anno,gtf2[,c("hgnc_symbol","gene_length")])
+> gene_anno = gene_anno[match(rownames(SIG),gene_anno$hgnc_symbol),]
+> dim(gene_anno)
+[1] 693  10
+> head(gene_anno)
+  hgnc_symbol ensembl_gene_id external_gene_name entrezgene_id chromosome_name
+1        ABAT ENSG00000183044               ABAT            18              16
+2       ABCA2 ENSG00000107331              ABCA2            20               9
+3       ABCA8 ENSG00000141338              ABCA8         10351              17
+4       ABCC4 ENSG00000125257              ABCC4         10257              13
+5       ACACB ENSG00000076555              ACACB            32              12
+6       ACOX2 ENSG00000168306              ACOX2          8309               3
+  start_position end_position strand   gene_biotype gene_length
+1        8674596      8784575      1 protein_coding        5981
+2      137007234    137028922     -1 protein_coding        8412
+3       68867289     68955392     -1 protein_coding        6608
+4       95019835     95301475     -1 protein_coding        6552
+5      109116595    109268226      1 protein_coding       11096
+6       58505136     58537283     -1 protein_coding        2716
+> 
+> # Output
+> rds_fn = file.path(s3de_dir,"signature_MTG.rds")
+> saveRDS(list(anno = gene_anno,SIG = SIG),rds_fn)
+> 
+> 
+> # ------------------------------------------------------------
+> # Import CMC Bulk RNA, get gene lengths
+> # ------------------------------------------------------------
+> bulk = readRDS("CMC_MSSM-Penn-Pitt_Paul_geneExpressionRaw.rds")$so1
+> dim(bulk); bulk[1:5,1:5]
+[1] 56632   613
+                MSSM_RNA_BP_PFC_10 MSSM_RNA_BP_PFC_11 MSSM_RNA_BP_PFC_12
+ENSG00000000003                103                258                148
+ENSG00000000005                  2                  5                  4
+ENSG00000000419                372                531                597
+ENSG00000000457                211                326                324
+ENSG00000000460                141                239                167
+                MSSM_RNA_BP_PFC_13 MSSM_RNA_BP_PFC_14
+ENSG00000000003                170                216
+ENSG00000000005                  4                  7
+ENSG00000000419                522                890
+ENSG00000000457                225                327
+ENSG00000000460                183                271
+> 
+> gtf_fn = "Homo_sapiens.GRCh37.70.processed.gtf"
+> exdb = GenomicFeatures::makeTxDbFromGFF(file = gtf_fn,format = "gtf")
+Import genomic features from the file as a GRanges object ... OK
+Prepare the 'metadata' data frame ... OK
+Make the TxDb object ... OK
+Warning message:
+In .get_cds_IDX(type, phase) :
+  The "phase" metadata column contains non-NA values for features of type
+  stop_codon. This information was ignored.
+> exons_list_per_gene = GenomicFeatures::exonsBy(exdb,by = "gene")
+> tmp_df = smart_df(ensembl_gene_id = names(exons_list_per_gene),
++ 				gene_length = as.numeric(sum(width(GenomicRanges::reduce(exons_list_per_gene)))))
+> tmp_df[1:5,]
+  ensembl_gene_id gene_length
+1 ENSG00000000003        2968
+2 ENSG00000000005        1610
+3 ENSG00000000419        1207
+4 ENSG00000000457        3844
+5 ENSG00000000460        6354
+> all(tmp_df$ensembl_gene_id %in% rownames(bulk))
+[1] TRUE
+> all(tmp_df$ensembl_gene_id == rownames(bulk))
+[1] TRUE
+> 
+> # Subset/Order marker genes
+> gene_anno 		= readRDS(file.path(s3de_dir,"signature_MTG.rds"))$anno
+> inter_genes2 	= intersect(tmp_df$ensembl_gene_id,gene_anno$ensembl_gene_id)
+> gene_anno2 		= gene_anno[which(gene_anno$ensembl_gene_id %in% inter_genes2),]
+> bulk 					= bulk[which(rownames(bulk) %in% inter_genes2),]
+> bulk 					= bulk[match(gene_anno2$ensembl_gene_id,rownames(bulk)),]
+> tmp_df 				= tmp_df[which(tmp_df$ensembl_gene_id %in% inter_genes2),]
+> tmp_df 				= tmp_df[match(gene_anno2$ensembl_gene_id,tmp_df$ensembl_gene_id),]
+> 
+> rds_fn = file.path(s3de_dir,"bulk_marker_MTG.rds")
+> saveRDS(list(anno = tmp_df,bulk = bulk),rds_fn)
+> 
+> 
+> # ------------------------------------------------------------
+> # Deconvolution: Based on Chong Jin's deconvolution.Rmd code
+> # ------------------------------------------------------------
+> # Refer to EPIC paper for variable definitions (bb = bulk,cc = signature,pp = cell type proportions)
+> bulk_rds 	= readRDS(file.path(s3de_dir,"bulk_marker_MTG.rds"))
+> sig_rds 	= readRDS(file.path(s3de_dir,"signature_MTG.rds"))
+> inter_genes3 	= intersect(bulk_rds$anno$ensembl_gene_id,sig_rds$anno$ensembl_gene_id)
+> bulk_rds$anno = bulk_rds$anno[which(bulk_rds$anno$ensembl_gene_id %in% inter_genes3),]
+> bulk_rds$bulk = bulk_rds$bulk[which(rownames(bulk_rds$bulk) %in% inter_genes3),]
+> sig_rds$anno 	= sig_rds$anno[which(sig_rds$anno$ensembl_gene_id %in% inter_genes3),]
+> sig_rds$SIG 	= sig_rds$SIG[which(rownames(sig_rds$SIG) %in% sig_rds$anno$hgnc_symbol),]
+> rownames(sig_rds$SIG) = sig_rds$anno$ensembl_gene_id
+> 
+> bb_tpm = apply(bulk_rds$bulk,2,function(xx) xx / bulk_rds$anno$gene_length)
+> bb_tpm = 1e6 * apply(bb_tpm,2,function(xx) xx / sum(xx))
+> cc_tpm = apply(sig_rds$SIG,2,function(xx) xx / sig_rds$anno$gene_length)
+> cc_tpm = 1e6 * apply(cc_tpm,2,function(xx) xx / sum(xx))
+> 
+> cell_sizes = colSums(apply(sig_rds$SIG,2,function(xx) xx / sig_rds$anno$gene_length))
+> cell_sizes/max(cell_sizes)
+    Astro       Exc       Inh     Micro     Oligo       OPC 
+0.4173898 0.2804088 0.4705962 0.8381838 1.0000000 0.3239634 
+> cell_sizes
+    Astro       Exc       Inh     Micro     Oligo       OPC 
+10.269041  6.898899 11.578079 20.621837 24.603001  7.970471 
+> 
+> # Run ICeDT
+> pack = "ICeDT"
+> if( !(pack %in% installed.packages()[,"Package"]) ){
++ 	devtools::install_github("Sun-lab/ICeDT")
++ }
+> date()
+[1] "Mon Jun 22 19:44:25 2020"
+> fit = ICeDT::ICeDT(Y = bb_tpm,Z = cc_tpm,tumorPurity = rep(0,ncol(bb_tpm)),
++ 	refVar = NULL,rhoInit = NULL,maxIter_prop = 4e3,maxIter_PP = 4e3,
++ 	rhoConverge = 1e-2)
+Adding 1e-5 to Y to ensure valid log transformation.
+Adding 1e-5 to Z to ensure valid log transformation.
+Iter 1: max diff of rho: 0.254112386964293
+..> date()
+[1] "Mon Jun 22 19:48:11 2020"
+> pp_bar_icedt = t(fit$rho)[,-1]
+> # calculate p_hat using cell_sizes
+> pp_hat_icedt = t(apply(pp_bar_icedt,1,function(xx){yy = xx / cell_sizes; yy / sum(yy)}))
+> # Look at distribution of pp_bar and pp_hat
+> summary(pp_bar_icedt)
+     Astro              Exc              Inh              Micro        
+ Min.   :0.02446   Min.   :0.0826   Min.   :0.02502   Min.   :0.00500  
+ 1st Qu.:0.13298   1st Qu.:0.4378   1st Qu.:0.10107   1st Qu.:0.02840  
+ Median :0.14672   Median :0.4876   Median :0.13526   Median :0.03693  
+ Mean   :0.15581   Mean   :0.4745   Mean   :0.12851   Mean   :0.04183  
+ 3rd Qu.:0.16526   3rd Qu.:0.5204   3rd Qu.:0.15954   3rd Qu.:0.04872  
+ Max.   :0.42394   Max.   :0.6682   Max.   :0.21617   Max.   :0.32685  
+     Oligo              OPC          
+ Min.   :0.03823   Min.   :0.009919  
+ 1st Qu.:0.11195   1st Qu.:0.026700  
+ Median :0.15338   Median :0.031905  
+ Mean   :0.16426   Mean   :0.035040  
+ 3rd Qu.:0.20532   3rd Qu.:0.038682  
+ Max.   :0.41908   Max.   :0.122066  
+> summary(pp_hat_icedt)
+     Astro              Exc              Inh              Micro         
+ Min.   :0.01942   Min.   :0.1706   Min.   :0.02387   Min.   :0.001978  
+ 1st Qu.:0.11863   1st Qu.:0.6081   1st Qu.:0.08391   1st Qu.:0.012493  
+ Median :0.13166   Median :0.6451   Median :0.10655   Median :0.016429  
+ Mean   :0.14175   Mean   :0.6322   Mean   :0.10181   Mean   :0.019332  
+ 3rd Qu.:0.15020   3rd Qu.:0.6711   3rd Qu.:0.12336   3rd Qu.:0.022090  
+ Max.   :0.42748   Max.   :0.7898   Max.   :0.16372   Max.   :0.225859  
+     Oligo              OPC         
+ Min.   :0.01278   Min.   :0.01059  
+ 1st Qu.:0.04071   1st Qu.:0.03106  
+ Median :0.05695   Median :0.03650  
+ Mean   :0.06373   Mean   :0.04114  
+ 3rd Qu.:0.08030   3rd Qu.:0.04438  
+ Max.   :0.21608   Max.   :0.17719  
+> 
+> # Run CIBERSORT
+> sig_fn = file.path(s3de_dir,"signature_MTG.txt")
+> mix_fn = file.path(s3de_dir,"mixture_CMC.txt")
+> write.table(cbind(rowname=rownames(cc_tpm),cc_tpm),
++ 	file = sig_fn,sep = "\t",quote = FALSE,row.names = FALSE)
+> write.table(cbind(rowname=rownames(bb_tpm),bb_tpm),
++ 	file = mix_fn,sep = "\t",quote = FALSE,row.names = FALSE)
+> # Login to CIBERSORT website, uploaded above two files, 
+> #	specified no quantile normalization, ran 1000 permutations
+> # OR Request CIBERSORT.R file from website, install dependent packages
+> cibersort_src_fn = "~/github/CSeQTL/R/CIBERSORT.R"
+> # cibersort_src_fn = "." # whichever directory contains CIBERSORT.R
+> source(cibersort_src_fn)
+> print(date())
+[1] "Mon Jun 22 19:48:12 2020"
+> results = CIBERSORT(sig_matrix = sig_fn,mixture_file = mix_fn,
++ 	perm = 0,QN = FALSE,absolute = FALSE,abs_method = 'sig.score',
++ 	filename = "MTG") # added filename argument for function
+> print(date())
+[1] "Mon Jun 22 20:10:13 2020"
+> unlink(sig_fn)
+> unlink(mix_fn)
+> ciber_fn = sprintf("CIBERSORT-Results_%s.txt","MTG")
+> unlink(ciber_fn)
+> QQ = ncol(cc_tpm)
+> pp_bar_ciber = results[,seq(QQ)]
+> # calculate p_hat using cell sizes
+> pp_hat_ciber = t(apply(pp_bar_ciber,1,function(xx){yy = xx / cell_sizes; yy / sum(yy)}))
+> summary(pp_bar_ciber)
+     Astro              Exc               Inh              Micro         
+ Min.   :0.00000   Min.   :0.06297   Min.   :0.00000   Min.   :0.000000  
+ 1st Qu.:0.09081   1st Qu.:0.57261   1st Qu.:0.01313   1st Qu.:0.000000  
+ Median :0.10987   Median :0.66240   Median :0.02595   Median :0.009448  
+ Mean   :0.12482   Mean   :0.63923   Mean   :0.02935   Mean   :0.014730  
+ 3rd Qu.:0.13547   3rd Qu.:0.72723   3rd Qu.:0.04198   3rd Qu.:0.020800  
+ Max.   :0.54037   Max.   :0.90192   Max.   :0.10076   Max.   :0.289209  
+     Oligo             OPC          
+ Min.   :0.0203   Min.   :0.000000  
+ 1st Qu.:0.1153   1st Qu.:0.000000  
+ Median :0.1648   Median :0.000000  
+ Mean   :0.1894   Mean   :0.002460  
+ 3rd Qu.:0.2469   3rd Qu.:0.001805  
+ Max.   :0.6410   Max.   :0.053572  
+> summary(pp_hat_ciber)
+     Astro              Exc              Inh              Micro         
+ Min.   :0.00000   Min.   :0.1595   Min.   :0.00000   Min.   :0.000000  
+ 1st Qu.:0.07445   1st Qu.:0.7663   1st Qu.:0.01046   1st Qu.:0.000000  
+ Median :0.09125   Median :0.8125   Median :0.01873   Median :0.004027  
+ Mean   :0.10817   Mean   :0.7896   Mean   :0.02134   Mean   :0.006761  
+ 3rd Qu.:0.11319   3rd Qu.:0.8519   3rd Qu.:0.03044   3rd Qu.:0.009174  
+ Max.   :0.57292   Max.   :0.9579   Max.   :0.07244   Max.   :0.245120  
+     Oligo               OPC          
+ Min.   :0.006091   Min.   :0.000000  
+ 1st Qu.:0.037989   1st Qu.:0.000000  
+ Median :0.056238   Median :0.000000  
+ Mean   :0.071155   Mean   :0.002985  
+ 3rd Qu.:0.090765   3rd Qu.:0.001952  
+ Max.   :0.390552   Max.   :0.106194  
+> 
+> # Output MTG deconvolution results
+> pdf_fn = file.path(s3de_dir,"MTG_bulk_deconvolution_summary.pdf")
+> pdf(pdf_fn,height=8,width=12)
+> 	
+> 	ICeDT_consistency(sig = cc_tpm,bulk = bb_tpm,ICeDT_out = fit)
+> 	
+> 	par(mfrow=c(1,2),mar=c(4,4,1,0.5),oma=c(0,0,2,0),bty="n")
+> 	boxplot(pp_bar_icedt,main="Expression Proportions",ylim=c(0,1))
+> 	boxplot(pp_hat_icedt,main="Cell type Proportions",ylim=c(0,1))
+> 	mtext("ICeDT Results",outer=TRUE,cex=1.3)
+> 	par(mfrow=c(1,1),mar=c(5,4,4,2)+0.1,oma=rep(0,4),bty="o")
+> 	
+> 	par(mfrow=c(1,2),mar=c(4,4,1,0.5),oma=c(0,0,2,0),bty="n")
+> 	boxplot(pp_bar_ciber,main="Expression Proportions",ylim=c(0,1))
+> 	boxplot(pp_hat_ciber,main="Cell type Proportions",ylim=c(0,1))
+> 	mtext("CIBERSORT Results",outer=TRUE,cex=1.3)
+> 	par(mfrow=c(1,1),mar=c(5,4,4,2)+0.1,oma=rep(0,4),bty="o")
+> 	
+> 	par(mfrow=c(2,3),mar=c(4,4,1,0.5),oma=c(0,0,2,0),bty="n")
+> 	for(ct in seq(QQ)){
++ 		v1 = pp_hat_ciber[,ct]
++ 		v2 = pp_hat_icedt[,ct]
++ 		tmp_range = range(c(v1,v2))
++ 		pcor = round(cor(v1,v2),4)
++ 		scor = round(cor(v1,v2,method="spear"),4)
++ 		plot(v1,v2,xlim=tmp_range,ylim=tmp_range,
++ 			xlab="CIBERSORT",ylab="ICeDT",
++ 			main=sprintf("%s:Pear=%s;Spear=%s",colnames(pp_hat_ciber)[ct],
++ 				pcor,scor))
++ 		abline(a=0,b=1,lty=2,lwd=2,col="red")
++ 	}
+> 	mtext("CIBERSORT v. ICeDT",outer=TRUE,cex=1.4)
+> 	par(mfrow=c(1,1),mar=c(5,4,4,2)+0.1,oma=rep(0,4),bty="o")
+> 	
+> dev.off()
+null device 
+          1 
+> 
+> rds_fn = file.path(s3de_dir,"prop_MTG.rds")
+> saveRDS(list(ICeDT = pp_hat_icedt,CIBERSORT = pp_hat_ciber),rds_fn)
+> 
+> q("no")
+> proc.time()
+    user   system  elapsed 
+ 671.242 1198.760 1888.317 
