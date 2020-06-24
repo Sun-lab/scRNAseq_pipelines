@@ -129,8 +129,10 @@ table(cell_data$cluster)
 
 # Look at marker genes associated to cell types
 cc = cell_data$cluster
-table(data.frame(t(sapply(cc,function(xx) 
-  strsplit(xx," ")[[1]][c(1,3)],USE.NAMES=FALSE))))
+tmp_df = smart_df(t(sapply(cc,function(xx) 
+  strsplit(xx," ")[[1]][c(1,3)],USE.NAMES=FALSE)))
+names(tmp_df) = c("Cell_type","Marker_gene")
+table(tmp_df)
 
 cell_data$cell_type = sapply(strsplit(cell_data$cluster, split=" "), "[", 1)
 table(cell_data$cell_type)
